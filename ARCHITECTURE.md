@@ -296,6 +296,8 @@ Seven steps, in order; each ends with a working demo and green tests.
 
 Right after 0.1: plugin system (SDK v1, loader, official webhooks and GitHub plugins), then free OIDC/SAML/LDAP, Jira import, inbound email.
 
+The detailed task list of each step, the open questions and the watch list live in [ROADMAP.md](ROADMAP.md).
+
 ## Decisions
 
 | Date       | Decision                                                                                                                                                                                                                                                                                                                                                                      |
