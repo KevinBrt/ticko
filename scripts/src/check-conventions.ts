@@ -2,12 +2,17 @@
  * Enforces project conventions that the linter cannot express. Run by `npm run check:conventions`
  * and in CI. See CLAUDE.md for the reasoning behind each rule.
  */
+import { oversizedFolders } from './conventions/folder-size.ts';
 import { checkFile } from './conventions/rules.ts';
 import { formatViolation, listRepositoryFiles, readRepositoryFile } from './repository.ts';
 
-const violations = listRepositoryFiles().flatMap((path) =>
-  /\.(ts|tsx)$/.test(path) ? checkFile(path, readRepositoryFile(path)) : [],
-);
+const paths = listRepositoryFiles();
+const violations = [
+  ...paths.flatMap((path) =>
+    /\.(ts|tsx)$/.test(path) ? checkFile(path, readRepositoryFile(path)) : [],
+  ),
+  ...oversizedFolders(paths),
+];
 
 if (violations.length > 0) {
   console.error(`${violations.length} convention violation(s):\n`);

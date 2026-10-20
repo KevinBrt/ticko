@@ -124,8 +124,17 @@ jobs:
             echo "TICKO_URL=http://localhost:3000"
           } > "$RUNNER_TEMP/ticko.env"
           docker compose --env-file "$RUNNER_TEMP/ticko.env" -f docker/docker-compose.yml up -d --wait
+      - name: Read the setup code from the logs, as a user would
+        run: |
+          code=$(docker compose --env-file "$RUNNER_TEMP/ticko.env" -f docker/docker-compose.yml logs ticko \
+            | grep -oE '[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}' | tail -n 1)
+          if [ -z "$code" ]; then
+            echo "::error::No setup code found in the logs"
+            exit 1
+          fi
+          echo "E2E_SETUP_CODE=$code" >> "$GITHUB_ENV"
       - name: Run Playwright
-        run: npm run test --workspace=@ticko/e2e
+        run: npm run test:e2e --workspace=@ticko/e2e
         env:
           E2E_BASE_URL: http://localhost:3000
       - name: Container logs

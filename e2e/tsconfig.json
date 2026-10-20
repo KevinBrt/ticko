@@ -4,5 +4,5 @@
     "lib": ["es2024", "dom"],
     "types": ["node"]
   },
-  "include": ["tests", "*.config.ts", "prepare-database.ts"]
+  "include": ["tests", "*.ts"]
 }

@@ -2,17 +2,24 @@ import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Page } from '@playwright/test';
 
 interface Fixtures {
-  /** Fails the test on any console error or uncaught exception, CSP violations included. */
+  /** Console errors a test expects, e.g. the browser logging a 401 answer. */
+  allowedConsoleErrors: RegExp[];
+  /** Fails the test on any other console error or uncaught exception, CSP violations included. */
   failOnConsoleErrors: undefined;
 }
 
 export const test = base.extend<Fixtures>({
+  allowedConsoleErrors: [[], { option: true }],
   failOnConsoleErrors: [
-    async ({ page }, use) => {
+    async ({ page, allowedConsoleErrors }, use) => {
       const errors: string[] = [];
       page.on('console', (message) => {
-        if (message.type() === 'error') {
-          errors.push(message.text());
+        const text = message.text();
+        if (
+          message.type() === 'error' &&
+          !allowedConsoleErrors.some((allowed) => allowed.test(text))
+        ) {
+          errors.push(text);
         }
       });
       page.on('pageerror', (error) => errors.push(error.message));

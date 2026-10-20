@@ -2,7 +2,7 @@
  * Docker HEALTHCHECK probe. The runtime image has no shell or curl, so this tiny script
  * queries `/health` with Node and exits 0 (healthy) or 1 (unhealthy).
  */
-import { loadConfig } from './config.ts';
+import { loadConfig } from './platform/config/config.ts';
 
 const TIMEOUT_MS = 4000;
 

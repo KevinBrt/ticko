@@ -22,9 +22,10 @@ mkdir ticko && cd ticko
 curl -fsSLO https://raw.githubusercontent.com/KevinBrt/ticko/main/docker/docker-compose.yml
 echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" > .env
 docker compose up -d
+docker compose logs ticko | grep "setup code"
 ```
 
-Open <http://localhost:3000>. Configuration, reverse proxy, backups and upgrades: [docs/self-hosting.md](docs/self-hosting.md).
+Open <http://localhost:3000>, enter the setup code from the logs and create the administrator account. Configuration, reverse proxy, backups and upgrades: [docs/self-hosting.md](docs/self-hosting.md).
 
 ## Develop
 

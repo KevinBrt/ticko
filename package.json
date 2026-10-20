@@ -27,7 +27,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:e2e": "npm run build && npm run test --workspace=@ticko/e2e",
+    "test:e2e": "npm run build && npm run test:e2e --workspace=@ticko/e2e",
     "lint": "biome check . && prettier --check .",
     "lint:fix": "biome check --write . && prettier --write .",
     "check:conventions": "node scripts/src/check-conventions.ts",
@@ -39,5 +39,10 @@
     "prettier": "3.9.10",
     "turbo": "2.11.9",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
   }
 }

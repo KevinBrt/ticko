@@ -1,16 +1,28 @@
 import { randomUUID } from 'node:crypto';
+import type { Database } from '@ticko/db';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { Config } from './config.ts';
-import { registerErrorHandler } from './http/error-handler.ts';
-import { enforceRouteContracts } from './http/route-contracts.ts';
-import { registerSecurityHeaders } from './http/security-headers.ts';
-import { registerWebApp } from './http/web-app.ts';
-import { serializerCompiler, validatorCompiler } from './http/zod.ts';
-import { type HealthDependencies, registerHealthRoute } from './routes/health.ts';
+import { registerSetupRoutes } from './features/setup/setup.routes.ts';
+import { registerAccessControl } from './platform/auth/access-control.ts';
+import type { Auth } from './platform/auth/auth.ts';
+import { registerAuthRoutes } from './platform/auth/auth-routes.ts';
+import { registerMeRoute } from './platform/auth/me-route.ts';
+import type { Config } from './platform/config/config.ts';
+import type { Services } from './platform/cqrs/cqrs.ts';
+import { registerExecutionContext } from './platform/cqrs/execution-context.ts';
+import { registerHealthRoute } from './platform/health/health-route.ts';
+import { registerErrorHandler } from './platform/http/error-handler.ts';
+import { registerOriginCheck } from './platform/http/origin-check.ts';
+import { enforceRouteContracts } from './platform/http/route-contracts.ts';
+import { registerSecurityHeaders } from './platform/http/security-headers.ts';
+import { registerWebApp } from './platform/http/web-app.ts';
+import { serializerCompiler, validatorCompiler } from './platform/http/zod.ts';
 
 export interface AppDependencies {
   config: Pick<Config, 'publicUrl' | 'logLevel' | 'trustProxy'>;
-  database: HealthDependencies['database'];
+  database: Pick<Database, 'db' | 'ping'>;
+  auth: Auth;
+  /** First-run code accepted by the setup wizard. */
+  setupCode: string;
   /** Directory of the compiled web app. Not configurable: it ships inside the image. */
   webRoot: string;
 }
@@ -18,10 +30,23 @@ export interface AppDependencies {
 const BODY_LIMIT_BYTES = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 60_000;
 
+/** What commands and queries may use besides the database. */
+export function createServices({
+  auth,
+  setupCode,
+}: Pick<AppDependencies, 'auth' | 'setupCode'>): Services {
+  return {
+    hashPassword: async (password) => (await auth.$context).password.hash(password),
+    setupCode,
+  };
+}
+
 /** Builds the Fastify application without listening, so tests can drive it with `inject()`. */
 export async function buildApp({
   config,
   database,
+  auth,
+  setupCode,
   webRoot,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
@@ -37,18 +62,29 @@ export async function buildApp({
     genReqId: () => randomUUID(),
   });
 
+  // Platform: contracts, security and request context, before any route.
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   enforceRouteContracts(app);
   registerErrorHandler(app);
   await registerSecurityHeaders(app, { publicUrl: config.publicUrl });
-
+  registerOriginCheck(app, { publicUrl: config.publicUrl });
+  registerAccessControl(app, { auth });
+  registerExecutionContext(app, {
+    db: database.db,
+    services: createServices({ auth, setupCode }),
+  });
   app.addHook('onRequest', (request, reply, done) => {
     reply.header('x-request-id', request.id);
     done();
   });
 
   registerHealthRoute(app, { database });
+  registerAuthRoutes(app, { auth, publicUrl: config.publicUrl });
+  registerMeRoute(app, { auth });
+
+  // Features.
+  registerSetupRoutes(app);
 
   const servesWebApp = await registerWebApp(app, webRoot);
   if (!servesWebApp) {

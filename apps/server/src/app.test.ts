@@ -2,7 +2,7 @@ import { apiErrorSchema } from '@ticko/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import type { ZodTypeProvider } from './http/zod.ts';
+import type { ZodTypeProvider } from './platform/http/zod.ts';
 import { buildTestApp, createWebRoot } from './test-helpers.ts';
 
 let app: FastifyInstance | undefined;

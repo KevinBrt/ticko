@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "test": "node prepare-database.ts && playwright test",
+    "test:e2e": "node prepare-database.ts && playwright test",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {

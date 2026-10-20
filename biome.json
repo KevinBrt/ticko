@@ -125,7 +125,14 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.config.ts", "**/vite.config.ts"],
+      "includes": [
+        "**/vite.config.ts",
+        "**/vitest.config.ts",
+        "**/vitest.global-setup.ts",
+        "**/playwright.config.ts",
+        "**/drizzle.config.ts",
+        "**/rolldown.config.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -140,7 +147,7 @@
         "scripts/**",
         "packages/testing/**",
         "e2e/**",
-        "apps/server/src/config.ts",
+        "apps/server/src/platform/config/config.ts",
         "apps/server/src/main.ts",
         "apps/server/src/healthcheck.ts"
       ],

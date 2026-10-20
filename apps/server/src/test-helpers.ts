@@ -1,29 +1,69 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createDatabase, type Database } from '@ticko/db';
 import { CSP_NONCE_PLACEHOLDER } from '@ticko/shared';
-import type { FastifyInstance } from 'fastify';
-import { type AppDependencies, buildApp } from './app.ts';
+import { createTestDatabase, type TestDatabase } from '@ticko/testing';
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { afterAll, beforeAll } from 'vitest';
+import { buildApp } from './app.ts';
+import { createAuth } from './platform/auth/auth.ts';
 
-export const healthyDatabase: AppDependencies['database'] = { ping: async () => undefined };
+export const TEST_SECRET = 'test-secret-that-is-long-enough-to-be-accepted';
+export const TEST_SETUP_CODE = 'TEST-SETU-PCDE';
 
 export interface TestAppOptions {
-  database?: AppDependencies['database'];
+  /** A real database; by default, one that is never reached and whose ping succeeds. */
+  database?: Database;
+  ping?: () => Promise<void>;
   publicUrl?: string;
   webRoot?: string;
 }
 
-/** Builds the app with silent logs and a web root that does not exist unless provided. */
 export function buildTestApp({
-  database = healthyDatabase,
+  database = createDatabase({ url: 'postgres://ticko:ticko@127.0.0.1:1/unused' }),
+  ping,
   publicUrl = 'http://localhost:3000',
   webRoot = join(tmpdir(), 'ticko-no-web-root'),
 }: TestAppOptions = {}): Promise<FastifyInstance> {
+  const url = new URL(publicUrl);
   return buildApp({
-    config: { publicUrl: new URL(publicUrl), logLevel: 'silent', trustProxy: false },
-    database,
+    config: { publicUrl: url, logLevel: 'silent', trustProxy: false },
+    database: { db: database.db, ping: ping ?? (() => Promise.resolve()) },
+    auth: createAuth({ db: database.db, secret: TEST_SECRET, publicUrl: url }),
+    setupCode: TEST_SETUP_CODE,
     webRoot,
   });
+}
+
+/** A private, migrated database for the current test file. */
+export function setupTestDatabase(): { readonly database: Database } {
+  let testDatabase: TestDatabase | undefined;
+  let database: Database | undefined;
+
+  beforeAll(async () => {
+    testDatabase = await createTestDatabase();
+    database = createDatabase({ url: testDatabase.url, maxConnections: 4 });
+  });
+
+  afterAll(async () => {
+    await database?.close();
+    await testDatabase?.drop();
+  });
+
+  return {
+    get database() {
+      if (!database) {
+        throw new Error('setupTestDatabase() is only available inside tests');
+      }
+      return database;
+    },
+  };
+}
+
+/** The `name=value` pairs of a response's cookies, ready to send back in a `cookie` header. */
+export function cookieHeader(response: LightMyRequestResponse): string {
+  return response.cookies.map(({ name, value }) => `${name}=${value}`).join('; ');
 }
 
 /** A throwaway compiled web app: `index.html`, a hashed asset and a root file. */

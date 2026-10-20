@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { XIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
-import { cn } from '../lib/cn.ts';
+import { cn } from '../lib/cn.util.ts';
 import { Button } from './button.tsx';
 
 export const Sheet = Dialog.Root;

@@ -16,6 +16,8 @@ __screenshots__/
 
 # Local runtime data and secrets
 data/
+.data/
+.auth/
 .env
 .env.*
 !.env.example

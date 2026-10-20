@@ -20,6 +20,8 @@ services:
       TICKO_DATABASE_URL: postgres://ticko:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/ticko
       TICKO_TRUST_PROXY: ${TICKO_TRUST_PROXY:-false}
       TICKO_LOG_LEVEL: ${TICKO_LOG_LEVEL:-info}
+      TICKO_SECRET: ${TICKO_SECRET:-}
+      TICKO_SETUP_CODE: ${TICKO_SETUP_CODE:-}
     volumes:
       - ticko-data:/data
     depends_on:

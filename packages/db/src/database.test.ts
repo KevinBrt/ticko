@@ -1,12 +1,19 @@
-import { testDatabaseUrl } from '@ticko/testing';
-import { afterAll, describe, expect, it } from 'vitest';
-import { createDatabase } from './database.ts';
+import { createTestDatabase, type TestDatabase } from '@ticko/testing';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createDatabase, type Database } from './database.ts';
 
 describe('createDatabase (PostgreSQL)', () => {
-  const database = createDatabase({ url: testDatabaseUrl(), maxConnections: 2 });
+  let testDatabase: TestDatabase;
+  let database: Database;
+
+  beforeAll(async () => {
+    testDatabase = await createTestDatabase();
+    database = createDatabase({ url: testDatabase.url, maxConnections: 2 });
+  });
 
   afterAll(async () => {
     await database.close();
+    await testDatabase.drop();
   });
 
   it('answers a ping', async () => {

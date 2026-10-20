@@ -11,7 +11,21 @@ echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
-Open <http://localhost:3000>. `docker compose ps` shows both services as `healthy` once ready.
+`docker compose ps` shows both services as `healthy` once ready.
+
+## First run
+
+1. Read the setup code in the logs:
+
+   ```sh
+   docker compose logs ticko | grep "setup code"
+   ```
+
+   The line looks like `Ticko is not set up yet: open http://localhost:3000 and enter the setup code ABCD-EFGH-JKLM`. A new code is printed at each start until setup is done.
+
+2. Open <http://localhost:3000>, enter the code, name your organization and create the first administrator account.
+
+The code exists so that nobody else can claim a fresh instance reachable from the network. Once the first administrator exists, the wizard is closed for good. For automated deployments, preset the code with `TICKO_SETUP_CODE`.
 
 ## Configuration
 
@@ -41,7 +55,7 @@ Remove the `db` service from `docker-compose.yml` and set `TICKO_DATABASE_URL`, 
 
 ## Backups
 
-Two things to save: the database and the `/data` volume (attachments, generated secret key).
+Two things to save: the database and the `/data` volume (attachments, generated secret key). Losing the secret key signs every user out; it does not lose data.
 
 ```sh
 docker compose exec -T db pg_dump -U ticko -Fc ticko > ticko-$(date +%F).dump

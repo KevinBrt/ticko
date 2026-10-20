@@ -38,7 +38,7 @@ plugins/*     → plugin-sdk only          packages/testing → devDependency on
 
 Enforced by `check:dependencies` (allowed graph in `scripts/src/dependencies/rules.ts`) and Biome `noUndeclaredDependencies`. Import other workspaces by package name (`@ticko/core`), never by relative path.
 
-- **Business rules live in `core`** as pure functions, unit-tested without a database. The server orchestrates: validate → authorize → call core → persist → respond.
+- **Business rules live in `core`** as pure functions, unit-tested without a database. Server commands orchestrate them: authorize → validate → call core → persist (and record the activity) in one transaction.
 - **Every issue change writes an `activities` row in the same transaction.** History, notifications, webhooks and plugins all read from it. Side effects (email, webhooks) go through the PostgreSQL job queue, never inline in a request.
 - **No new service to host.** PostgreSQL is the only infrastructure (search, jobs, sessions). No Redis, no Elasticsearch, no external queue without an `ARCHITECTURE.md` decision.
 - **Configuration follows "global default, project override"** (workflows, custom fields, labels): projects reference the global set and can copy it into their own. Reuse the shared mechanism; do not invent a per-feature variant.
@@ -47,13 +47,14 @@ Enforced by `check:dependencies` (allowed graph in `scripts/src/dependencies/rul
 ## Security rules (non-negotiable)
 
 - **Authorization checks a permission, never a role name.** `authorize(user, 'issue.update', { projectId })` and `config.access` on routes. `role === 'admin'` is rejected by `check:conventions`. The server is the only judge; the UI hides what the user cannot do, nothing more.
-- **Every route declares `config.access`** (and later its permission) and every `/api/` route a Zod response schema: the app refuses to boot otherwise (`http/route-contracts.ts`). Response schemas strip unknown fields, so never return a raw database row "because the schema filters it": select the columns you mean.
+- **Every route declares `config.access`** (`'public'`, `'authenticated'`, permissions next) and every `/api/` route a Zod response schema: the app refuses to boot otherwise (`platform/http/route-contracts.ts`). Response schemas strip unknown fields, so never return a raw database row "because the schema filters it": select the columns you mean. Only Better Auth's allowlisted endpoints are `delegated`.
+- **Authentication stays behind Ticko's guards**: expose a new Better Auth endpoint only by adding it to the allowlist in `platform/auth/auth-routes.ts`, with tests. Never relax the Origin check, the client-IP header or the cookie settings in `platform/auth/auth.ts`.
 - **Validate every input with Zod** (body, params, query, headers), on the server, even if the front already did.
 - **SQL only through Drizzle or tagged `sql` templates.** `sql.raw()` and `.unsafe()` are banned (an `// allow(no-raw-sql): reason` comment is reviewed like a security change).
 - **No HTML injection sinks**: no `dangerouslySetInnerHTML`, `innerHTML`, `document.write`, `new Function`, `eval`. User Markdown is rendered with a sanitizer that drops raw HTML.
 - **CSP stays strict**: same-origin only, no inline script, no `unsafe-inline`, no `unsafe-eval`, no CDN. Runtime `<style>` tags get the per-request nonce. Fonts and assets are bundled.
 - **Secrets never leave the server**: not in logs, errors, responses or the front bundle. 5xx answers are generic (`INTERNAL_ERROR`); details go to the log with the request id.
-- **Configuration only through `apps/server/src/config.ts`**: `process.env` is read nowhere else (Biome `noProcessEnv`). New variables are `TICKO_*`, validated, defaulted safely and documented in `.env.example`.
+- **Configuration only through `apps/server/src/platform/config/config.ts`**: `process.env` is read nowhere else (Biome `noProcessEnv`). New variables are `TICKO_*`, validated, defaulted safely and documented in `.env.example`.
 - **Randomness for tokens and ids comes from `node:crypto`**, never `Math.random()`.
 - **Uploads** (when they come): size limits, content type sniffed server-side, random storage keys, served with `Content-Disposition: attachment` and `nosniff`.
 - **Rate-limit authentication and any endpoint that sends email.**
@@ -63,8 +64,9 @@ Enforced by `check:dependencies` (allowed graph in `scripts/src/dependencies/rul
 
 - TypeScript strict to the maximum (`tsconfig.base.json`): no `any`, no non-null `!`, no `@ts-ignore`, no enums or namespaces (Node runs our TypeScript by stripping types). Prefer `unknown` + narrowing, discriminated unions and `as const` objects.
 - ESM everywhere; relative imports end with `.ts`/`.tsx`. Named exports only (config files excepted). Files in `kebab-case`.
+- **Structure, never pile up** (checked): at most 10 source files per folder, tests aside. When a folder grows, group its files by purpose in subfolders (`components/forms/`, `commands/labels/`), up to two levels inside a kind folder.
 - Small functions with intention-revealing names. Comments explain **why**, never what. No commented-out code. `TODO(#123)` must reference an issue.
-- Errors: throw `Error` subclasses with a clear message; never swallow an error silently; never `catch` just to log and rethrow.
+- Errors: throw `Error` subclasses with a clear message; never swallow an error silently; never `catch` just to log and rethrow. Expected HTTP outcomes throw `HttpError(status, 'STABLE_CODE', message)`; the web app maps codes to translated messages.
 - Dates are stored and transmitted in UTC ISO 8601; formatting happens in the browser with `Intl`.
 - Identifiers are UUID v7. Every table has `id`, `created_at`, `updated_at`.
 - Code, comments, commits, issues and docs are in **English**. User-facing text is translated (English and French).
@@ -83,24 +85,82 @@ Enforced by `check:dependencies` (allowed graph in `scripts/src/dependencies/rul
 - Test behavior through public APIs, not implementation details. Query the UI by role and accessible name, like a user.
 - A fixed bug comes with the test that reproduces it.
 - No `.only`, no `.skip` committed (Biome rejects them). No sleeps: wait for a condition.
-- Integration tests use the real database: `@ticko/testing` starts it if needed. Never mock the database in server tests.
+- Integration tests use the real database: `@ticko/testing` starts it if needed and `setupTestDatabase()` gives each test file its own. Never mock the database in server tests.
+- Web tests render the whole app with `renderApp()` against `fakeServer()` (`apps/web/src/test-helpers.tsx`); add the endpoints a feature calls to the fake server.
+- E2E runs a real first-run setup (project `setup`), then reuses the admin session. Sign-in is rate limited (5 per minute): keep sign-ins per run low.
 - E2E tests fail on any console error, which includes CSP violations.
+
+## Server structure (`apps/server/src`)
+
+```
+main.ts, healthcheck.ts       entry points (server, Docker probe)
+app.ts                        wires platform and features together
+platform/<area>/              technical, feature-agnostic: http/, auth/, cqrs/, config/, health/
+features/<feature>/
+  <feature>.routes.ts         the only file at the root: request → command or query → response
+  commands/                   <verb>-<resource>.command.ts: defineCommand({ name, access, input, handler })
+  queries/                    <verb>-<resource>.query.ts: defineQuery({ name, access, input, handler })
+  models/                     <name>.model.ts: types and Zod schemas of the feature
+  utils/                      <name>.util.ts: pure helpers
+```
+
+- **Each kind of file has one home** (checked), possibly in grouping subfolders (`commands/labels/add-label.command.ts`): a command outside `commands/`, a model at the root, a `services/` or `repositories/` folder fail CI. Tests sit next to the file they test; route-level tests next to `<feature>.routes.ts`.
+- **Light CQRS, no ceremony.** A command changes state and returns at most an id; a query reads and never writes. No bus, no event sourcing, no read database, no repository layer over Drizzle.
+- **`defineCommand` / `defineQuery` enforce the envelope** (`platform/cqrs/cqrs.ts`): access is checked first, then the input is validated with its Zod schema (even when the caller is not HTTP: plugins, jobs), then a command's handler runs in **one transaction** (`tx`): everything commits or nothing does. Activities and job enqueues will be written through `tx` too.
+- **Routes are one line**: `command.execute(request.executionContext, request.body)`. No SQL, no business rule, no authorization logic in a route; the route's `config.access` and the operation's `access` must agree.
+- **Commands and queries are the API of a feature**, for routes today and plugins tomorrow. Name them `resource.action` (`setup.complete`, `issue.create`), files `commands/<verb>-<resource>.command.ts` and `queries/<verb>-<resource>.query.ts` (checked: a command outside `commands/` fails CI).
+- **Layers** (checked): a feature imports `platform/` and its own files only; `platform/` never imports a feature. Logic needed by several features goes to `@ticko/core` (pure) or becomes a query of its owner, wired in `app.ts`.
+- **Capabilities beyond the database** (password hashing, settings) come through `services` in the execution context, declared in `platform/cqrs/cqrs.ts`; never import Better Auth or the config from a feature.
+- **Tests**: a command or query is tested through its route (`app.inject`) and, for edge cases, directly with `execute()` on a `setupTestDatabase()` database.
+
+## Front-end structure (`apps/web/src`)
+
+```
+main.tsx, router.tsx          entry point and route tree
+routes/
+  root.route.tsx
+  public/                     screens reachable without a session (login, setup)
+  protected/                  screens behind sign-in, in the app frame
+    protected.route.tsx       the guard and the frame
+    <section>/                one folder per URL section: issues/, projects/, settings/…
+      <screen>.route.tsx      route definition, guard, screen component
+features/<feature>/                 one folder per kind, nothing at the root but tests
+  api/                        <resource>.api.ts: server calls, as an object: Session.signIn()
+  queries/                    <feature>.queries.ts: query options and cache keys
+  components/                 <name>.tsx
+  models/                     <name>.model.ts: types, form schemas, mappings
+  utils/                      <name>.util.ts
+  constants/                  <name>.constants.ts
+shared/<area>/                code used by several features: api/, i18n/, layout/, forms/, security/
+```
+
+- **Each kind of file has one home in a feature** (checked): `api/`, `queries/`, `components/`, `models/`, `utils/`, `constants/`, each free to group its files in subfolders (`components/forms/login-form.tsx`); types of a feature are `.model.ts` files in `models/`. `shared/<area>/` stays flat: small focused modules.
+- **A screen's folder says whether it needs a session** (checked): every screen is under `routes/public/` or `routes/protected/`, and protected screens hang off `protectedRoute`. Group screens by URL section; do not leave everything at one level.
+- **Layers: routes → features → shared** (checked). A feature imports `shared/` and its own files only, never another feature; `shared/` imports nothing above it: pass features in as props or slots (`<AppShell sidebarFooter={<AccountFooter />} />`).
+- **API calls are objects named after the resource**: `Session.signIn()`, `Session.completeSetup()`, later `Issues.list()`. One `<resource>.api.ts` per resource, built on `apiRequest()` with a Zod schema for every response.
+- **Query options and cache keys** live in `<feature>.queries.ts` as an object (`SessionQueries.currentUser`); keys start with the feature name.
+- **File names say what they hold** (checked): components are plain kebab-case `.tsx` (`login-form.tsx`); screens are `.route.tsx`; other files end with their kind: `.api.ts`, `.queries.ts`, `.model.ts`, `.util.ts`, `.types.ts`, `.constants.ts`, `.client.ts`, `.messages.ts`. Same in `packages/ui`.
+- **Feature components do not navigate**: they report what happened (`onSignedIn`, `onCompleted`) and the screen decides where to go.
 
 ## Front-end rules
 
 - **Light theme only.** No `dark:` variants (checked).
 - **Design tokens only**, from `packages/ui/src/theme.css` (the default Tailwind palette is disabled). No hex colors or arbitrary color values in components (checked). Data-driven colors (a status color chosen by an admin) are the only inline colors.
-- **No hard-coded user-facing text** (checked): `t('section.key')`. Add the key to `en.ts` first, then `fr.ts`; the types fail on a missing key or parameter.
+- **No hard-coded user-facing text** (checked): `t('section.key')`. Add the key to `shared/i18n/en.messages.ts` first, then `fr.messages.ts`; the types fail on a missing key or parameter.
 - **Responsive by default, mobile first.** Every screen works from 320 px; no horizontal scroll; touch targets ≥ 44 px on coarse pointers (`pointer-coarse:`); respect safe-area insets. Check 375 px and desktop before calling UI done.
 - **Accessible by default**: semantic HTML, one `h1` per page, labelled controls, visible focus, full keyboard use, Radix primitives for dialogs/menus/popovers. axe must stay at zero violations.
 - Server state with TanStack Query and optimistic updates; routing with TanStack Router; no global state library.
 - Components are added to `packages/ui` only when reused; keep them dumb (props in, events out, no data fetching, no i18n lookups: labels come in as props).
 
-## Database rules (from the next step on)
+## Database rules
 
-- Schema in `packages/db` with Drizzle; migrations generated, reviewed by a human, never edited once released, applied at startup in a transaction.
-- Every foreign key indexed; constraints in the database (NOT NULL, CHECK, UNIQUE), not only in code.
+- Schema in `packages/db/src/schema` (Drizzle). Change it, then `npm run db:generate --workspace=@ticko/db` writes the SQL migration; data changes go in a custom migration (`drizzle-kit generate --custom`). Show the generated SQL for human review before going further. A released migration is never edited.
+- Migrations run at startup, in a transaction, under an advisory lock. `migrations.test.ts` checks them on an empty database; extend it when a migration seeds data.
+- Ids are UUID v7 from `uuidv7()` (`@ticko/db`); every table has `created_at` and `updated_at` (`timestamps` helper).
+- Every foreign key indexed; constraints in the database (NOT NULL, CHECK, UNIQUE, FK actions), not only in code.
+- Data tied to `@ticko/core` constants (default roles) must match them: a test compares the seeded rows with the constants.
 - Every query on project data is scoped by project and filtered by the user's permissions in the query itself, not after loading.
+- Server integration tests call `setupTestDatabase()`: one migrated database per test file, never shared, never mocked.
 
 ## Dependencies
 

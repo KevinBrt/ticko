@@ -48,6 +48,8 @@ test('the skip link moves focus to the main content', { tag: '@desktop-only' }, 
   page,
 }) => {
   await page.goto('/issues');
+  // The page renders once the session is known; tab only then, like a person would.
+  await expect(page.getByRole('heading', { level: 1, name: 'Issues' })).toBeVisible();
 
   await page.keyboard.press('Tab');
   const skipLink = page.getByRole('link', { name: 'Skip to content' });

@@ -1,5 +1,7 @@
-import { posix } from 'node:path';
 import type { Violation } from '../repository.ts';
+import { frontLayerViolations, frontNamingProblem, isFrontSource } from './front-structure.ts';
+import { relativeImports } from './imports.ts';
+import { isServerSource, serverLayerViolations, serverNamingProblem } from './server-structure.ts';
 import { findHardcodedUiText } from './ui-text.ts';
 
 export interface ConventionRule {
@@ -11,7 +13,7 @@ export interface ConventionRule {
 }
 
 const SOURCE_FILE = /\.(ts|tsx)$/;
-const TEST_FILE = /(\.test\.tsx?|\.spec\.ts|test-helpers\.ts|test-setup\.ts)$/;
+const TEST_FILE = /(\.test\.tsx?|\.spec\.ts|\.setup\.ts|test-helpers\.tsx?|test-setup\.ts)$/;
 const PRODUCT_CODE = /^(apps|packages|plugins)\//;
 const FRONTEND_CODE = /^(apps\/web|packages\/ui)\/src\//;
 const SERVER_CODE = /^(apps\/server|packages\/(core|db|shared))\/src\//;
@@ -39,7 +41,7 @@ function lineMatches(
   });
 }
 
-const ROLE_NAMES = '(admin|administrator|member|guest|owner|manager)';
+const ROLE_NAMES = '(admin|administrator|member|guest|owner|manager|team|requester)';
 
 export const RULES: readonly ConventionRule[] = [
   {
@@ -127,17 +129,9 @@ export const RULES: readonly ConventionRule[] = [
     appliesTo: (path) => SOURCE_FILE.test(path),
     check(path, source) {
       const root = workspaceRoot(path);
-      const violations: Violation[] = [];
-      const importPattern = /(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/g;
-      for (const [index, text] of source.split('\n').entries()) {
-        for (const match of text.matchAll(importPattern)) {
-          const target = posix.normalize(posix.join(posix.dirname(path), match[1] ?? ''));
-          if (!target.startsWith(`${root}/`)) {
-            violations.push({ rule: this.id, file: path, line: index + 1, message: this.message });
-          }
-        }
-      }
-      return violations;
+      return relativeImports(path, source)
+        .filter(({ target }) => !target.startsWith(`${root}/`))
+        .map(({ line }) => ({ rule: this.id, file: path, line, message: this.message }));
     },
   },
   {
@@ -151,6 +145,40 @@ export const RULES: readonly ConventionRule[] = [
         line,
         message: this.message,
       }));
+    },
+  },
+  {
+    id: 'front-file-naming',
+    message: 'Front-end files follow the routes/features/shared layout and kind suffixes',
+    appliesTo: isFrontSource,
+    check(path) {
+      const problem = frontNamingProblem(path);
+      return problem ? [{ rule: this.id, file: path, line: 1, message: problem }] : [];
+    },
+  },
+  {
+    id: 'front-layers',
+    message: 'Front-end layers: routes → features → shared',
+    appliesTo: isFrontSource,
+    check(path, source) {
+      return frontLayerViolations(this.id, path, source);
+    },
+  },
+  {
+    id: 'server-file-naming',
+    message: 'Server files follow the platform/features layout and kind suffixes',
+    appliesTo: isServerSource,
+    check(path) {
+      const problem = serverNamingProblem(path);
+      return problem ? [{ rule: this.id, file: path, line: 1, message: problem }] : [];
+    },
+  },
+  {
+    id: 'server-layers',
+    message: 'Server layers: features → platform',
+    appliesTo: isServerSource,
+    check(path, source) {
+      return serverLayerViolations(this.id, path, source);
     },
   },
 ];

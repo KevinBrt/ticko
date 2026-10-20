@@ -1,0 +1,69 @@
+import { DEFAULT_ROLE_IDS, DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from '@ticko/core';
+import { schema, uuidv7 } from '@ticko/db';
+import { type SetupResponse, setupRequestSchema } from '@ticko/shared';
+import { eq } from 'drizzle-orm';
+import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
+import { HttpError } from '../../../platform/http/http-error.ts';
+import { setupCodesMatch } from '../utils/setup-code.util.ts';
+
+const { accounts, instanceSettings, INSTANCE_SETTINGS_ID, roles, users } = schema;
+
+/** Better Auth's provider id for email and password credentials. */
+const CREDENTIAL_PROVIDER = 'credential';
+
+/**
+ * Creates the first administrator, names the default roles in their language and closes the
+ * wizard, atomically. The instance settings row is locked meanwhile, so concurrent attempts are
+ * serialized and only the first succeeds.
+ */
+export const completeSetup = defineCommand({
+  name: 'setup.complete',
+  // Public, but only with the one-time code printed in the server logs.
+  access: 'public',
+  input: setupRequestSchema,
+  async handler({ tx, services, log }, input): Promise<SetupResponse> {
+    if (!setupCodesMatch(services.setupCode, input.setupCode)) {
+      throw new HttpError(403, 'INVALID_SETUP_CODE', 'The setup code is not valid');
+    }
+    // Slow on purpose (scrypt): done before taking the lock.
+    const passwordHash = await services.hashPassword(input.admin.password);
+
+    const [settings] = await tx
+      .select({ setupCompletedAt: instanceSettings.setupCompletedAt })
+      .from(instanceSettings)
+      .where(eq(instanceSettings.id, INSTANCE_SETTINGS_ID))
+      .for('update');
+    if (settings?.setupCompletedAt !== null) {
+      throw new HttpError(409, 'SETUP_ALREADY_COMPLETED', 'This instance is already set up');
+    }
+
+    const userId = uuidv7();
+    await tx.insert(users).values({
+      id: userId,
+      name: input.admin.name,
+      email: input.admin.email,
+      // The administrator typed this address themselves; there is nobody to verify it with yet.
+      emailVerified: true,
+      instanceRoleId: DEFAULT_ROLE_IDS.instanceAdministrator,
+    });
+    await tx.insert(accounts).values({
+      accountId: userId,
+      providerId: CREDENTIAL_PROVIDER,
+      userId,
+      password: passwordHash,
+    });
+    for (const role of DEFAULT_ROLES) {
+      await tx
+        .update(roles)
+        .set({ name: DEFAULT_ROLE_NAMES[input.locale][role.kind] })
+        .where(eq(roles.id, role.id));
+    }
+    await tx
+      .update(instanceSettings)
+      .set({ name: input.instanceName, setupCompletedAt: new Date() })
+      .where(eq(instanceSettings.id, INSTANCE_SETTINGS_ID));
+
+    log.info({ userId }, 'First administrator created');
+    return { userId };
+  },
+});

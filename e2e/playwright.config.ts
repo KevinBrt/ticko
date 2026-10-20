@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 import { testDatabaseUrl } from '@ticko/testing';
 
@@ -5,12 +6,20 @@ const isCI = Boolean(process.env['CI']);
 
 /**
  * Two ways to run:
- * - `E2E_BASE_URL` set (CI): tests the Docker image started with docker/docker-compose.yml.
- * - otherwise: starts the locally built server (`npm run build` first) on port 3100.
+ * - `E2E_BASE_URL` and `E2E_SETUP_CODE` set (CI): tests the Docker image started with
+ *   docker/docker-compose.yml, using the setup code read from its logs.
+ * - otherwise: starts the locally built server (`npm run build` first) on port 3100, on a
+ *   fresh database, with a known setup code.
  */
 const externalBaseUrl = process.env['E2E_BASE_URL'];
 const LOCAL_PORT = 3100;
+const LOCAL_SETUP_CODE = 'E2E0-LOCA-LRUN';
 const baseURL = externalBaseUrl ?? `http://127.0.0.1:${LOCAL_PORT}`;
+
+export const E2E_DATABASE = 'ticko_e2e';
+export const SETUP_CODE = process.env['E2E_SETUP_CODE'] ?? LOCAL_SETUP_CODE;
+/** Session of the administrator created by the setup project, reused by the other projects. */
+export const ADMIN_STORAGE_STATE = fileURLToPath(new URL('.auth/admin.json', import.meta.url));
 
 export default defineConfig({
   testDir: 'tests',
@@ -26,9 +35,21 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
+    // The first-run wizard, exactly as a new user goes through it.
+    { name: 'setup', testMatch: /first-run\.setup\.ts/, use: { ...devices['Desktop Chrome'] } },
     // Device-specific tests are tagged instead of skipped at runtime.
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] }, grepInvert: /@mobile-only/ },
-    { name: 'mobile', use: { ...devices['Pixel 7'] }, grepInvert: /@desktop-only/ },
+    {
+      name: 'desktop',
+      dependencies: ['setup'],
+      grepInvert: /@mobile-only/,
+      use: { ...devices['Desktop Chrome'], storageState: ADMIN_STORAGE_STATE },
+    },
+    {
+      name: 'mobile',
+      dependencies: ['setup'],
+      grepInvert: /@desktop-only/,
+      use: { ...devices['Pixel 7'], storageState: ADMIN_STORAGE_STATE },
+    },
   ],
   ...(externalBaseUrl
     ? {}
@@ -36,13 +57,15 @@ export default defineConfig({
         webServer: {
           command: 'node --enable-source-maps ../apps/server/dist/main.js',
           url: `${baseURL}/health`,
-          reuseExistingServer: !isCI,
+          reuseExistingServer: false,
           env: {
-            TICKO_DATABASE_URL: testDatabaseUrl(),
+            TICKO_DATABASE_URL: testDatabaseUrl(E2E_DATABASE),
             TICKO_HOST: '127.0.0.1',
             TICKO_PORT: String(LOCAL_PORT),
             TICKO_URL: baseURL,
             TICKO_LOG_LEVEL: 'warn',
+            TICKO_DATA_DIR: fileURLToPath(new URL('.data', import.meta.url)),
+            TICKO_SETUP_CODE: LOCAL_SETUP_CODE,
           },
         },
       }),

@@ -13,13 +13,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-query": "5.104.5",
     "@tanstack/react-router": "1.170.45",
     "@ticko/shared": "0.0.0",
     "@ticko/ui": "0.0.0",
     "get-nonce": "1.0.1",
     "lucide-react": "1.60.0",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

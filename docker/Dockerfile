@@ -40,7 +40,9 @@ COPY .npmrc ./
 COPY --from=prune /out/server/json/ ./
 RUN npm ci --omit=dev \
  # Workspace packages are bundled into the server; their symlinks would dangle.
- && rm -rf node_modules/@ticko
+ && rm -rf node_modules/@ticko \
+ # npm may keep some server dependencies next to the server instead of hoisting them.
+ && mkdir -p apps/server/node_modules
 
 # ---------------------------------------------------------------------------------------------
 # Runtime: distroless (no shell, no package manager), non-root user 65532.
@@ -55,8 +57,10 @@ LABEL org.opencontainers.image.title="Ticko" \
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=runtime-deps /src/node_modules ./node_modules
+COPY --from=runtime-deps /src/apps/server/node_modules ./apps/server/node_modules
 COPY --from=build /src/apps/server/dist ./apps/server/dist
 COPY --from=build /src/apps/web/dist ./apps/web/dist
+COPY --from=build /src/packages/db/migrations ./packages/db/migrations
 COPY --from=build --chown=65532:65532 /data-skeleton /data
 
 USER 65532:65532

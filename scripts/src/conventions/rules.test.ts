@@ -5,8 +5,8 @@ function rulesBroken(path: string, source: string): string[] {
   return checkFile(path, source).map((violation) => violation.rule);
 }
 
-const SERVER = 'apps/server/src/routes/issues.ts';
-const WEB = 'apps/web/src/pages/issues-page.tsx';
+const SERVER = 'apps/server/src/features/issues/commands/create-issue.command.ts';
+const WEB = 'apps/web/src/routes/issues.route.tsx';
 
 describe('no-role-name-check', () => {
   it.each([
@@ -61,7 +61,9 @@ describe('security rules', () => {
   });
 
   it('allows Math.random in the front end (animations, not secrets)', () => {
-    expect(rulesBroken('apps/web/src/confetti.ts', 'Math.random()')).toStrictEqual([]);
+    expect(
+      rulesBroken('apps/web/src/shared/motion/confetti.util.ts', 'Math.random()'),
+    ).toStrictEqual([]);
   });
 });
 
@@ -77,9 +79,11 @@ describe('code hygiene', () => {
 
   it('flags relative imports that leave the workspace', () => {
     expect(
-      rulesBroken(SERVER, "import { x } from '../../../../packages/core/src/x.ts';"),
+      rulesBroken(SERVER, "import { x } from '../../../../../../packages/core/src/x.ts';"),
     ).toStrictEqual(['no-relative-import-across-packages']);
-    expect(rulesBroken(SERVER, "import { x } from '../http/zod.ts';")).toStrictEqual([]);
+    expect(rulesBroken(SERVER, "import { x } from '../../../platform/http/zod.ts';")).toStrictEqual(
+      [],
+    );
   });
 });
 
