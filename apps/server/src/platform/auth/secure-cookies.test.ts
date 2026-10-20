@@ -17,7 +17,6 @@ beforeAll(async () => {
     headers: { origin: ORIGIN },
     body: {
       setupCode: TEST_SETUP_CODE,
-      instanceName: 'Acme',
       admin: { name: 'Ada', email: EMAIL, password: PASSWORD },
     },
   });

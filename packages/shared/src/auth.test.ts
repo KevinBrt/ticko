@@ -33,14 +33,12 @@ describe('passwordSchema', () => {
 describe('setupRequestSchema', () => {
   const valid = {
     setupCode: ' ABCD-EFGH-JKLM ',
-    instanceName: ' Acme ',
     admin: { name: ' Ada ', email: 'ADA@example.com', password: 'correct horse battery' },
   };
 
   it('normalizes the request, in English unless told otherwise', () => {
     expect(setupRequestSchema.parse(valid)).toStrictEqual({
       setupCode: 'ABCD-EFGH-JKLM',
-      instanceName: 'Acme',
       admin: { name: 'Ada', email: 'ada@example.com', password: 'correct horse battery' },
       locale: 'en',
     });
@@ -58,7 +56,6 @@ describe('setupRequestSchema', () => {
       'admin.email',
       'admin.name',
       'admin.password',
-      'instanceName',
       'setupCode',
     ]);
   });

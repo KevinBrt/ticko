@@ -19,7 +19,6 @@ export const EMPTY_LOGIN_FORM: LoginFormValues = { email: '', password: '' };
 /** The setup wizard's fields, flat as they appear on screen. */
 export interface SetupFormValues {
   setupCode: string;
-  instanceName: string;
   name: string;
   email: string;
   password: string;
@@ -27,15 +26,14 @@ export interface SetupFormValues {
 
 export const EMPTY_SETUP_FORM: SetupFormValues = {
   setupCode: '',
-  instanceName: '',
   name: '',
   email: '',
   password: '',
 };
 
 export function toSetupRequest(
-  { setupCode, instanceName, name, email, password }: SetupFormValues,
+  { setupCode, name, email, password }: SetupFormValues,
   locale: Locale,
 ): SetupRequest {
-  return { setupCode, instanceName, admin: { name, email, password }, locale };
+  return { setupCode, admin: { name, email, password }, locale };
 }

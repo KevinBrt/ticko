@@ -15,7 +15,6 @@ beforeAll(async () => {
     url: '/api/v1/setup',
     body: {
       setupCode: TEST_SETUP_CODE,
-      instanceName: 'Acme',
       admin: { name: 'Ada', email: EMAIL, password: 'correct horse battery staple' },
     },
   });

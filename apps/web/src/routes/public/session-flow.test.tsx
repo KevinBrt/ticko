@@ -117,7 +117,6 @@ describe('first-run setup', () => {
     code: string,
   ) {
     await screen.getByLabelText('Setup code').fill(code);
-    await screen.getByLabelText('Organization name').fill('Acme');
     await screen.getByLabelText('Your name').fill(ADA.name);
     await screen.getByLabelText('Email').fill(ADA.email);
     await screen.getByLabelText('Password', { exact: true }).fill(ADA_PASSWORD);
@@ -163,7 +162,6 @@ describe('first-run setup', () => {
       )?.body,
     ).toStrictEqual({
       setupCode: GOOD_SETUP_CODE.toLowerCase(),
-      instanceName: 'Acme',
       admin: { name: ADA.name, email: ADA.email, password: ADA_PASSWORD },
       locale: 'en',
     });

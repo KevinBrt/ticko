@@ -89,13 +89,19 @@ describe('initial data and constraints', () => {
     const rows = await database.db.select().from(instanceSettings);
 
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ id: 1, name: 'Ticko', setupCompletedAt: null });
+    expect(rows[0]).toMatchObject({ id: 1, setupCompletedAt: null });
   });
 
   it('keeps instance settings to a single row', async () => {
-    await expect(
-      database.db.insert(instanceSettings).values({ id: 2, name: 'Second' }),
-    ).rejects.toThrow();
+    await expect(database.db.insert(instanceSettings).values({ id: 2 })).rejects.toThrow();
+  });
+
+  it('drops the instance name, which the domain already provides', async () => {
+    const columns = await database.db.execute<{ column_name: string }>(
+      sql`select column_name from information_schema.columns where table_name = 'instance_settings'`,
+    );
+
+    expect(columns.map((column) => column.column_name)).not.toContain('name');
   });
 
   it('gives new users the default instance role', async () => {

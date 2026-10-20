@@ -69,20 +69,6 @@ export function SetupForm({ onCompleted }: { onCompleted: () => Promise<void> | 
           />
         )}
       </Field>
-      <Field
-        label={t('setup.instanceName')}
-        description={t('setup.instanceNameHelp')}
-        error={errors['instanceName']}
-      >
-        {(control) => (
-          <Input
-            {...control}
-            autoComplete="organization"
-            value={values.instanceName}
-            onChange={update('instanceName')}
-          />
-        )}
-      </Field>
       <Field label={t('setup.adminName')} error={errors['admin.name']}>
         {(control) => (
           <Input {...control} autoComplete="name" value={values.name} onChange={update('name')} />

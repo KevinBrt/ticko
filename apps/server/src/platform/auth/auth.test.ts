@@ -48,7 +48,6 @@ beforeAll(async () => {
     url: '/api/v1/setup',
     body: {
       setupCode: TEST_SETUP_CODE,
-      instanceName: 'Acme',
       admin: { name: 'Ada Lovelace', email: EMAIL, password: PASSWORD },
     },
   });

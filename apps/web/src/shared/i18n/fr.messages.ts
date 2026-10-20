@@ -47,8 +47,6 @@ export const fr: Messages = {
     setupCode: 'Code d’installation',
     setupCodeHelp:
       'Affiché dans les logs du serveur au démarrage. Commande : docker compose logs ticko',
-    instanceName: 'Nom de l’organisation',
-    instanceNameHelp: 'Vous pourrez le modifier plus tard dans les paramètres.',
     adminName: 'Votre nom',
     email: 'Adresse e-mail',
     password: 'Mot de passe',

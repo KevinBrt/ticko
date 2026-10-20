@@ -48,8 +48,6 @@ export const en = {
     intro: 'Create the first administrator account. You will invite your team afterwards.',
     setupCode: 'Setup code',
     setupCodeHelp: 'Printed in the server logs at startup. Run: docker compose logs ticko',
-    instanceName: 'Organization name',
-    instanceNameHelp: 'You can change it later in the settings.',
     adminName: 'Your name',
     email: 'Email',
     password: 'Password',

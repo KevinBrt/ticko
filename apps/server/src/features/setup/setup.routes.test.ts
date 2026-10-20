@@ -14,7 +14,6 @@ const PASSWORD = 'correct horse battery staple';
 function setupRequest(overrides: Record<string, unknown> = {}) {
   return {
     setupCode: TEST_SETUP_CODE,
-    instanceName: 'Acme',
     admin: { name: 'Ada Lovelace', email: 'Ada@Example.com', password: PASSWORD },
     ...overrides,
   };
@@ -109,9 +108,8 @@ describe('first-run setup', () => {
     ]);
   });
 
-  it('records the instance name and closes the wizard for good', async () => {
+  it('closes the wizard for good', async () => {
     const [settings] = await context.database.db.select().from(schema.instanceSettings);
-    expect(settings?.name).toBe('Acme');
     expect(settings?.setupCompletedAt).toBeInstanceOf(Date);
 
     const status = await app.inject({ method: 'GET', url: '/api/v1/setup' });

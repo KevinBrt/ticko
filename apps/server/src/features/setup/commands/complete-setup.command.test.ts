@@ -25,7 +25,6 @@ describe('completeSetup', () => {
   it('names the default roles in the administrator’s language', async () => {
     await completeSetup.execute(executionContext(), {
       setupCode: SETUP_CODE,
-      instanceName: 'Acme',
       admin: { name: 'Ada', email: 'ada@example.com', password: 'correct horse battery staple' },
       locale: 'fr',
     });

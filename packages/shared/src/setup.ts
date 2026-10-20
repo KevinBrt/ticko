@@ -9,10 +9,9 @@ export const setupStatusResponseSchema = z.object({
 
 export type SetupStatusResponse = z.infer<typeof setupStatusResponseSchema>;
 
-/** Body of `POST /api/v1/setup`: the code printed in the server logs, the instance and its first admin. */
+/** Body of `POST /api/v1/setup`: the code printed in the server logs and the first admin. */
 export const setupRequestSchema = z.object({
   setupCode: z.string().trim().min(1).max(64),
-  instanceName: z.string().trim().min(1).max(100),
   admin: z.object({
     name: displayNameSchema,
     email: emailSchema,

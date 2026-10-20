@@ -11,7 +11,6 @@ test('a fresh instance leads to an administrator who is signed in', async ({ pag
   await expectAccessible(page);
 
   await page.getByLabel('Setup code').fill(SETUP_CODE);
-  await page.getByLabel('Organization name').fill('Acme');
   await page.getByLabel('Your name').fill(ADMIN.name);
   await page.getByLabel('Email').fill(ADMIN.email);
   await page.getByLabel('Password', { exact: true }).fill(ADMIN.password);

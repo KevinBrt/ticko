@@ -23,7 +23,7 @@ docker compose up -d
 
    The line looks like `Ticko is not set up yet: open http://localhost:3000 and enter the setup code ABCD-EFGH-JKLM`. A new code is printed at each start until setup is done.
 
-2. Open <http://localhost:3000>, enter the code, name your organization and create the first administrator account.
+2. Open <http://localhost:3000>, enter the code and create the first administrator account.
 
 The code exists so that nobody else can claim a fresh instance reachable from the network. Once the first administrator exists, the wizard is closed for good. For automated deployments, preset the code with `TICKO_SETUP_CODE`.
 

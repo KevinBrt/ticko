@@ -60,7 +60,7 @@ export const completeSetup = defineCommand({
     }
     await tx
       .update(instanceSettings)
-      .set({ name: input.instanceName, setupCompletedAt: new Date() })
+      .set({ setupCompletedAt: new Date() })
       .where(eq(instanceSettings.id, INSTANCE_SETTINGS_ID));
 
     log.info({ userId }, 'First administrator created');
