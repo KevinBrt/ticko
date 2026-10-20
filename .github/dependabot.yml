@@ -13,6 +13,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Types must match the Node.js major that runs Ticko (.nvmrc, Docker image): moving to the
+      # next major is a deliberate runtime upgrade, done by hand with .nvmrc and the base images.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
