@@ -1,0 +1,59 @@
+import { expect, expectAccessible, openNavigation, test } from './fixtures.ts';
+
+test.use({ locale: 'en-US' });
+
+const PAGES = ['/issues', '/my-issues', '/projects', '/settings', '/nothing/here'];
+
+for (const path of PAGES) {
+  test(`${path} has no accessibility violations`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    await expectAccessible(page);
+  });
+}
+
+test('the navigation drawer is accessible', { tag: '@mobile-only' }, async ({ page }) => {
+  await page.goto('/issues');
+
+  await openNavigation(page, true);
+
+  await expectAccessible(page);
+});
+
+test('the layout never scrolls horizontally', async ({ page }) => {
+  for (const width of [320, 375, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/issues');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, `horizontal overflow at ${width}px`).toBe(0);
+  }
+});
+
+test('navigation targets are large enough for touch', { tag: '@mobile-only' }, async ({ page }) => {
+  await page.goto('/issues');
+
+  const navigation = await openNavigation(page, true);
+  for (const link of await navigation.getByRole('link').all()) {
+    const box = await link.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
+test('the skip link moves focus to the main content', { tag: '@desktop-only' }, async ({
+  page,
+}) => {
+  await page.goto('/issues');
+
+  await page.keyboard.press('Tab');
+  const skipLink = page.getByRole('link', { name: 'Skip to content' });
+  await expect(skipLink).toBeFocused();
+  await expect(skipLink).toBeVisible();
+  await page.keyboard.press('Enter');
+
+  await expect(page.locator('main')).toBeFocused();
+});

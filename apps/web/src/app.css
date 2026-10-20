@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@import "@ticko/ui/theme.css";
+
+/* Tailwind only scans this app by default; the design system lives in another workspace. */
+@source "../../../packages/ui/src";

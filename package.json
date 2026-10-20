@@ -1,0 +1,43 @@
+{
+  "name": "ticko",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Modern issue tracking. Self-hosted. Free forever, no strings attached.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KevinBrt/ticko.git"
+  },
+  "type": "module",
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "e2e",
+    "scripts"
+  ],
+  "scripts": {
+    "setup": "git config core.hooksPath .githooks",
+    "dev": "npm run db:up && turbo run dev",
+    "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.dev.yml down",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "npm run build && npm run test --workspace=@ticko/e2e",
+    "lint": "biome check . && prettier --check .",
+    "lint:fix": "biome check --write . && prettier --write .",
+    "check:conventions": "node scripts/src/check-conventions.ts",
+    "check:dependencies": "node scripts/src/check-dependencies.ts",
+    "check": "npm run lint && npm run check:conventions && npm run check:dependencies && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "prettier": "3.9.10",
+    "turbo": "2.11.9",
+    "typescript": "7.0.2"
+  }
+}

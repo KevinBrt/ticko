@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output and caches
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Test artifacts
+playwright-report/
+test-results/
+blob-report/
+__screenshots__/
+.vitest/
+
+# Local runtime data and secrets
+data/
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+*.log

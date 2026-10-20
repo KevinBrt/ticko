@@ -1,0 +1,6 @@
+#!/bin/sh
+# Everything CI checks except the slow test suites. Run `npm run check` for the full set.
+set -e
+npm run --silent lint
+npm run --silent check:dependencies
+npm run --silent typecheck

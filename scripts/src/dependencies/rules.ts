@@ -1,0 +1,157 @@
+/**
+ * Dependency rules of the monorepo. The architecture lives here as data:
+ * `core` stays pure, the browser never bundles server code, plugins only see the SDK.
+ */
+
+export interface WorkspaceManifest {
+  /** Directory relative to the repository root, e.g. `packages/core`. */
+  path: string;
+  name: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+}
+
+/** Workspace packages each package may depend on (runtime or dev). */
+export const ALLOWED_WORKSPACE_DEPENDENCIES: Readonly<Record<string, readonly string[]>> = {
+  '@ticko/shared': [],
+  '@ticko/core': ['@ticko/shared'],
+  '@ticko/db': ['@ticko/shared', '@ticko/core'],
+  '@ticko/ui': ['@ticko/shared'],
+  '@ticko/testing': ['@ticko/shared', '@ticko/core', '@ticko/db'],
+  '@ticko/server': ['@ticko/shared', '@ticko/core', '@ticko/db'],
+  '@ticko/web': ['@ticko/shared', '@ticko/core', '@ticko/ui'],
+  '@ticko/plugin-sdk': ['@ticko/shared'],
+  '@ticko/e2e': [],
+  '@ticko/scripts': [],
+};
+
+/** Workspaces allowed only as devDependencies: test tooling never ships. */
+const DEV_ONLY_WORKSPACES = new Set(['@ticko/testing']);
+
+const PLUGIN_ALLOWED = ['@ticko/plugin-sdk'];
+
+/** Licenses compatible with distributing Ticko under AGPL-3.0. */
+export const ALLOWED_LICENSES = new Set([
+  '0BSD',
+  'Apache-2.0',
+  'BlueOak-1.0.0',
+  'BSD-2-Clause',
+  'BSD-3-Clause',
+  'CC0-1.0',
+  'ISC',
+  'MIT',
+  'MPL-2.0',
+  'OFL-1.1',
+  'Unlicense',
+]);
+
+const EXACT_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+
+const TRUSTED_REGISTRY = 'https://registry.npmjs.org/';
+
+function allDependencies(manifest: WorkspaceManifest): [string, string, 'dev' | 'runtime'][] {
+  return [
+    ...Object.entries(manifest.dependencies ?? {}).map(
+      ([name, spec]) => [name, spec, 'runtime'] as [string, string, 'runtime'],
+    ),
+    ...Object.entries(manifest.peerDependencies ?? {}).map(
+      ([name, spec]) => [name, spec, 'runtime'] as [string, string, 'runtime'],
+    ),
+    ...Object.entries(manifest.devDependencies ?? {}).map(
+      ([name, spec]) => [name, spec, 'dev'] as [string, string, 'dev'],
+    ),
+  ];
+}
+
+export function checkWorkspaceGraph(manifests: readonly WorkspaceManifest[]): string[] {
+  const workspaceNames = new Set(manifests.map((manifest) => manifest.name));
+  return manifests.flatMap((manifest) => checkWorkspace(manifest, workspaceNames));
+}
+
+function checkWorkspace(manifest: WorkspaceManifest, workspaceNames: Set<string>): string[] {
+  const isPlugin = manifest.path.startsWith('plugins/');
+  const allowed = isPlugin ? PLUGIN_ALLOWED : ALLOWED_WORKSPACE_DEPENDENCIES[manifest.name];
+  if (!allowed) {
+    return [
+      `${manifest.name}: unknown workspace, declare its allowed dependencies in scripts/src/dependencies/rules.ts`,
+    ];
+  }
+  return allDependencies(manifest)
+    .filter(([name]) => workspaceNames.has(name))
+    .flatMap(([name, , kind]) => {
+      if (DEV_ONLY_WORKSPACES.has(name)) {
+        return kind === 'dev' ? [] : [`${manifest.name}: ${name} may only be a devDependency`];
+      }
+      return allowed.includes(name) ? [] : [`${manifest.name}: must not depend on ${name}`];
+    });
+}
+
+export function checkExactVersions(manifests: readonly WorkspaceManifest[]): string[] {
+  const problems: string[] = [];
+  const versionsByName = new Map<string, Set<string>>();
+
+  for (const manifest of manifests) {
+    for (const [name, spec] of allDependencies(manifest)) {
+      if (!EXACT_VERSION.test(spec)) {
+        problems.push(`${manifest.name}: ${name}@${spec} must be pinned to an exact version`);
+      }
+      versionsByName.set(name, (versionsByName.get(name) ?? new Set()).add(spec));
+    }
+  }
+  for (const [name, versions] of versionsByName) {
+    if (versions.size > 1) {
+      problems.push(`${name}: one version across the monorepo, found ${[...versions].join(', ')}`);
+    }
+  }
+  return problems;
+}
+
+export interface LockfileEntry {
+  version?: string;
+  resolved?: string;
+  integrity?: string;
+  license?: string;
+  link?: boolean;
+  dev?: boolean;
+}
+
+export interface Lockfile {
+  lockfileVersion: number;
+  packages: Record<string, LockfileEntry>;
+}
+
+export function checkLockfile(lockfile: Lockfile): string[] {
+  if (lockfile.lockfileVersion !== 3) {
+    return [`package-lock.json: expected lockfileVersion 3, found ${lockfile.lockfileVersion}`];
+  }
+  const problems: string[] = [];
+  for (const [path, entry] of Object.entries(lockfile.packages)) {
+    if (path === '' || entry.link || !path.includes('node_modules/')) {
+      continue;
+    }
+    if (!entry.resolved?.startsWith(TRUSTED_REGISTRY)) {
+      problems.push(`${path}: must resolve from ${TRUSTED_REGISTRY}, got ${entry.resolved}`);
+    }
+    if (!entry.integrity?.startsWith('sha512-')) {
+      problems.push(`${path}: missing sha512 integrity`);
+    }
+    if (!(entry.dev || isLicenseAllowed(entry.license))) {
+      problems.push(`${path}: license ${entry.license ?? '(none)'} is not allowed in shipped code`);
+    }
+  }
+  return problems;
+}
+
+/** Accepts SPDX expressions such as `(MIT OR Apache-2.0)`: OR needs one allowed term, AND needs all. */
+export function isLicenseAllowed(expression: string | undefined): boolean {
+  if (!expression) {
+    return false;
+  }
+  const normalized = expression.replace(/[()]/g, ' ').trim();
+  return normalized
+    .split(/\s+OR\s+/)
+    .some((alternative) =>
+      alternative.split(/\s+AND\s+/).every((license) => ALLOWED_LICENSES.has(license.trim())),
+    );
+}

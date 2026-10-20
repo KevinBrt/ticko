@@ -1,0 +1,48 @@
+name: Release
+
+# release-please keeps a release PR up to date from Conventional Commits (version bump and
+# CHANGELOG.md). Merging it tags the release, and the image is published right here: tags
+# pushed with GITHUB_TOKEN do not trigger other workflows.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      tags: |
+        ghcr.io/kevinbrt/ticko:${{ needs.release-please.outputs.version }}
+        ghcr.io/kevinbrt/ticko:${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}
+        ghcr.io/kevinbrt/ticko:latest
+      version: ${{ needs.release-please.outputs.version }}

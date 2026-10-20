@@ -1,0 +1,10 @@
+# Biome formats code (TS, TSX, JSON, CSS). Prettier only formats what Biome does not: Markdown and YAML.
+*.*
+!*.md
+!*.yml
+!*.yaml
+!**/
+
+# Generated
+CHANGELOG.md
+package-lock.json

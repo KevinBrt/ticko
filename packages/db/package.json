@@ -1,0 +1,24 @@
+{
+  "name": "@ticko/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PostgreSQL access for Ticko: connection, schema and migrations.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "postgres": "3.4.9"
+  },
+  "devDependencies": {
+    "@ticko/testing": "0.0.0",
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,137 @@
+/*
+ * Ticko design tokens. Light theme only.
+ * The default Tailwind palette is removed on purpose: components may only use these tokens,
+ * so the interface stays consistent and a future theme only has to redefine this file.
+ */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Surfaces */
+  --color-background: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fafafb;
+  --color-surface-hover: #f3f4f6;
+  --color-border: #e6e8ec;
+  --color-border-strong: #d5d9df;
+
+  /* Text */
+  --color-foreground: #111418;
+  --color-muted-foreground: #5b6270;
+
+  /* Brand */
+  --color-primary: #0f766e;
+  --color-primary-hover: #0d655e;
+  --color-primary-foreground: #ffffff;
+  --color-primary-subtle: #e9f3f2;
+  --color-primary-subtle-foreground: #0b5e57;
+  --color-ring: #0f766e;
+
+  /* Sidebar */
+  --color-sidebar: #0b1012;
+  --color-sidebar-foreground: #e6e8eb;
+  --color-sidebar-muted: #8b949e;
+  --color-sidebar-hover: #151c1f;
+  --color-sidebar-active: #102a28;
+  --color-sidebar-border: #1b2326;
+
+  /* Feedback */
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-subtle: #fef2f2;
+  --color-warning: #b45309;
+  --color-warning-subtle: #fffbeb;
+  --color-success: #15803d;
+  --color-success-subtle: #f0fdf4;
+
+  /* Default workflow status colors; every status stores its own color, these are the presets. */
+  --color-status-cyan: #06b6d4;
+  --color-status-blue: #3b82f6;
+  --color-status-violet: #8b5cf6;
+  --color-status-amber: #eab308;
+  --color-status-green: #22c55e;
+  --color-status-gray: #9ca3af;
+
+  /* Priorities */
+  --color-priority-urgent: #dc2626;
+  --color-priority-high: #ea580c;
+  --color-priority-normal: #3b82f6;
+  --color-priority-low: #c4c9d1;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  --shadow-xs: 0 1px 2px 0 rgb(17 20 24 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(17 20 24 / 0.06), 0 1px 2px -1px rgb(17 20 24 / 0.06);
+  --shadow-lg: 0 10px 30px -5px rgb(17 20 24 / 0.12), 0 4px 10px -6px rgb(17 20 24 / 0.08);
+
+  --animate-sheet-in: sheet-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out: sheet-out 160ms ease-in;
+  --animate-fade-in: fade-in 200ms ease-out;
+  --animate-fade-out: fade-out 160ms ease-in;
+
+  @keyframes sheet-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes sheet-out {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      /* biome-ignore-start lint/complexity/noImportantStyles: the user's motion preference must win over every component animation */
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      /* biome-ignore-end lint/complexity/noImportantStyles: end of reduced-motion overrides */
+    }
+  }
+}

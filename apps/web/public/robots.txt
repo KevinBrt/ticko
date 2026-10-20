@@ -1,0 +1,3 @@
+# A self-hosted issue tracker has nothing to index.
+User-agent: *
+Disallow: /

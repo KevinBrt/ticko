@@ -1,0 +1,24 @@
+# Local development and test database. Not meant for production: see docker-compose.yml.
+# Started by `npm run db:up` (and automatically by integration tests when it is not running).
+name: ticko-dev
+
+services:
+  db:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: ticko
+      POSTGRES_PASSWORD: ticko
+      POSTGRES_DB: ticko
+    ports:
+      # Bound to localhost only: the development credentials must never be reachable from the network.
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticko -d ticko"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pgdata:

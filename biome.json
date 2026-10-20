@@ -1,0 +1,190 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["**", "!**/package-lock.json"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      "react": "recommended",
+      "test": "recommended"
+    },
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        },
+        "noForEach": "error",
+        "noUselessStringConcat": "error",
+        "useSimplifiedLogicExpression": "error",
+        "useLiteralKeys": "off"
+      },
+      "correctness": {
+        "noUndeclaredDependencies": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "error",
+        "useImportExtensions": "error"
+      },
+      "performance": {
+        "noAccumulatingSpread": "error",
+        "noDelete": "error",
+        "noReExportAll": "error"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error",
+        "noGlobalEval": "error"
+      },
+      "style": {
+        "noCommonJs": "error",
+        "noDefaultExport": "error",
+        "noEnum": "error",
+        "noInferrableTypes": "error",
+        "noNamespace": "error",
+        "noNestedTernary": "error",
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "noProcessEnv": "error",
+        "noUselessElse": "error",
+        "noYodaExpression": "error",
+        "useBlockStatements": "error",
+        "useCollapsedElseIf": "error",
+        "useConsistentArrayType": {
+          "level": "error",
+          "options": {
+            "syntax": "shorthand"
+          }
+        },
+        "useConst": "error",
+        "useExportType": "error",
+        "useFilenamingConvention": {
+          "level": "error",
+          "options": {
+            "filenameCases": ["kebab-case"],
+            "requireAscii": true
+          }
+        },
+        "useForOf": "error",
+        "useImportType": "error",
+        "useNodejsImportProtocol": "error",
+        "useNumberNamespace": "error",
+        "useShorthandFunctionType": "error",
+        "useTemplate": "error",
+        "useThrowNewError": "error",
+        "useThrowOnlyError": "error"
+      },
+      "suspicious": {
+        "noConsole": "error",
+        "noEmptyBlockStatements": "error",
+        "noEvolvingTypes": "error",
+        "noExplicitAny": "error",
+        "noFocusedTests": "error",
+        "noSkippedTests": "error",
+        "noVar": "error",
+        "useAwait": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.config.ts", "**/vite.config.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDefaultExport": "off",
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "scripts/**",
+        "packages/testing/**",
+        "e2e/**",
+        "apps/server/src/config.ts",
+        "apps/server/src/main.ts",
+        "apps/server/src/healthcheck.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["scripts/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/**", "packages/ui/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noNodejsModules": "error"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "apps/web/vite.config.ts",
+        "apps/web/vitest.config.ts",
+        "packages/ui/vitest.config.ts"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noNodejsModules": "off"
+          }
+        }
+      }
+    }
+  ]
+}

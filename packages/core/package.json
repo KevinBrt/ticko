@@ -1,0 +1,23 @@
+{
+  "name": "@ticko/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure business logic of Ticko: issues, workflows, permissions. No I/O.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@ticko/shared": "0.0.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "5.0.5",
+    "fast-check": "4.10.2",
+    "vitest": "5.0.5"
+  }
+}

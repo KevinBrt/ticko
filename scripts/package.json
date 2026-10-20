@@ -1,0 +1,17 @@
+{
+  "name": "@ticko/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repository guards run in CI: code conventions, dependency rules, lockfile integrity.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@babel/parser": "8.0.7",
+    "@types/node": "24.19.2",
+    "vitest": "5.0.5"
+  }
+}
