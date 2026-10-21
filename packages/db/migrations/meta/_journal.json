@@ -71,6 +71,20 @@
       "when": 1792613361457,
       "tag": "0009_user_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792615333132,
+      "tag": "0010_drop_role_audience",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792615352676,
+      "tag": "0011_role_deletion",
+      "breakpoints": true
     }
   ]
 }

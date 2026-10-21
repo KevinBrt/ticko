@@ -13,10 +13,8 @@ export const invitations = pgTable(
   {
     id: id(),
     email: text('email').notNull(),
-    /** The role the new member gets on accepting. */
-    roleId: uuid('role_id')
-      .notNull()
-      .references(() => roles.id, { onDelete: 'restrict' }),
+    /** The role the new member gets on accepting; an accepted invitation may lose it with its role. */
+    roleId: uuid('role_id').references(() => roles.id, { onDelete: 'set null' }),
     /** SHA-256 of the token, hex-encoded. */
     tokenHash: text('token_hash').notNull(),
     invitedById: uuid('invited_by_id')
@@ -37,5 +35,10 @@ export const invitations = pgTable(
     index('invitations_invited_by_id_idx').on(table.invitedById),
     check('invitations_email_lowercase', sql`${table.email} = lower(${table.email})`),
     check('invitations_expire_after_creation', sql`${table.expiresAt} > ${table.createdAt}`),
+    // Deleting a role a pending invitation still gives fails here.
+    check(
+      'invitations_role_unless_accepted',
+      sql`${table.roleId} is not null or ${table.acceptedAt} is not null`,
+    ),
   ],
 );

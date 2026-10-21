@@ -41,8 +41,9 @@ export function createAuth({ db, secret, publicUrl }: AuthOptions) {
     }),
     user: {
       additionalFields: {
-        // Declared so Better Auth accepts this required column; it never takes it from a client
-        // nor sends it back. Toppo sets it when it creates an account (setup, invitation).
+        // Declared so Better Auth accepts this column, set on every live account. Better Auth
+        // never takes it from a client nor sends it back; Toppo sets it when it creates an
+        // account (setup, invitation).
         instanceRoleId: { type: 'string', required: true, input: false, returned: false },
       },
     },

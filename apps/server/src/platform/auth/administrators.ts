@@ -20,7 +20,7 @@ export async function lockInstanceAccounts(
 ): Promise<InstanceAccounts> {
   await tx.execute(sql`select pg_advisory_xact_lock(${ADMINISTRATION_LOCK_KEY})`);
   const accounts = await tx
-    .select({ id: users.id, roleId: users.instanceRoleId, deactivatedAt: users.deactivatedAt })
+    .select({ id: users.id, roleId: roles.id, deactivatedAt: users.deactivatedAt })
     .from(users)
     .innerJoin(roles, eq(roles.id, users.instanceRoleId))
     .where(

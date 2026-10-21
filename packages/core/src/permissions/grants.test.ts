@@ -22,55 +22,37 @@ describe('canAny', () => {
   });
 });
 
+const role = (permissions: string[]) => ({ grantsAll: false, permissions });
+
 describe('permissionsOfRole', () => {
-  const internal = (permissions: string[]) => ({
-    grantsAll: false,
-    audience: 'internal' as const,
-    permissions,
-  });
-
   it('gives the system role every permission, whatever it stores', () => {
-    expect(
-      permissionsOfRole({ grantsAll: true, audience: 'internal', permissions: [] }),
-    ).toStrictEqual([...ALL_PERMISSIONS]);
+    expect(permissionsOfRole({ grantsAll: true, permissions: [] })).toStrictEqual([
+      ...ALL_PERMISSIONS,
+    ]);
   });
 
-  it('keeps what an internal role stores', () => {
-    expect(permissionsOfRole(internal(['issue.read', 'instance.users.manage']))).toStrictEqual([
+  it('keeps what a role stores', () => {
+    expect(permissionsOfRole(role(['issue.read', 'instance.users.manage']))).toStrictEqual([
       'issue.read',
       'instance.users.manage',
     ]);
   });
 
   it('ignores permissions that no longer exist', () => {
-    expect(permissionsOfRole(internal(['plugin.removed', 'toString', 'issue.read']))).toStrictEqual(
-      ['issue.read'],
-    );
+    expect(permissionsOfRole(role(['plugin.removed', 'toString', 'issue.read']))).toStrictEqual([
+      'issue.read',
+    ]);
   });
 
   it('never lets a stored value grant what only the system role has', () => {
-    expect(permissionsOfRole(internal(['instance.roles.manage']))).toStrictEqual([]);
-  });
-
-  it('never lets a client role administer or moderate', () => {
-    expect(
-      permissionsOfRole({
-        grantsAll: false,
-        audience: 'client',
-        permissions: ['issue.create', 'comment.moderate', 'instance.users.manage'],
-      }),
-    ).toStrictEqual(['issue.create']);
+    expect(permissionsOfRole(role(['instance.roles.manage']))).toStrictEqual([]);
   });
 });
 
 describe('instancePermissionsOf', () => {
   it('keeps the permissions that apply in the whole instance', () => {
     expect(
-      instancePermissionsOf({
-        grantsAll: false,
-        audience: 'internal',
-        permissions: ['issue.read', 'project.create', 'instance.users.manage'],
-      }),
+      instancePermissionsOf(role(['issue.read', 'project.create', 'instance.users.manage'])),
     ).toStrictEqual(['project.create', 'instance.users.manage']);
   });
 });

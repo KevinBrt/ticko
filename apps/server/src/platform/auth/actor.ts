@@ -39,11 +39,7 @@ export async function resolveActor(
       id: users.id,
       name: users.name,
       email: users.email,
-      role: {
-        grantsAll: roles.grantsAll,
-        audience: roles.audience,
-        permissions: roles.permissions,
-      },
+      role: { grantsAll: roles.grantsAll, permissions: roles.permissions },
     })
     .from(users)
     .innerJoin(roles, eq(roles.id, users.instanceRoleId))

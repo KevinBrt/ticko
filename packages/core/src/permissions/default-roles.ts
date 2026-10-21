@@ -1,4 +1,4 @@
-import type { Locale, RoleAudience, RoleColor } from '@toppo/shared';
+import type { Locale, RoleColor } from '@toppo/shared';
 import type { Permission } from './catalog.ts';
 
 /** The three profiles a fresh instance offers. */
@@ -9,7 +9,6 @@ export interface RoleDefinition {
   kind: DefaultRoleKind;
   /** English name, as seeded by the migrations. */
   name: string;
-  audience: RoleAudience;
   /** The system role: every permission, now and to come; it cannot be edited or deleted. */
   grantsAll: boolean;
   color: RoleColor;
@@ -48,7 +47,6 @@ export const DEFAULT_ROLES: readonly RoleDefinition[] = [
     id: DEFAULT_ROLE_IDS.administrator,
     kind: 'administrator',
     name: DEFAULT_ROLE_NAMES.en.administrator,
-    audience: 'internal',
     grantsAll: true,
     color: 'blue',
     permissions: [],
@@ -57,7 +55,6 @@ export const DEFAULT_ROLES: readonly RoleDefinition[] = [
     id: DEFAULT_ROLE_IDS.team,
     kind: 'team',
     name: DEFAULT_ROLE_NAMES.en.team,
-    audience: 'internal',
     grantsAll: false,
     color: 'green',
     permissions: [
@@ -74,7 +71,6 @@ export const DEFAULT_ROLES: readonly RoleDefinition[] = [
     id: DEFAULT_ROLE_IDS.requester,
     kind: 'requester',
     name: DEFAULT_ROLE_NAMES.en.requester,
-    audience: 'client',
     grantsAll: false,
     color: 'gray',
     permissions: ['issue.read.own', 'issue.create', 'comment.create'],

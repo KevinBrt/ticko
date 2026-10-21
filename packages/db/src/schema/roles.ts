@@ -1,5 +1,5 @@
 import type { Permission } from '@toppo/core';
-import { ROLE_AUDIENCES, ROLE_COLORS } from '@toppo/shared';
+import { ROLE_COLORS } from '@toppo/shared';
 import { sql } from 'drizzle-orm';
 import { boolean, check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './columns.ts';
@@ -14,7 +14,6 @@ export const roles = pgTable(
   {
     id: id(),
     name: text('name').notNull(),
-    audience: text('audience', { enum: ROLE_AUDIENCES }).notNull().default('internal'),
     /** The system role: every permission, now and to come; it cannot be edited or deleted. */
     grantsAll: boolean('grants_all').notNull().default(false),
     color: text('color', { enum: ROLE_COLORS }).notNull().default('gray'),
@@ -27,15 +26,9 @@ export const roles = pgTable(
   },
   (table) => [
     check('roles_name_not_blank', sql`btrim(${table.name}) <> ''`),
-    check('roles_audience_check', sql`${table.audience} in ('internal', 'client')`),
     check(
       'roles_color_check',
       sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan')`,
-    ),
-    // Whoever holds the system role runs the instance: never a client.
-    check(
-      'roles_grants_all_internal',
-      sql`not ${table.grantsAll} or ${table.audience} = 'internal'`,
     ),
     uniqueIndex('roles_name_unique').on(sql`lower(${table.name})`),
     uniqueIndex('roles_single_grants_all').on(table.grantsAll).where(sql`${table.grantsAll}`),

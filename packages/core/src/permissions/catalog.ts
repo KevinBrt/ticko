@@ -8,18 +8,11 @@ export const PERMISSION_SECTIONS = ['tickets', 'conversation', 'project', 'organ
 
 export type PermissionSection = (typeof PERMISSION_SECTIONS)[number];
 
-/**
- * Which roles may be given a permission:
- * - `anyone`: client roles too;
- * - `internal`: internal roles only, never a client role;
- * - `system`: no role but the system one, which grants everything.
- */
-export type PermissionGrantee = 'anyone' | 'internal' | 'system';
-
-interface PermissionDefinition {
+export interface PermissionDefinition {
   scope: PermissionScope;
   section: PermissionSection;
-  grantedTo: PermissionGrantee;
+  /** Held by the system role only: no other role may be given it. */
+  systemOnly?: true;
 }
 
 /**
@@ -27,24 +20,21 @@ interface PermissionDefinition {
  * of these, never a role name. Plugins will register theirs here too.
  */
 export const PERMISSIONS = {
-  'issue.read': { scope: 'project', section: 'tickets', grantedTo: 'anyone' },
-  'issue.read.own': { scope: 'project', section: 'tickets', grantedTo: 'anyone' },
-  'issue.create': { scope: 'project', section: 'tickets', grantedTo: 'anyone' },
-  'issue.update': { scope: 'project', section: 'tickets', grantedTo: 'anyone' },
-  'issue.assign': { scope: 'project', section: 'tickets', grantedTo: 'anyone' },
-  'issue.delete': { scope: 'project', section: 'tickets', grantedTo: 'anyone' },
-  'comment.create': { scope: 'project', section: 'conversation', grantedTo: 'anyone' },
-  'comment.moderate': { scope: 'project', section: 'conversation', grantedTo: 'internal' },
-  'project.settings.manage': { scope: 'project', section: 'project', grantedTo: 'internal' },
-  'project.members.manage': { scope: 'project', section: 'project', grantedTo: 'internal' },
-  'instance.users.manage': { scope: 'instance', section: 'organisation', grantedTo: 'internal' },
-  'project.create': { scope: 'instance', section: 'organisation', grantedTo: 'internal' },
-  'instance.settings.manage': { scope: 'instance', section: 'organisation', grantedTo: 'internal' },
-  'instance.roles.manage': {
-    scope: 'instance',
-    section: 'organisation',
-    grantedTo: 'system',
-  },
+  'issue.read': { scope: 'project', section: 'tickets' },
+  'issue.read.own': { scope: 'project', section: 'tickets' },
+  'issue.create': { scope: 'project', section: 'tickets' },
+  'issue.update': { scope: 'project', section: 'tickets' },
+  'issue.assign': { scope: 'project', section: 'tickets' },
+  'issue.delete': { scope: 'project', section: 'tickets' },
+  'comment.create': { scope: 'project', section: 'conversation' },
+  'comment.moderate': { scope: 'project', section: 'conversation' },
+  'project.settings.manage': { scope: 'project', section: 'project' },
+  'project.members.manage': { scope: 'project', section: 'project' },
+  'instance.users.manage': { scope: 'instance', section: 'organisation' },
+  'project.create': { scope: 'instance', section: 'organisation' },
+  'instance.settings.manage': { scope: 'instance', section: 'organisation' },
+  // Whoever edits roles can give themselves anything: only administrators may.
+  'instance.roles.manage': { scope: 'instance', section: 'organisation', systemOnly: true },
 } as const satisfies Record<string, PermissionDefinition>;
 
 export type Permission = keyof typeof PERMISSIONS;

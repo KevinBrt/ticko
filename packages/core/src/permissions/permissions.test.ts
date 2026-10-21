@@ -39,31 +39,18 @@ describe('permission catalog', () => {
     expect(order).toStrictEqual([...order].sort((left, right) => left - right));
   });
 
-  it('keeps administration and moderation away from client roles', () => {
-    const forClients = ALL_PERMISSIONS.filter((permission) => canBeGranted(permission, 'client'));
-
-    expect(forClients).toStrictEqual([
-      'issue.read',
-      'issue.read.own',
-      'issue.create',
-      'issue.update',
-      'issue.assign',
-      'issue.delete',
-      'comment.create',
-    ]);
-  });
-
   it('lets no role but the system one manage roles', () => {
-    expect(canBeGranted('instance.roles.manage', 'internal')).toBe(false);
-    expect(canBeGranted('instance.users.manage', 'internal')).toBe(true);
+    expect(ALL_PERMISSIONS.filter((permission) => !canBeGranted(permission))).toStrictEqual([
+      'instance.roles.manage',
+    ]);
   });
 });
 
 describe('default roles', () => {
-  it('store only permissions their kind of role may be given', () => {
+  it('store only permissions a role may be given', () => {
     for (const role of DEFAULT_ROLES) {
       for (const permission of role.permissions) {
-        expect(canBeGranted(permission, role.audience), `${role.name}: ${permission}`).toBe(true);
+        expect(canBeGranted(permission), `${role.name}: ${permission}`).toBe(true);
       }
     }
   });

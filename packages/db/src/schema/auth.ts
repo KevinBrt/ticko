@@ -30,10 +30,9 @@ export const users = pgTable(
     /**
      * Toppo: the instance-level role, carrying global permissions. No default: whoever creates
      * the account (setup, invitation) chooses it, so deleting any role never breaks sign-ups.
+     * Only a deleted account may lose it, when its role is deleted.
      */
-    instanceRoleId: uuid('instance_role_id')
-      .notNull()
-      .references(() => roles.id, { onDelete: 'restrict' }),
+    instanceRoleId: uuid('instance_role_id').references(() => roles.id, { onDelete: 'set null' }),
     /** Toppo: set while an administrator has deactivated the account. */
     deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
     /**
@@ -50,6 +49,11 @@ export const users = pgTable(
     check(
       'users_deleted_are_deactivated',
       sql`${table.deletedAt} is null or ${table.deactivatedAt} is not null`,
+    ),
+    // Deleting a role someone still holds fails here, whatever the code checked before.
+    check(
+      'users_role_unless_deleted',
+      sql`${table.instanceRoleId} is not null or ${table.deletedAt} is not null`,
     ),
     index('users_instance_role_id_idx').on(table.instanceRoleId),
   ],

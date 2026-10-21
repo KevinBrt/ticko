@@ -1,4 +1,3 @@
-import type { RoleAudience } from '@toppo/shared';
 import {
   ALL_PERMISSIONS,
   type InstancePermission,
@@ -6,19 +5,12 @@ import {
   isPermission,
   PERMISSIONS,
   type Permission,
-  type PermissionGrantee,
+  type PermissionDefinition,
 } from './catalog.ts';
-
-/** What each kind of role may be given; the system role has everything anyway. */
-const GRANTABLE_TO: Readonly<Record<RoleAudience, readonly PermissionGrantee[]>> = {
-  internal: ['anyone', 'internal'],
-  client: ['anyone'],
-};
 
 /** What decides the permissions a role grants. */
 export interface RoleGrants {
   grantsAll: boolean;
-  audience: RoleAudience;
   permissions: readonly string[];
 }
 
@@ -35,23 +27,22 @@ export function canAny(granted: readonly string[], permissions: readonly Permiss
   return permissions.some((permission) => can(granted, permission));
 }
 
-/** Whether a role for `audience` may be given `permission`; the system role has them all anyway. */
-export function canBeGranted(permission: Permission, audience: RoleAudience): boolean {
-  return GRANTABLE_TO[audience].includes(PERMISSIONS[permission].grantedTo);
+/** Whether a role may be given `permission`; the system role has them all anyway. */
+export function canBeGranted(permission: Permission): boolean {
+  const definition: PermissionDefinition = PERMISSIONS[permission];
+  return definition.systemOnly !== true;
 }
 
 /**
  * What a role really grants, from what is stored on it. The system role grants everything;
- * otherwise a permission the catalog no longer knows (its plugin was removed), or one this kind
- * of role may not be given (internal ones on a client role), grants nothing.
+ * otherwise a permission the catalog no longer knows (its plugin was removed), or one only the
+ * system role may hold, grants nothing.
  */
-export function permissionsOfRole({ grantsAll, audience, permissions }: RoleGrants): Permission[] {
+export function permissionsOfRole({ grantsAll, permissions }: RoleGrants): Permission[] {
   if (grantsAll) {
     return [...ALL_PERMISSIONS];
   }
-  return permissions
-    .filter(isPermission)
-    .filter((permission) => canBeGranted(permission, audience));
+  return permissions.filter(isPermission).filter(canBeGranted);
 }
 
 /** The permissions a member's role grants in the whole instance. */

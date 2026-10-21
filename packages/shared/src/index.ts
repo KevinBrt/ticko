@@ -42,9 +42,7 @@ export {
   membersResponseSchema,
 } from './members/members.ts';
 export {
-  ROLE_AUDIENCES,
   ROLE_COLORS,
-  type RoleAudience,
   type RoleBadge,
   type RoleColor,
   roleBadgeSchema,

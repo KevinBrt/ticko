@@ -25,7 +25,8 @@ _Done when no route answers without a verified permission._
 
 **Roles model**
 
-- [x] One list of roles for the instance and projects (migrations 0004 to 0007): a locked system role (Administrator) with every permission, client roles that can never administer, badge colors from the palette.
+- [x] One list of roles for the instance and projects (migrations 0004 to 0007): a locked system role (Administrator) with every permission, badge colors from the palette.
+- [x] A role is just a role: no internal or client kind (migration 0010). A role can be deleted once nobody holds it; history keeps no reference to it (migration 0011).
 
 **Members** (`features/users`)
 
@@ -38,8 +39,8 @@ _Done when no route answers without a verified permission._
 
 **Roles and permissions** (`features/roles`)
 
-- [ ] Matrix after the mockups: roles in columns, permissions by section in rows, switches; the system role locked; switches a client role may not have disabled; "See issues" as all or own; unsaved changes bar, saved in one transaction.
-- [ ] Create a role (name, internal or client, color), rename it, delete it while nobody holds it.
+- [ ] Matrix after the mockups: roles in columns, permissions by section in rows, switches; the system role locked; "See issues" as none, own or all; unsaved changes bar, saved in one transaction; one role at a time on phones.
+- [ ] Create a role (name, color), rename it, delete it while nobody holds it (members, pending invitations).
 
 **Account**
 

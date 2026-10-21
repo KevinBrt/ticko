@@ -69,7 +69,6 @@ describe('initial data and constraints', () => {
       .select({
         id: roles.id,
         name: roles.name,
-        audience: roles.audience,
         grantsAll: roles.grantsAll,
         color: roles.color,
         permissions: roles.permissions,
@@ -78,10 +77,9 @@ describe('initial data and constraints', () => {
 
     const byId = (left: { id: string }, right: { id: string }) => left.id.localeCompare(right.id);
     expect(seeded.sort(byId)).toStrictEqual(
-      DEFAULT_ROLES.map(({ id, name, audience, grantsAll, color, permissions }) => ({
+      DEFAULT_ROLES.map(({ id, name, grantsAll, color, permissions }) => ({
         id,
         name,
-        audience,
         grantsAll,
         color,
         permissions: [...permissions],
@@ -146,12 +144,7 @@ describe('initial data and constraints', () => {
     await expect(database.db.insert(roles).values({ name: 'Reporter' })).resolves.toBeDefined();
   });
 
-  it('refuses an unknown audience or color', async () => {
-    await expect(
-      database.db.execute(
-        sql`insert into roles (id, name, audience) values (${uuidv7()}, 'X', 'everyone')`,
-      ),
-    ).rejects.toThrow();
+  it('refuses an unknown color', async () => {
     await expect(
       database.db.execute(
         sql`insert into roles (id, name, color) values (${uuidv7()}, 'Y', '#f00')`,
@@ -159,36 +152,106 @@ describe('initial data and constraints', () => {
     ).rejects.toThrow();
   });
 
-  it('keeps a single system role, never a client one', async () => {
+  it('keeps a single system role', async () => {
     await expect(
       database.db.insert(roles).values({ name: 'Second system role', grantsAll: true }),
     ).rejects.toThrow();
-    await database.db
-      .update(roles)
-      .set({ grantsAll: false })
-      .where(eq(roles.id, DEFAULT_ROLE_IDS.administrator));
-    await expect(
-      database.db
-        .insert(roles)
-        .values({ name: 'Client system role', grantsAll: true, audience: 'client' }),
-    ).rejects.toThrow();
-    await database.db
-      .update(roles)
-      .set({ grantsAll: true })
-      .where(eq(roles.id, DEFAULT_ROLE_IDS.administrator));
   });
 
-  it('refuses to delete a role still granted to a user', async () => {
+  it('refuses to delete a role a member still holds, even a deactivated one', async () => {
     await database.db.insert(users).values({
       name: 'Grace',
       email: `grace-${uuidv7()}@example.com`,
       instanceRoleId: DEFAULT_ROLE_IDS.requester,
+      deactivatedAt: new Date(),
     });
 
     await expect(
       database.db.delete(roles).where(eq(roles.id, DEFAULT_ROLE_IDS.requester)),
     ).rejects.toThrow();
   });
+
+  it('refuses to delete a role a pending invitation still gives', async () => {
+    const [role] = await database.db
+      .insert(roles)
+      .values({ name: `Invited ${uuidv7()}` })
+      .returning({ id: roles.id });
+    const roleId = role?.id ?? '';
+    await database.db.insert(invitations).values({
+      email: `pending-${uuidv7()}@example.com`,
+      roleId,
+      tokenHash: uuidv7(),
+      invitedById: await createInviter(),
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await expect(database.db.delete(roles).where(eq(roles.id, roleId))).rejects.toThrow();
+  });
+
+  it('deletes a role left only in history, clearing it there', async () => {
+    const [role] = await database.db
+      .insert(roles)
+      .values({ name: `Former ${uuidv7()}` })
+      .returning({ id: roles.id });
+    const roleId = role?.id ?? '';
+    const [deleted] = await database.db
+      .insert(users)
+      .values({
+        name: '',
+        email: `deleted-${uuidv7()}@deleted.invalid`,
+        instanceRoleId: roleId,
+        deactivatedAt: new Date(),
+        deletedAt: new Date(),
+      })
+      .returning({ id: users.id });
+    const [accepted] = await database.db
+      .insert(invitations)
+      .values({
+        email: `accepted-${uuidv7()}@example.com`,
+        roleId,
+        tokenHash: uuidv7(),
+        invitedById: await createInviter(),
+        expiresAt: new Date(Date.now() + 60_000),
+        acceptedAt: new Date(),
+      })
+      .returning({ id: invitations.id });
+
+    await database.db.delete(roles).where(eq(roles.id, roleId));
+
+    const [user] = await database.db
+      .select({ roleId: users.instanceRoleId })
+      .from(users)
+      .where(eq(users.id, deleted?.id ?? ''));
+    const [invitation] = await database.db
+      .select({ roleId: invitations.roleId })
+      .from(invitations)
+      .where(eq(invitations.id, accepted?.id ?? ''));
+    expect(user?.roleId).toBeNull();
+    expect(invitation?.roleId).toBeNull();
+  });
+
+  it('refuses a pending invitation without a role', async () => {
+    await expect(
+      database.db.insert(invitations).values({
+        email: `nobody-${uuidv7()}@example.com`,
+        tokenHash: uuidv7(),
+        invitedById: await createInviter(),
+        expiresAt: new Date(Date.now() + 60_000),
+      }),
+    ).rejects.toThrow();
+  });
+
+  async function createInviter(): Promise<string> {
+    const [user] = await database.db
+      .insert(users)
+      .values({
+        name: 'Inviter',
+        email: `inviter-${uuidv7()}@example.com`,
+        instanceRoleId: DEFAULT_ROLE_IDS.administrator,
+      })
+      .returning({ id: users.id });
+    return user?.id ?? '';
+  }
 
   it('keeps one pending invitation per address, and expiries after creation', async () => {
     const [inviter] = await database.db

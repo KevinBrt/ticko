@@ -19,7 +19,7 @@ export {
   PERMISSION_SECTIONS,
   PERMISSIONS,
   type Permission,
-  type PermissionGrantee,
+  type PermissionDefinition,
   type PermissionScope,
   type PermissionSection,
 } from './permissions/catalog.ts';
