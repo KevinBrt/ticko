@@ -7,7 +7,7 @@ import { resolveSecret } from './secret.ts';
 let dataDir: string;
 
 beforeEach(() => {
-  dataDir = join(mkdtempSync(join(tmpdir(), 'ticko-secret-')), 'data');
+  dataDir = join(mkdtempSync(join(tmpdir(), 'toppo-secret-')), 'data');
 });
 
 afterEach(() => {

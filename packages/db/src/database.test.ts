@@ -1,4 +1,4 @@
-import { createTestDatabase, type TestDatabase } from '@ticko/testing';
+import { createTestDatabase, type TestDatabase } from '@toppo/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from './database.ts';
 
@@ -21,7 +21,7 @@ describe('createDatabase (PostgreSQL)', () => {
   });
 
   it('rejects a ping when the server is unreachable', async () => {
-    const unreachable = createDatabase({ url: 'postgres://ticko:ticko@127.0.0.1:1/ticko' });
+    const unreachable = createDatabase({ url: 'postgres://toppo:toppo@127.0.0.1:1/toppo' });
     try {
       await expect(unreachable.ping()).rejects.toThrow();
     } finally {

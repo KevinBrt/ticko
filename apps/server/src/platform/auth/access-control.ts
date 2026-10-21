@@ -1,4 +1,4 @@
-import type { CurrentUser } from '@ticko/shared';
+import type { CurrentUser } from '@toppo/shared';
 import type { FastifyInstance } from 'fastify';
 import { HttpError } from '../http/http-error.ts';
 import type { Auth } from './auth.ts';

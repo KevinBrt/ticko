@@ -1,6 +1,6 @@
-import { DEFAULT_ROLE_IDS, DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from '@ticko/core';
-import { schema, uuidv7 } from '@ticko/db';
-import { type SetupResponse, setupRequestSchema } from '@ticko/shared';
+import { DEFAULT_ROLE_IDS, DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from '@toppo/core';
+import { schema, uuidv7 } from '@toppo/db';
+import { type SetupResponse, setupRequestSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';

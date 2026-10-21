@@ -1,4 +1,4 @@
-import { apiErrorSchema } from '@ticko/shared';
+import { apiErrorSchema } from '@toppo/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -50,7 +50,7 @@ describe('security headers', () => {
     expect(response.headers['x-powered-by']).toBeUndefined();
   });
 
-  it('does not force HTTPS when Ticko is served over plain HTTP', async () => {
+  it('does not force HTTPS when Toppo is served over plain HTTP', async () => {
     app = await buildTestApp({ publicUrl: 'http://192.168.1.10:3000' });
     const response = await app.inject({ method: 'GET', url: '/health' });
 
@@ -59,7 +59,7 @@ describe('security headers', () => {
   });
 
   it('enables HSTS and request upgrades behind HTTPS', async () => {
-    app = await buildTestApp({ publicUrl: 'https://ticko.example.com' });
+    app = await buildTestApp({ publicUrl: 'https://toppo.example.com' });
     const response = await app.inject({ method: 'GET', url: '/health' });
 
     expect(response.headers['strict-transport-security']).toBe(
@@ -189,7 +189,7 @@ describe('with a built web app', () => {
       expect(response.statusCode).toBe(200);
       expect(response.headers['content-type']).toContain('text/html');
       expect(response.headers['cache-control']).toBe('no-cache');
-      expect(response.body).toContain('<title>Ticko</title>');
+      expect(response.body).toContain('<title>Toppo</title>');
     },
   );
 
@@ -200,7 +200,7 @@ describe('with a built web app', () => {
     const nonceOf = (body: string) => /nonce="([0-9a-f]{32})"/.exec(body)?.[1];
     const nonce = nonceOf(first.body);
     expect(nonce).toBeDefined();
-    expect(first.body).not.toContain('__TICKO_CSP_NONCE__');
+    expect(first.body).not.toContain('__TOPPO_CSP_NONCE__');
     expect(first.headers['content-security-policy']).toContain(`style-src 'self' 'nonce-${nonce}'`);
     expect(nonceOf(second.body)).not.toBe(nonce);
   });
@@ -241,7 +241,7 @@ describe('with a built web app', () => {
     expect(response.body).not.toContain('"name"');
     if (response.statusCode === 200) {
       // Only the SPA fallback may answer 200, never a file from outside assets/.
-      expect(response.body).toContain('<title>Ticko</title>');
+      expect(response.body).toContain('<title>Toppo</title>');
     }
   });
 

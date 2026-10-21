@@ -1,4 +1,4 @@
-import { apiErrorSchema } from '@ticko/shared';
+import { apiErrorSchema } from '@toppo/shared';
 import { z } from 'zod';
 
 /** A failed API call, with the stable error code the server or Better Auth returned. */
@@ -14,7 +14,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-/** Better Auth answers errors as `{ code, message }` rather than Ticko's envelope. */
+/** Better Auth answers errors as `{ code, message }` rather than Toppo's envelope. */
 const betterAuthErrorSchema = z.object({ code: z.string(), message: z.string() });
 
 export interface ApiRequestOptions<T> {
@@ -54,9 +54,9 @@ function toApiRequestError(status: number, payload: unknown): ApiRequestError {
   if (status === 429) {
     return new ApiRequestError(status, 'TOO_MANY_REQUESTS', 'Too many requests');
   }
-  const ticko = apiErrorSchema.safeParse(payload);
-  if (ticko.success) {
-    return new ApiRequestError(status, ticko.data.error.code, ticko.data.error.message);
+  const toppo = apiErrorSchema.safeParse(payload);
+  if (toppo.success) {
+    return new ApiRequestError(status, toppo.data.error.code, toppo.data.error.message);
   }
   const betterAuth = betterAuthErrorSchema.safeParse(payload);
   if (betterAuth.success) {

@@ -2,9 +2,9 @@ import type { Messages } from './i18n.types.ts';
 
 export const fr: Messages = {
   app: {
-    name: 'Ticko',
+    name: 'Toppo',
     skipToContent: 'Aller au contenu',
-    pageTitle: '{page} · Ticko',
+    pageTitle: '{page} · Toppo',
   },
   nav: {
     label: 'Navigation principale',
@@ -42,11 +42,11 @@ export const fr: Messages = {
     backToIssues: 'Retour aux tickets',
   },
   setup: {
-    title: 'Installer Ticko',
+    title: 'Installer Toppo',
     intro: 'Créez le premier compte administrateur. Vous inviterez votre équipe ensuite.',
     setupCode: 'Code d’installation',
     setupCodeHelp:
-      'Affiché dans les logs du serveur au démarrage. Commande : docker compose logs ticko',
+      'Affiché dans les logs du serveur au démarrage. Commande : docker compose logs toppo',
     adminName: 'Votre nom',
     email: 'Adresse e-mail',
     password: 'Mot de passe',
@@ -57,7 +57,7 @@ export const fr: Messages = {
     alreadyCompleted: 'Cette instance est déjà installée. Connectez-vous.',
   },
   login: {
-    title: 'Connexion à Ticko',
+    title: 'Connexion à Toppo',
     email: 'Adresse e-mail',
     password: 'Mot de passe',
     submit: 'Se connecter',
@@ -76,7 +76,7 @@ export const fr: Messages = {
     invalid: 'Cette valeur n’est pas valide.',
   },
   errors: {
-    network: 'Ticko est injoignable. Vérifiez votre connexion puis réessayez.',
+    network: 'Toppo est injoignable. Vérifiez votre connexion puis réessayez.',
     tooManyRequests: 'Trop de tentatives. Patientez une minute puis réessayez.',
     unexpected: 'Une erreur est survenue. Veuillez réessayer.',
   },

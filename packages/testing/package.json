@@ -1,8 +1,8 @@
 {
-  "name": "@ticko/testing",
+  "name": "@toppo/testing",
   "version": "0.0.0",
   "private": true,
-  "description": "Test helpers shared across Ticko packages: database setup and data factories.",
+  "description": "Test helpers shared across Toppo packages: database setup and data factories.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {

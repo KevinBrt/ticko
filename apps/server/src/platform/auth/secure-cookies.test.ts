@@ -5,7 +5,7 @@ import { buildTestApp, setupTestDatabase, TEST_SETUP_CODE } from '../../test-hel
 const context = setupTestDatabase();
 let app: FastifyInstance;
 
-const ORIGIN = 'https://ticko.example.com';
+const ORIGIN = 'https://toppo.example.com';
 const EMAIL = 'ada@example.com';
 const PASSWORD = 'correct horse battery staple';
 
@@ -34,7 +34,7 @@ describe('behind HTTPS', () => {
 
     expect(response.statusCode).toBe(200);
     const session = response.cookies.find((cookie) => cookie.name.endsWith('session_token'));
-    expect(session?.name).toBe('__Secure-ticko.session_token');
+    expect(session?.name).toBe('__Secure-toppo.session_token');
     expect(session).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax' });
   });
 });

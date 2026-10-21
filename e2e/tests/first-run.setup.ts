@@ -7,7 +7,7 @@ test.use({ locale: 'en-US' });
 test('a fresh instance leads to an administrator who is signed in', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/setup$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Set up Ticko' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Set up Toppo' })).toBeVisible();
   await expectAccessible(page);
 
   await page.getByLabel('Setup code').fill(SETUP_CODE);

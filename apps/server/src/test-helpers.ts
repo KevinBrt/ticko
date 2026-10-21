@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDatabase, type Database } from '@ticko/db';
-import { CSP_NONCE_PLACEHOLDER } from '@ticko/shared';
-import { createTestDatabase, type TestDatabase } from '@ticko/testing';
+import { createDatabase, type Database } from '@toppo/db';
+import { CSP_NONCE_PLACEHOLDER } from '@toppo/shared';
+import { createTestDatabase, type TestDatabase } from '@toppo/testing';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll } from 'vitest';
 import { buildApp } from './app.ts';
@@ -21,10 +21,10 @@ export interface TestAppOptions {
 }
 
 export function buildTestApp({
-  database = createDatabase({ url: 'postgres://ticko:ticko@127.0.0.1:1/unused' }),
+  database = createDatabase({ url: 'postgres://toppo:toppo@127.0.0.1:1/unused' }),
   ping,
   publicUrl = 'http://localhost:3000',
-  webRoot = join(tmpdir(), 'ticko-no-web-root'),
+  webRoot = join(tmpdir(), 'toppo-no-web-root'),
 }: TestAppOptions = {}): Promise<FastifyInstance> {
   const url = new URL(publicUrl);
   return buildApp({
@@ -68,13 +68,13 @@ export function cookieHeader(response: LightMyRequestResponse): string {
 
 /** A throwaway compiled web app: `index.html`, a hashed asset and a root file. */
 export function createWebRoot(): { root: string; cleanup: () => void } {
-  const root = mkdtempSync(join(tmpdir(), 'ticko-web-'));
+  const root = mkdtempSync(join(tmpdir(), 'toppo-web-'));
   mkdirSync(join(root, 'assets'));
   writeFileSync(
     join(root, 'index.html'),
-    `<!doctype html><meta property="csp-nonce" nonce="${CSP_NONCE_PLACEHOLDER}"><title>Ticko</title>`,
+    `<!doctype html><meta property="csp-nonce" nonce="${CSP_NONCE_PLACEHOLDER}"><title>Toppo</title>`,
   );
-  writeFileSync(join(root, 'assets', 'app-abc123.js'), 'console.log("ticko")');
+  writeFileSync(join(root, 'assets', 'app-abc123.js'), 'console.log("toppo")');
   writeFileSync(join(root, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }

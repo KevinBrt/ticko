@@ -1,4 +1,4 @@
-import { type MeResponse, meResponseSchema } from '@ticko/shared';
+import { type MeResponse, meResponseSchema } from '@toppo/shared';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from '../http/zod.ts';
 import type { Auth } from './auth.ts';

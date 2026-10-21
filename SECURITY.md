@@ -4,7 +4,7 @@
 
 **Please do not report security issues in public issues, discussions or pull requests.**
 
-Report them privately through GitHub: [Report a vulnerability](https://github.com/KevinBrt/ticko/security/advisories/new).
+Report them privately through GitHub: [Report a vulnerability](https://github.com/KevinBrt/toppo/security/advisories/new).
 
 Include what you can: affected version or commit, steps to reproduce, impact, and a proof of concept if you have one.
 
@@ -16,14 +16,14 @@ What to expect:
 
 ## Supported versions
 
-Ticko is in early development. Until 1.0, only the latest release receives security fixes. Run a pinned version and upgrade when an advisory is published.
+Toppo is in early development. Until 1.0, only the latest release receives security fixes. Run a pinned version and upgrade when an advisory is published.
 
 ## Scope
 
-In scope: the Ticko server, web app, Docker image and official plugins in this repository.
+In scope: the Toppo server, web app, Docker image and official plugins in this repository.
 
 Out of scope: vulnerabilities in your own infrastructure (reverse proxy, TLS, host), third-party plugins, and findings that require an already compromised admin account or host.
 
-## How Ticko is hardened
+## How Toppo is hardened
 
 See the Security section of [ARCHITECTURE.md](ARCHITECTURE.md#security): strict CSP, route contracts enforced at boot, validated inputs and outputs, distroless non-root image, pinned and audited dependencies.

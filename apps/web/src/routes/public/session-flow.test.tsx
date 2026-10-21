@@ -16,7 +16,7 @@ describe('route guards', () => {
     const { screen, router } = await renderApp({ path: '/issues' });
 
     await expect
-      .element(screen.getByRole('heading', { level: 1, name: 'Set up Ticko' }))
+      .element(screen.getByRole('heading', { level: 1, name: 'Set up Toppo' }))
       .toBeVisible();
     expect(router.state.location.pathname).toBe('/setup');
   });
@@ -26,7 +26,7 @@ describe('route guards', () => {
     const { screen, router } = await renderApp({ path: '/projects' });
 
     await expect
-      .element(screen.getByRole('heading', { level: 1, name: 'Sign in to Ticko' }))
+      .element(screen.getByRole('heading', { level: 1, name: 'Sign in to Toppo' }))
       .toBeVisible();
     expect(router.state.location.pathname).toBe('/login');
     expect(router.state.location.search).toEqual({ redirect: '/projects' });
@@ -104,7 +104,7 @@ describe('signing out', () => {
     await screen.getByRole('button', { name: 'Sign out' }).click();
 
     await expect
-      .element(screen.getByRole('heading', { level: 1, name: 'Sign in to Ticko' }))
+      .element(screen.getByRole('heading', { level: 1, name: 'Sign in to Toppo' }))
       .toBeVisible();
     expect(router.state.location.pathname).toBe('/login');
     expect(server.state.user).toBeNull();

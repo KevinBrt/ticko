@@ -1,5 +1,5 @@
 import { createRoute } from '@tanstack/react-router';
-import { EmptyState } from '@ticko/ui';
+import { EmptyState } from '@toppo/ui';
 import { UserIcon } from 'lucide-react';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
 import { Page } from '../../../shared/layout/page.tsx';

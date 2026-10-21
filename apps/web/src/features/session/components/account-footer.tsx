@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Avatar, Button } from '@ticko/ui';
+import { Avatar, Button } from '@toppo/ui';
 import { LogOutIcon } from 'lucide-react';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
 import { Session } from '../api/session.api.ts';

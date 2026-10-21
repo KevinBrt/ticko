@@ -1,5 +1,5 @@
 {
-  "name": "@ticko/shared",
+  "name": "@toppo/shared",
   "version": "0.0.0",
   "private": true,
   "description": "Zod schemas and types shared by the server, the web app and plugins.",

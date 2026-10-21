@@ -1,6 +1,6 @@
-import { DEFAULT_ROLE_IDS } from '@ticko/core';
-import { schema } from '@ticko/db';
-import { apiErrorSchema } from '@ticko/shared';
+import { DEFAULT_ROLE_IDS } from '@toppo/core';
+import { schema } from '@toppo/db';
+import { apiErrorSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { beforeAll, describe, expect, it } from 'vitest';

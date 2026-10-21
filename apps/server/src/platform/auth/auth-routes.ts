@@ -3,7 +3,7 @@ import { AUTH_BASE_PATH, type Auth } from './auth.ts';
 import { sendFetchResponse, toFetchRequest } from './fetch-bridge.ts';
 
 /**
- * Better Auth endpoints Ticko exposes. Everything else Better Auth offers (sign-up, password
+ * Better Auth endpoints Toppo exposes. Everything else Better Auth offers (sign-up, password
  * reset by email, account deletion…) stays unreachable until a feature needs it.
  */
 const EXPOSED_ENDPOINTS: readonly { method: HTTPMethods; path: string }[] = [

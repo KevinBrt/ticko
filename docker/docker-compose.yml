@@ -1,4 +1,4 @@
-# Ticko: self-hosted issue tracker.
+# Toppo: self-hosted issue tracker.
 #
 #   1. Create a .env file next to this one:
 #        echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" > .env
@@ -7,23 +7,23 @@
 #   3. Open http://localhost:3000
 #
 # Every setting is documented in .env.example.
-name: ticko
+name: toppo
 
 services:
-  ticko:
-    image: ghcr.io/kevinbrt/ticko:${IMAGE_TAG:-latest}
+  toppo:
+    image: ghcr.io/kevinbrt/toppo:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-3000}:3000"
     environment:
-      TICKO_URL: ${TICKO_URL:-http://localhost:3000}
-      TICKO_DATABASE_URL: postgres://ticko:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/ticko
-      TICKO_TRUST_PROXY: ${TICKO_TRUST_PROXY:-false}
-      TICKO_LOG_LEVEL: ${TICKO_LOG_LEVEL:-info}
-      TICKO_SECRET: ${TICKO_SECRET:-}
-      TICKO_SETUP_CODE: ${TICKO_SETUP_CODE:-}
+      TOPPO_URL: ${TOPPO_URL:-http://localhost:3000}
+      TOPPO_DATABASE_URL: postgres://toppo:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/toppo
+      TOPPO_TRUST_PROXY: ${TOPPO_TRUST_PROXY:-false}
+      TOPPO_LOG_LEVEL: ${TOPPO_LOG_LEVEL:-info}
+      TOPPO_SECRET: ${TOPPO_SECRET:-}
+      TOPPO_SETUP_CODE: ${TOPPO_SETUP_CODE:-}
     volumes:
-      - ticko-data:/data
+      - toppo-data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -35,18 +35,18 @@ services:
     cap_drop:
       - ALL
 
-  # Already running PostgreSQL 16 or newer? Remove this service and point TICKO_DATABASE_URL at it.
+  # Already running PostgreSQL 16 or newer? Remove this service and point TOPPO_DATABASE_URL at it.
   db:
     image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ticko
+      POSTGRES_USER: toppo
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ticko
+      POSTGRES_DB: toppo
     volumes:
-      - ticko-db:/var/lib/postgresql
+      - toppo-db:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ticko -d ticko"]
+      test: ["CMD-SHELL", "pg_isready -U toppo -d toppo"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -54,5 +54,5 @@ services:
       - no-new-privileges:true
 
 volumes:
-  ticko-data:
-  ticko-db:
+  toppo-data:
+  toppo-db:

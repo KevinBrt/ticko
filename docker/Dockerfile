@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# Ticko production image: one container serving the API and the compiled web app.
-# Build from the repository root:  docker build -f docker/Dockerfile -t ticko .
+# Toppo production image: one container serving the API and the compiled web app.
+# Build from the repository root:  docker build -f docker/Dockerfile -t toppo .
 #
 # Base images are pinned by digest; Dependabot proposes updates.
 ARG NODE_IMAGE=node:24.22.0-trixie-slim@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315
@@ -14,8 +14,8 @@ FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS prune
 WORKDIR /src
 RUN npm install --global --ignore-scripts turbo@2.11.9
 COPY . .
-RUN turbo prune @ticko/server @ticko/web --docker --out-dir /out/all \
- && turbo prune @ticko/server --docker --out-dir /out/server
+RUN turbo prune @toppo/server @toppo/web --docker --out-dir /out/all \
+ && turbo prune @toppo/server --docker --out-dir /out/server
 
 # ---------------------------------------------------------------------------------------------
 # Build JavaScript once, on the build machine's architecture: the output is platform-independent.
@@ -28,7 +28,7 @@ RUN npm ci
 COPY --from=prune /out/all/full/ ./
 # Root files that `turbo prune` does not carry over.
 COPY tsconfig.base.json ./
-RUN npx turbo run build --filter=@ticko/server --filter=@ticko/web \
+RUN npx turbo run build --filter=@toppo/server --filter=@toppo/web \
  && mkdir -p /data-skeleton
 
 # ---------------------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ COPY .npmrc ./
 COPY --from=prune /out/server/json/ ./
 RUN npm ci --omit=dev \
  # Workspace packages are bundled into the server; their symlinks would dangle.
- && rm -rf node_modules/@ticko \
+ && rm -rf node_modules/@toppo \
  # npm may keep some server dependencies next to the server instead of hoisting them.
  && mkdir -p apps/server/node_modules
 
@@ -48,9 +48,9 @@ RUN npm ci --omit=dev \
 # Runtime: distroless (no shell, no package manager), non-root user 65532.
 FROM ${RUNTIME_IMAGE} AS runtime
 ARG VERSION=dev
-LABEL org.opencontainers.image.title="Ticko" \
+LABEL org.opencontainers.image.title="Toppo" \
       org.opencontainers.image.description="Modern issue tracking. Self-hosted. Free forever." \
-      org.opencontainers.image.source="https://github.com/KevinBrt/ticko" \
+      org.opencontainers.image.source="https://github.com/KevinBrt/toppo" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.version="${VERSION}"
 

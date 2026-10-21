@@ -32,7 +32,7 @@ describe('sign-in rate limit', () => {
           origin: 'http://localhost:3000',
           // A different forged address on every attempt must not reset the counter.
           'x-forwarded-for': `203.0.113.${attempt}`,
-          'x-ticko-client-ip': `198.51.100.${attempt}`,
+          'x-toppo-client-ip': `198.51.100.${attempt}`,
         },
         body: { email: EMAIL, password: `guess number ${attempt}!` },
       });

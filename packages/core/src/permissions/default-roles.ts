@@ -1,4 +1,4 @@
-import type { Locale } from '@ticko/shared';
+import type { Locale } from '@toppo/shared';
 import type { Permission, PermissionScope } from './catalog.ts';
 
 /** The three profiles a fresh instance offers, at instance and at project level. */

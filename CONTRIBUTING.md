@@ -1,6 +1,6 @@
-# Contributing to Ticko
+# Contributing to Toppo
 
-Thanks for helping! Ticko aims to stay maintainable by a small team, so contributions follow a few strict rules. They exist to keep the code clean, secure and pleasant to work on.
+Thanks for helping! Toppo aims to stay maintainable by a small team, so contributions follow a few strict rules. They exist to keep the code clean, secure and pleasant to work on.
 
 ## Before you start
 

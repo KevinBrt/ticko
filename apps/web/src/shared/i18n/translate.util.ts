@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from '@ticko/shared';
+import { DEFAULT_LOCALE, type Locale, SUPPORTED_LOCALES } from '@toppo/shared';
 import { en } from './en.messages.ts';
 import { fr } from './fr.messages.ts';
 import type { Messages, Translate } from './i18n.types.ts';

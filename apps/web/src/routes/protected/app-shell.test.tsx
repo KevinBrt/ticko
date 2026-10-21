@@ -47,7 +47,7 @@ describe('AppShell on desktop', () => {
     await screen.getByRole('link', { name: 'Settings' }).click();
 
     await expect.element(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-    expect(document.title).toBe('Settings · Ticko');
+    expect(document.title).toBe('Settings · Toppo');
   });
 
   it('offers a skip link to the main content', async () => {

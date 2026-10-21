@@ -1,15 +1,15 @@
-# Ticko architecture
+# Toppo architecture
 
 > Modern issue tracking. Self-hosted. Free forever, no strings attached.
 
-Ticko is a modern, self-hosted, forever-free issue tracker in the spirit of YouTrack, Mantis or Taiga. This document records the vision, the technical choices and every decision that shapes the code. Keep it current: the next contributor (human or Claude Code) starts from it.
+Toppo is a modern, self-hosted, forever-free issue tracker in the spirit of YouTrack, Mantis or Taiga. This document records the vision, the technical choices and every decision that shapes the code. Keep it current: the next contributor (human or Claude Code) starts from it.
 
 ## Principles
 
 Read these before any decision.
 
 1. **One edition, everything included.** No user or guest limit, no paid SSO, no feature reserved for a closed version.
-2. **One-command install.** `docker compose up` starts Ticko and its PostgreSQL.
+2. **One-command install.** `docker compose up` starts Toppo and its PostgreSQL.
 3. **Plugin-first.** The core stays small; integrations (GitHub, Slack, webhooks…) are plugins, official ones included. The plugin system lands right after v0.1.
 4. **Fast and beautiful.** Fluid UI, keyboard shortcuts, command palette, responsive down to phones.
 5. **Maintainable by one person.** Few dependencies, strict conventions, tests at every step.
@@ -69,7 +69,7 @@ Rule: besides PostgreSQL, no new service to host (Redis, Elasticsearch…) witho
 The server serves both the API and the compiled front end: one Docker image, one port.
 
 ```
-ticko/
+toppo/
 ├── apps/
 │   ├── server/        # Fastify: platform/ (http, auth, cqrs…) + features/ (routes, commands, queries)
 │   └── web/           # React SPA (Vite): routes/, features/, shared/
@@ -79,7 +79,7 @@ ticko/
 │   ├── shared/        # Zod schemas and types shared by front, back and plugins
 │   ├── ui/            # design tokens and accessible components
 │   ├── testing/       # test database setup, data factories
-│   └── plugin-sdk/    # public plugin API, after v0.1 (npm: @ticko/plugin-sdk, MIT)
+│   └── plugin-sdk/    # public plugin API, after v0.1 (npm: @toppo/plugin-sdk, MIT)
 ├── plugins/           # official plugins (webhooks, github), after v0.1
 ├── e2e/               # Playwright tests, run against a build or the Docker image
 ├── scripts/           # repository guards run in CI (conventions, dependencies)
@@ -93,7 +93,7 @@ Dependency rule: `core` depends on nothing but `shared`. Server, front end and p
 
 ## Core data model
 
-One Ticko instance = one organization; projects live inside it. No multiple workspaces in v0.1. Every table has `id` (UUID v7), `created_at` and `updated_at`.
+One Toppo instance = one organization; projects live inside it. No multiple workspaces in v0.1. Every table has `id` (UUID v7), `created_at` and `updated_at`.
 
 > **Status:** `users`, `sessions`, `accounts`, `verifications`, `rate_limits`, `roles` and `instance_settings` exist (migrations `0000_init` to `0002_drop_instance_name`). The other tables are a proposal, reviewed before their own migration: the schema is the hardest part to undo.
 
@@ -187,22 +187,22 @@ The three right-hand columns are only defaults: the admin changes them or create
 
 Plugins arrive right after v0.1, but the core prepares for them now: every change goes through `activities` and the job queue, and no integration is hard-coded. The contract below is the target.
 
-A plugin is an npm package (or a folder in `plugins/`) exporting `definePlugin()` and declaring what it may do. It is Ticko's public contract: designed by hand, never generated.
+A plugin is an npm package (or a folder in `plugins/`) exporting `definePlugin()` and declaring what it may do. It is Toppo's public contract: designed by hand, never generated.
 
 The core writes the issue and its activity in one transaction; the job queue then dispatches the event to notifications and plugins, which never block the UI.
 
-**Manifest** (`package.json`, `ticko` key): `id`, `name`, `version`, `apiVersion` (e.g. `^1.0`), `permissions` (e.g. `issue.read`, `issue.update`, `http.outbound`), Zod schema of the settings.
+**Manifest** (`package.json`, `toppo` key): `id`, `name`, `version`, `apiVersion` (e.g. `^1.0`), `permissions` (e.g. `issue.read`, `issue.update`, `http.outbound`), Zod schema of the settings.
 
 **v1 extension points**
 
 1. **Event hooks**: `issue.created`, `issue.updated`, `issue.status_changed`, `issue.assigned`, `comment.created`. Fed by `activities`, asynchronous through the job queue: a slow plugin never blocks the UI.
 2. **HTTP routes** mounted under `/api/plugins/<id>/…`, for inbound webhooks (GitHub, Sentry…).
-3. **Limited Ticko API**: read and update issues and comments, within the declared permissions.
+3. **Limited Toppo API**: read and update issues and comments, within the declared permissions.
 4. **Settings**: form generated from the Zod schema in the admin screen.
 5. **Declarative UI contributions**: actions in an issue menu, links and small sidebar panels, described as JSON. No arbitrary front-end code in v1, for security and stability.
 
 ```ts
-import { definePlugin, z } from "@ticko/plugin-sdk";
+import { definePlugin, z } from "@toppo/plugin-sdk";
 
 export default definePlugin({
   settings: z.object({ webhookUrl: z.string().url() }),
@@ -218,21 +218,21 @@ export default definePlugin({
 
 **Contract rules**
 
-- `apiVersion` is semver: Ticko refuses to load an incompatible plugin, with a clear message.
+- `apiVersion` is semver: Toppo refuses to load an incompatible plugin, with a clear message.
 - Nothing breaks in a minor version; any break = new major API version and a deprecation period.
 - In v1, plugins run in the server process and are installed by an admin (trusted). Isolation (worker threads) comes if the ecosystem grows.
 - Webhooks and the GitHub integration are written as plugins from day one: the best test of the SDK.
 
 ## Self-hosted installation
 
-Goal: from zero to a working Ticko in under 5 minutes, without reading docs. See `docs/self-hosting.md` and `docker/docker-compose.yml`.
+Goal: from zero to a working Toppo in under 5 minutes, without reading docs. See `docs/self-hosting.md` and `docker/docker-compose.yml`.
 
-- **One multi-arch image** (amd64 + arm64) on GitHub Container Registry: `ghcr.io/kevinbrt/ticko`. Tags: `X.Y.Z`, `X.Y`, `latest` on releases; `edge` and `sha-…` on every green `main`. SBOM and provenance attestations attached.
+- **One multi-arch image** (amd64 + arm64) on GitHub Container Registry: `ghcr.io/kevinbrt/toppo`. Tags: `X.Y.Z`, `X.Y`, `latest` on releases; `edge` and `sha-…` on every green `main`. SBOM and provenance attestations attached.
 - **Hardened runtime**: distroless, no shell, user 65532, read-only root filesystem, all capabilities dropped, `no-new-privileges`.
-- **Files in `/data`**: attachments and the secret key generated on first start (`secret.key`, mode 600; or `TICKO_SECRET`). The database lives in its own volume. Backup = `pg_dump` + a copy of `/data`.
-- **Automatic migrations** at startup, in one transaction, under a PostgreSQL advisory lock so that several starting instances never migrate twice; Ticko refuses to start if one fails.
-- **First-run wizard** in the browser: create the admin and name the instance. It requires a one-time **setup code printed in the server logs** (or preset with `TICKO_SETUP_CODE`), so a fresh instance exposed on a network cannot be claimed by a stranger. It closes for good once the first administrator exists. SMTP settings come with email notifications (step 4).
-- **Configuration through environment variables**, all prefixed `TICKO_`, validated at startup (unknown `TICKO_*` variables are rejected to catch typos), each readable from a file with the `_FILE` suffix (Docker secrets). Documented in `.env.example`.
+- **Files in `/data`**: attachments and the secret key generated on first start (`secret.key`, mode 600; or `TOPPO_SECRET`). The database lives in its own volume. Backup = `pg_dump` + a copy of `/data`.
+- **Automatic migrations** at startup, in one transaction, under a PostgreSQL advisory lock so that several starting instances never migrate twice; Toppo refuses to start if one fails.
+- **First-run wizard** in the browser: create the admin and name the instance. It requires a one-time **setup code printed in the server logs** (or preset with `TOPPO_SETUP_CODE`), so a fresh instance exposed on a network cannot be claimed by a stranger. It closes for good once the first administrator exists. SMTP settings come with email notifications (step 4).
+- **Configuration through environment variables**, all prefixed `TOPPO_`, validated at startup (unknown `TOPPO_*` variables are rejected to catch typos), each readable from a file with the `_FILE` suffix (Docker secrets). Documented in `.env.example`.
 - **`/health`** for Docker and reverse proxies: 200 when the database answers, 503 otherwise, no version or error details.
 
 ## UI/UX
@@ -247,7 +247,7 @@ Goal: from zero to a working Ticko in under 5 minutes, without reading docs. See
 
 ## Security
 
-- **CSP**: `default-src 'self'`, no inline script, no `unsafe-inline` or `unsafe-eval`, `frame-ancestors 'none'`. Runtime `<style>` tags (Radix scroll lock) are allowed through a per-request nonce: Vite writes a placeholder into `index.html`, the server replaces it on every page request and the app hands it to `get-nonce`. HSTS and `upgrade-insecure-requests` only when `TICKO_URL` is HTTPS, so plain-HTTP LAN installs keep working.
+- **CSP**: `default-src 'self'`, no inline script, no `unsafe-inline` or `unsafe-eval`, `frame-ancestors 'none'`. Runtime `<style>` tags (Radix scroll lock) are allowed through a per-request nonce: Vite writes a placeholder into `index.html`, the server replaces it on every page request and the app hands it to `get-nonce`. HSTS and `upgrade-insecure-requests` only when `TOPPO_URL` is HTTPS, so plain-HTTP LAN installs keep working.
 - **Route contracts** enforced at boot: access rule on every route (`public`, `authenticated`, permissions next), response schema on every `/api/` route. Responses are parsed through their schema, which strips undeclared fields. Access is checked before the body is parsed.
 - **Authentication** (Better Auth, email and password): passwords of 12 to 128 characters without composition rules, hashed with scrypt; sessions in an `HttpOnly`, `SameSite=Lax` cookie, `Secure` with the `__Secure-` prefix behind HTTPS; 30-day sliding sessions. Only sign-in, sign-out and session endpoints are exposed (allowlist); public sign-up is off. Sign-in is limited to 5 attempts per minute per client, keyed on the address Fastify resolves (Better Auth's default trust in `X-Forwarded-For` is overridden). Telemetry is off.
 - **Cross-site requests**: every state-changing request with a foreign `Origin` or a cross-site `Sec-Fetch-Site` is refused (CSRF, login CSRF included). After sign-in, the app only redirects to same-site paths.
@@ -302,12 +302,12 @@ The detailed task list of each step, the open questions and the watch list live 
 
 | Date       | Decision                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-20 | **License**: AGPL-3.0-only for the core; MIT for `@ticko/plugin-sdk` so anyone can write plugins, closed or open.                                                                                                                                                                                                                                                             |
+| 2026-10-20 | **License**: AGPL-3.0-only for the core; MIT for `@toppo/plugin-sdk` so anyone can write plugins, closed or open.                                                                                                                                                                                                                                                             |
 | 2026-10-20 | **Database**: PostgreSQL only (16+, 18 by default). One database to test, ready for every instance size.                                                                                                                                                                                                                                                                      |
-| 2026-10-20 | **Repository**: `github.com/KevinBrt/ticko`; image `ghcr.io/kevinbrt/ticko`.                                                                                                                                                                                                                                                                                                  |
+| 2026-10-20 | **Repository**: `github.com/KevinBrt/toppo`; image `ghcr.io/kevinbrt/toppo`.                                                                                                                                                                                                                                                                                                  |
 | 2026-10-20 | **Light theme only**; tokens keep a dark theme possible later.                                                                                                                                                                                                                                                                                                                |
 | 2026-10-20 | **Configurable entities** (workflows, custom fields, labels) follow "global default, project override" by reference.                                                                                                                                                                                                                                                          |
-| 2026-10-20 | **Every variable is `TICKO_*`**, including `TICKO_DATABASE_URL` (the original brief used `DATABASE_URL`).                                                                                                                                                                                                                                                                     |
+| 2026-10-20 | **Every variable is `TOPPO_*`**, including `TOPPO_DATABASE_URL` (the original brief used `DATABASE_URL`).                                                                                                                                                                                                                                                                     |
 | 2026-10-20 | **Named Docker volumes** instead of bind mounts in the user compose file: they work with the non-root image without `chown`.                                                                                                                                                                                                                                                  |
 | 2026-10-20 | **No Testcontainers**: tests use `docker/compose.dev.yml`, started automatically by the test setup when needed; CI provides PostgreSQL as a service. Same comfort, fewer dependencies.                                                                                                                                                                                        |
 | 2026-10-20 | **Formatting**: Biome formats code (Prettier-compatible output); Prettier only formats Markdown and YAML, which Biome does not handle. No overlap.                                                                                                                                                                                                                            |
@@ -316,12 +316,13 @@ The detailed task list of each step, the open questions and the watch list live 
 | 2026-10-20 | **Server bundle**: Rolldown bundles the server and workspace packages; third-party packages stay in `node_modules` (production install only).                                                                                                                                                                                                                                 |
 | 2026-10-20 | **First-run setup code** in the logs rather than an open wizard: nobody can claim a fresh exposed instance.                                                                                                                                                                                                                                                                   |
 | 2026-10-20 | **Drizzle ORM 0.45** (stable) with the `postgres` driver; 1.0 is still a release candidate. Ids are UUID v7 generated by the app (PostgreSQL 16 has no `uuidv7()`).                                                                                                                                                                                                           |
-| 2026-10-20 | **Better Auth mounted behind an allowlist** of endpoints, with Ticko's own client-IP header, cookie security and Origin check rather than its defaults.                                                                                                                                                                                                                       |
+| 2026-10-20 | **Better Auth mounted behind an allowlist** of endpoints, with Toppo's own client-IP header, cookie security and Origin check rather than its defaults.                                                                                                                                                                                                                       |
 | 2026-10-20 | **`GET /api/v1/me` is public** and answers `{ user: null }` when signed out: "nobody" is a normal state, not an error logged in every browser console.                                                                                                                                                                                                                        |
 | 2026-10-20 | **One database per test file**, cloned from a migrated template, instead of rolled-back transactions.                                                                                                                                                                                                                                                                         |
 | 2026-10-20 | **npm override** pins the esbuild used by `drizzle-kit`'s loader to a patched version (dev only, GHSA-67mh-4wv8-2f99); remove it once drizzle-kit drops `@esbuild-kit`.                                                                                                                                                                                                       |
 | 2026-10-20 | **Web app by features**: `routes/public` and `routes/protected` (one folder per URL section), `features/<feature>` with one folder per kind (`api/` objects such as `Session.signIn()`, `queries/`, `components/`, `models/`, `utils/`), `shared/`. Files carry their kind (`.api.ts`, `.route.tsx`…). Layout and layers are checked.                                         |
 | 2026-10-20 | **Server by features with light CQRS**: `platform/` (technical) and `features/<feature>/` with `.routes.ts` at its root and one folder per kind (`commands/`, `queries/`, `models/`, `utils/`). `defineCommand` / `defineQuery` enforce access, input validation and one transaction per command; they will be the plugins' API. No bus, no event sourcing, no read database. |
+| 2026-10-21 | **Renamed Ticko to Toppo**, before any release: packages `@toppo/*`, variables `TOPPO_*`, image `ghcr.io/kevinbrt/toppo`, repository `KevinBrt/toppo`.                                                                                                                                                                                                                        |
 
 ## Open questions
 

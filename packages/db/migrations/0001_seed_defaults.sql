@@ -9,4 +9,4 @@ INSERT INTO "roles" ("id", "name", "scope", "permissions") VALUES
   ('01a1569b-9804-7f71-aa2b-43cdaa231795', 'Team', 'project', ARRAY['issue.read', 'issue.read.own', 'issue.create', 'issue.update', 'issue.assign', 'comment.create']),
   ('01a1569b-9805-7b83-b2a9-d516e9cec915', 'Requester', 'project', ARRAY['issue.read.own', 'issue.create', 'comment.create']);
 --> statement-breakpoint
-INSERT INTO "instance_settings" ("id", "name") VALUES (1, 'Ticko');
+INSERT INTO "instance_settings" ("id", "name") VALUES (1, 'Toppo');

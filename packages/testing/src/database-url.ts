@@ -1,5 +1,5 @@
 /** Matches the `db` service of `docker/compose.dev.yml`, which binds to localhost only. */
-const DEFAULT_SERVER_URL = 'postgres://ticko:ticko@127.0.0.1:54329/ticko_test';
+const DEFAULT_SERVER_URL = 'postgres://toppo:toppo@127.0.0.1:54329/toppo_test';
 
 /**
  * URL of a database on the PostgreSQL server used by tests. CI points `TEST_DATABASE_URL` at

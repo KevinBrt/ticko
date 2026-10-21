@@ -21,7 +21,7 @@ describe('createTranslator', () => {
   });
 
   it('interpolates parameters', () => {
-    expect(createTranslator('en')('app.pageTitle', { page: 'Issues' })).toBe('Issues · Ticko');
+    expect(createTranslator('en')('app.pageTitle', { page: 'Issues' })).toBe('Issues · Toppo');
   });
 
   it('throws on a missing parameter instead of showing a raw placeholder', () => {

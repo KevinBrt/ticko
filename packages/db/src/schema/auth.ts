@@ -1,4 +1,4 @@
-import { DEFAULT_ROLE_IDS } from '@ticko/core';
+import { DEFAULT_ROLE_IDS } from '@toppo/core';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -17,7 +17,7 @@ import { roles } from './roles.ts';
 
 /*
  * Tables required by Better Auth (users, sessions, accounts, verifications, rate limits).
- * Column names follow Better Auth's model fields; extra Ticko columns are marked as such.
+ * Column names follow Better Auth's model fields; extra Toppo columns are marked as such.
  */
 
 export const users = pgTable(
@@ -28,7 +28,7 @@ export const users = pgTable(
     email: text('email').notNull(),
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
-    /** Ticko: the instance-level role, carrying global permissions. */
+    /** Toppo: the instance-level role, carrying global permissions. */
     instanceRoleId: uuid('instance_role_id')
       .notNull()
       .default(DEFAULT_ROLE_IDS.instanceTeam)

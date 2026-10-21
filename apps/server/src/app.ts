@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Database } from '@ticko/db';
+import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerSetupRoutes } from './features/setup/setup.routes.ts';
 import { registerAccessControl } from './platform/auth/access-control.ts';

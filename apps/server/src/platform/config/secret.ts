@@ -7,7 +7,7 @@ const SECRET_FILE = 'secret.key';
 const SECRET_BYTES = 32;
 
 /**
- * Returns the key that signs sessions: `TICKO_SECRET` when set, otherwise the key stored in the
+ * Returns the key that signs sessions: `TOPPO_SECRET` when set, otherwise the key stored in the
  * data directory, generated on first start (readable by the server user only). Losing it signs
  * every user out; it is part of the `/data` backup.
  */

@@ -59,18 +59,18 @@ jobs:
       postgres:
         image: postgres:${{ matrix.postgres }}-alpine
         env:
-          POSTGRES_USER: ticko
-          POSTGRES_PASSWORD: ticko
-          POSTGRES_DB: ticko_test
+          POSTGRES_USER: toppo
+          POSTGRES_PASSWORD: toppo
+          POSTGRES_DB: toppo_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ticko -d ticko_test"
+          --health-cmd "pg_isready -U toppo -d toppo_test"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 30
     env:
-      TEST_DATABASE_URL: postgres://ticko:ticko@localhost:5432/ticko_test
+      TEST_DATABASE_URL: postgres://toppo:toppo@localhost:5432/toppo_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,21 +112,21 @@ jobs:
           file: docker/Dockerfile
           load: true
           push: false
-          tags: ghcr.io/kevinbrt/ticko:ci
+          tags: ghcr.io/kevinbrt/toppo:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Start Ticko with the user-facing docker-compose.yml
+      - name: Start Toppo with the user-facing docker-compose.yml
         run: |
           {
             echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)"
             echo "IMAGE_TAG=ci"
             echo "HTTP_PORT=3000"
-            echo "TICKO_URL=http://localhost:3000"
-          } > "$RUNNER_TEMP/ticko.env"
-          docker compose --env-file "$RUNNER_TEMP/ticko.env" -f docker/docker-compose.yml up -d --wait
+            echo "TOPPO_URL=http://localhost:3000"
+          } > "$RUNNER_TEMP/toppo.env"
+          docker compose --env-file "$RUNNER_TEMP/toppo.env" -f docker/docker-compose.yml up -d --wait
       - name: Read the setup code from the logs, as a user would
         run: |
-          code=$(docker compose --env-file "$RUNNER_TEMP/ticko.env" -f docker/docker-compose.yml logs ticko \
+          code=$(docker compose --env-file "$RUNNER_TEMP/toppo.env" -f docker/docker-compose.yml logs toppo \
             | grep -oE '[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}' | tail -n 1)
           if [ -z "$code" ]; then
             echo "::error::No setup code found in the logs"
@@ -134,12 +134,12 @@ jobs:
           fi
           echo "E2E_SETUP_CODE=$code" >> "$GITHUB_ENV"
       - name: Run Playwright
-        run: npm run test:e2e --workspace=@ticko/e2e
+        run: npm run test:e2e --workspace=@toppo/e2e
         env:
           E2E_BASE_URL: http://localhost:3000
       - name: Container logs
         if: failure()
-        run: docker compose --env-file "$RUNNER_TEMP/ticko.env" -f docker/docker-compose.yml logs
+        run: docker compose --env-file "$RUNNER_TEMP/toppo.env" -f docker/docker-compose.yml logs
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -158,6 +158,6 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       tags: |
-        ghcr.io/kevinbrt/ticko:edge
-        ghcr.io/kevinbrt/ticko:sha-${{ github.sha }}
+        ghcr.io/kevinbrt/toppo:edge
+        ghcr.io/kevinbrt/toppo:sha-${{ github.sha }}
       version: edge-${{ github.sha }}

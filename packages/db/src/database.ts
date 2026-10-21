@@ -12,7 +12,7 @@ export interface DatabaseOptions {
 }
 
 export interface Database {
-  /** Typed query builder over the Ticko schema. */
+  /** Typed query builder over the Toppo schema. */
   db: Db;
   /** Resolves when PostgreSQL answers a trivial query, rejects otherwise. */
   ping(): Promise<void>;
@@ -28,7 +28,7 @@ export interface Database {
 const CONNECT_TIMEOUT_SECONDS = 5;
 const IDLE_TIMEOUT_SECONDS = 30;
 const CLOSE_TIMEOUT_SECONDS = 5;
-/** Arbitrary but fixed: identifies Ticko's migration lock among other advisory locks. */
+/** Arbitrary but fixed: identifies Toppo's migration lock among other advisory locks. */
 const MIGRATION_LOCK_KEY = 7_461_756_323;
 
 function connect(url: string, maxConnections: number): postgres.Sql {
@@ -36,7 +36,7 @@ function connect(url: string, maxConnections: number): postgres.Sql {
     max: maxConnections,
     connect_timeout: CONNECT_TIMEOUT_SECONDS,
     idle_timeout: IDLE_TIMEOUT_SECONDS,
-    connection: { application_name: 'ticko' },
+    connection: { application_name: 'toppo' },
     // Notices such as "schema already exists, skipping" are expected during migrations.
     onnotice: () => undefined,
   });

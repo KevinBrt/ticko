@@ -1,4 +1,4 @@
-import { type CurrentUser, emailSchema, type Locale, type SetupRequest } from '@ticko/shared';
+import { type CurrentUser, emailSchema, type Locale, type SetupRequest } from '@toppo/shared';
 import { z } from 'zod';
 
 export interface SessionState {

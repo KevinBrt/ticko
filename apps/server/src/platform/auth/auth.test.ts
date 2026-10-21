@@ -1,4 +1,4 @@
-import { apiErrorSchema, meResponseSchema } from '@ticko/shared';
+import { apiErrorSchema, meResponseSchema } from '@toppo/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -61,7 +61,7 @@ describe('signing in', () => {
     sessionCookie = cookieHeader(response);
 
     expect(response.statusCode).toBe(200);
-    const session = response.cookies.find((cookie) => cookie.name === 'ticko.session_token');
+    const session = response.cookies.find((cookie) => cookie.name === 'toppo.session_token');
     expect(session).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' });
     // Plain HTTP (a LAN install): a Secure cookie would never be sent back.
     expect(session?.secure).toBeFalsy();
@@ -134,7 +134,7 @@ describe('the current user', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/v1/me',
-      headers: { cookie: 'ticko.session_token=forged.signature' },
+      headers: { cookie: 'toppo.session_token=forged.signature' },
     });
 
     expect(response.json()).toStrictEqual({ user: null });

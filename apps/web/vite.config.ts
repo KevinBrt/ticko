@@ -1,5 +1,5 @@
 import tailwindcss from '@tailwindcss/vite';
-import { CSP_NONCE_PLACEHOLDER } from '@ticko/shared';
+import { CSP_NONCE_PLACEHOLDER } from '@toppo/shared';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 

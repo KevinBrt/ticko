@@ -1,5 +1,5 @@
-import { DEFAULT_ROLE_IDS, DEFAULT_ROLES } from '@ticko/core';
-import { createEmptyTestDatabase, createTestDatabase, type TestDatabase } from '@ticko/testing';
+import { DEFAULT_ROLE_IDS, DEFAULT_ROLES } from '@toppo/core';
+import { createEmptyTestDatabase, createTestDatabase, type TestDatabase } from '@toppo/testing';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MIGRATIONS_FOLDER } from '../vitest.global-setup.ts';
@@ -64,7 +64,7 @@ describe('initial data and constraints', () => {
     await testDatabase.drop();
   });
 
-  it('seeds exactly the default roles of @ticko/core', async () => {
+  it('seeds exactly the default roles of @toppo/core', async () => {
     const seeded = await database.db
       .select({
         id: roles.id,

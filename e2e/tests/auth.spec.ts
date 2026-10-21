@@ -17,7 +17,7 @@ test.describe('signed out', () => {
     await page.goto('/projects');
 
     await expect(page).toHaveURL(/\/login\?redirect=%2Fprojects$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Sign in to Ticko' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Sign in to Toppo' })).toBeVisible();
     await expectAccessible(page);
   });
 

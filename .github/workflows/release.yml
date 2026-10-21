@@ -42,7 +42,7 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       tags: |
-        ghcr.io/kevinbrt/ticko:${{ needs.release-please.outputs.version }}
-        ghcr.io/kevinbrt/ticko:${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}
-        ghcr.io/kevinbrt/ticko:latest
+        ghcr.io/kevinbrt/toppo:${{ needs.release-please.outputs.version }}
+        ghcr.io/kevinbrt/toppo:${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}
+        ghcr.io/kevinbrt/toppo:latest
       version: ${{ needs.release-please.outputs.version }}

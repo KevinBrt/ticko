@@ -7,7 +7,7 @@ import type { ZodTypeProvider } from './zod.ts';
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = await buildTestApp({ publicUrl: 'https://ticko.example.com' });
+  app = await buildTestApp({ publicUrl: 'https://toppo.example.com' });
   app.withTypeProvider<ZodTypeProvider>().post(
     '/api/test/change',
     {
@@ -27,7 +27,7 @@ function post(headers: Record<string, string>) {
 describe('cross-origin guard', () => {
   it('accepts requests from the instance itself', async () => {
     const response = await post({
-      origin: 'https://ticko.example.com',
+      origin: 'https://toppo.example.com',
       'sec-fetch-site': 'same-origin',
     });
     expect(response.statusCode).toBe(200);
@@ -39,7 +39,7 @@ describe('cross-origin guard', () => {
 
   it.each([
     { origin: 'https://evil.example.com' },
-    { origin: 'http://ticko.example.com' },
+    { origin: 'http://toppo.example.com' },
     { origin: 'null' },
     { 'sec-fetch-site': 'cross-site' },
     { 'sec-fetch-site': 'same-site' },

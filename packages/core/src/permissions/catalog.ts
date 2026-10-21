@@ -3,7 +3,7 @@ export const PERMISSION_SCOPES = ['instance', 'project'] as const;
 export type PermissionScope = (typeof PERMISSION_SCOPES)[number];
 
 /**
- * Every permission Ticko checks, as `resource.action`, with the level of the role that grants it.
+ * Every permission Toppo checks, as `resource.action`, with the level of the role that grants it.
  * Code always checks one of these, never a role name. Plugins will register theirs here too.
  */
 export const PERMISSIONS = {

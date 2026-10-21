@@ -1,5 +1,5 @@
-import { schema } from '@ticko/db';
-import type { SetupStatusResponse } from '@ticko/shared';
+import { schema } from '@toppo/db';
+import type { SetupStatusResponse } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';

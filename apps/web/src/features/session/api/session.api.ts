@@ -4,7 +4,7 @@ import {
   type SetupRequest,
   setupResponseSchema,
   setupStatusResponseSchema,
-} from '@ticko/shared';
+} from '@toppo/shared';
 import { z } from 'zod';
 import { apiRequest } from '../../../shared/api/http.client.ts';
 

@@ -14,24 +14,24 @@ export interface WorkspaceManifest {
 
 /** Workspace packages each package may depend on (runtime or dev). */
 export const ALLOWED_WORKSPACE_DEPENDENCIES: Readonly<Record<string, readonly string[]>> = {
-  '@ticko/shared': [],
-  '@ticko/core': ['@ticko/shared'],
-  '@ticko/db': ['@ticko/shared', '@ticko/core'],
-  '@ticko/ui': ['@ticko/shared'],
-  '@ticko/testing': ['@ticko/shared', '@ticko/core', '@ticko/db'],
-  '@ticko/server': ['@ticko/shared', '@ticko/core', '@ticko/db'],
-  '@ticko/web': ['@ticko/shared', '@ticko/core', '@ticko/ui'],
-  '@ticko/plugin-sdk': ['@ticko/shared'],
-  '@ticko/e2e': [],
-  '@ticko/scripts': [],
+  '@toppo/shared': [],
+  '@toppo/core': ['@toppo/shared'],
+  '@toppo/db': ['@toppo/shared', '@toppo/core'],
+  '@toppo/ui': ['@toppo/shared'],
+  '@toppo/testing': ['@toppo/shared', '@toppo/core', '@toppo/db'],
+  '@toppo/server': ['@toppo/shared', '@toppo/core', '@toppo/db'],
+  '@toppo/web': ['@toppo/shared', '@toppo/core', '@toppo/ui'],
+  '@toppo/plugin-sdk': ['@toppo/shared'],
+  '@toppo/e2e': [],
+  '@toppo/scripts': [],
 };
 
 /** Workspaces allowed only as devDependencies: test tooling never ships. */
-const DEV_ONLY_WORKSPACES = new Set(['@ticko/testing']);
+const DEV_ONLY_WORKSPACES = new Set(['@toppo/testing']);
 
-const PLUGIN_ALLOWED = ['@ticko/plugin-sdk'];
+const PLUGIN_ALLOWED = ['@toppo/plugin-sdk'];
 
-/** Licenses compatible with distributing Ticko under AGPL-3.0. */
+/** Licenses compatible with distributing Toppo under AGPL-3.0. */
 export const ALLOWED_LICENSES = new Set([
   '0BSD',
   'Apache-2.0',

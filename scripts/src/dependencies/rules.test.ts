@@ -14,57 +14,57 @@ const workspace = (
   devDependencies: Record<string, string> = {},
 ): WorkspaceManifest => ({ path, name, dependencies, devDependencies });
 
-const shared = workspace('packages/shared', '@ticko/shared');
-const db = workspace('packages/db', '@ticko/db');
-const testing = workspace('packages/testing', '@ticko/testing');
-const sdk = workspace('packages/plugin-sdk', '@ticko/plugin-sdk');
+const shared = workspace('packages/shared', '@toppo/shared');
+const db = workspace('packages/db', '@toppo/db');
+const testing = workspace('packages/testing', '@toppo/testing');
+const sdk = workspace('packages/plugin-sdk', '@toppo/plugin-sdk');
 
 describe('checkWorkspaceGraph', () => {
   it('accepts the documented architecture', () => {
-    const core = workspace('packages/core', '@ticko/core', { '@ticko/shared': '0.0.0' });
+    const core = workspace('packages/core', '@toppo/core', { '@toppo/shared': '0.0.0' });
     const server = workspace(
       'apps/server',
-      '@ticko/server',
-      { '@ticko/core': '0.0.0', '@ticko/db': '0.0.0' },
-      { '@ticko/testing': '0.0.0' },
+      '@toppo/server',
+      { '@toppo/core': '0.0.0', '@toppo/db': '0.0.0' },
+      { '@toppo/testing': '0.0.0' },
     );
     expect(checkWorkspaceGraph([shared, core, db, testing, server])).toStrictEqual([]);
   });
 
   it('keeps core free of infrastructure', () => {
-    const core = workspace('packages/core', '@ticko/core', { '@ticko/db': '0.0.0' });
+    const core = workspace('packages/core', '@toppo/core', { '@toppo/db': '0.0.0' });
     expect(checkWorkspaceGraph([core, db])).toStrictEqual([
-      '@ticko/core: must not depend on @ticko/db',
+      '@toppo/core: must not depend on @toppo/db',
     ]);
   });
 
   it('keeps server code out of the browser bundle', () => {
-    const web = workspace('apps/web', '@ticko/web', { '@ticko/db': '0.0.0' });
+    const web = workspace('apps/web', '@toppo/web', { '@toppo/db': '0.0.0' });
     expect(checkWorkspaceGraph([web, db])).toStrictEqual([
-      '@ticko/web: must not depend on @ticko/db',
+      '@toppo/web: must not depend on @toppo/db',
     ]);
   });
 
   it('only lets plugins use the SDK', () => {
-    const plugin = workspace('plugins/github', '@ticko/plugin-github', {
-      '@ticko/plugin-sdk': '0.0.0',
-      '@ticko/db': '0.0.0',
+    const plugin = workspace('plugins/github', '@toppo/plugin-github', {
+      '@toppo/plugin-sdk': '0.0.0',
+      '@toppo/db': '0.0.0',
     });
     expect(checkWorkspaceGraph([plugin, sdk, db])).toStrictEqual([
-      '@ticko/plugin-github: must not depend on @ticko/db',
+      '@toppo/plugin-github: must not depend on @toppo/db',
     ]);
   });
 
   it('refuses test helpers as a runtime dependency', () => {
-    const server = workspace('apps/server', '@ticko/server', { '@ticko/testing': '0.0.0' });
+    const server = workspace('apps/server', '@toppo/server', { '@toppo/testing': '0.0.0' });
     expect(checkWorkspaceGraph([server, testing])).toStrictEqual([
-      '@ticko/server: @ticko/testing may only be a devDependency',
+      '@toppo/server: @toppo/testing may only be a devDependency',
     ]);
   });
 
   it('asks for rules when a new workspace appears', () => {
-    expect(checkWorkspaceGraph([workspace('packages/mailer', '@ticko/mailer')])).toStrictEqual([
-      expect.stringContaining('@ticko/mailer: unknown workspace'),
+    expect(checkWorkspaceGraph([workspace('packages/mailer', '@toppo/mailer')])).toStrictEqual([
+      expect.stringContaining('@toppo/mailer: unknown workspace'),
     ]);
   });
 });
@@ -74,22 +74,22 @@ describe('checkExactVersions', () => {
     'refuses %s',
     (spec) => {
       expect(
-        checkExactVersions([workspace('apps/web', '@ticko/web', { react: spec })]),
+        checkExactVersions([workspace('apps/web', '@toppo/web', { react: spec })]),
       ).toHaveLength(1);
     },
   );
 
   it('accepts exact and prerelease versions', () => {
     expect(
-      checkExactVersions([workspace('apps/web', '@ticko/web', { a: '1.2.3', b: '1.0.0-rc.4' })]),
+      checkExactVersions([workspace('apps/web', '@toppo/web', { a: '1.2.3', b: '1.0.0-rc.4' })]),
     ).toStrictEqual([]);
   });
 
   it('requires one version of a dependency across workspaces', () => {
     expect(
       checkExactVersions([
-        workspace('packages/core', '@ticko/core', {}, { vitest: '5.0.5' }),
-        workspace('packages/db', '@ticko/db', {}, { vitest: '5.0.4' }),
+        workspace('packages/core', '@toppo/core', {}, { vitest: '5.0.5' }),
+        workspace('packages/db', '@toppo/db', {}, { vitest: '5.0.4' }),
       ]),
     ).toStrictEqual(['vitest: one version across the monorepo, found 5.0.5, 5.0.4']);
   });
@@ -110,7 +110,7 @@ describe('checkLockfile', () => {
         packages: {
           '': {},
           'node_modules/a': entry,
-          'node_modules/@ticko/core': { link: true },
+          'node_modules/@toppo/core': { link: true },
           'packages/core': {},
         },
       }),

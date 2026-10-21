@@ -1,4 +1,4 @@
-import type { ApiError } from '@ticko/shared';
+import type { ApiError } from '@toppo/shared';
 import type { FastifyError, FastifyInstance } from 'fastify';
 import { RequestValidationError } from './zod.ts';
 

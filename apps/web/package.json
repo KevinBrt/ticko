@@ -1,8 +1,8 @@
 {
-  "name": "@ticko/web",
+  "name": "@toppo/web",
   "version": "0.0.0",
   "private": true,
-  "description": "Ticko single-page app, compiled to static files served by @ticko/server.",
+  "description": "Toppo single-page app, compiled to static files served by @toppo/server.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -15,8 +15,8 @@
   "dependencies": {
     "@tanstack/react-query": "5.104.5",
     "@tanstack/react-router": "1.170.45",
-    "@ticko/shared": "0.0.0",
-    "@ticko/ui": "0.0.0",
+    "@toppo/shared": "0.0.0",
+    "@toppo/ui": "0.0.0",
     "get-nonce": "1.0.1",
     "lucide-react": "1.60.0",
     "react": "19.3.1",

@@ -1,5 +1,5 @@
-import { DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from '@ticko/core';
-import { schema } from '@ticko/db';
+import { DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from '@toppo/core';
+import { schema } from '@toppo/db';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import type { ExecutionContext } from '../../../platform/cqrs/cqrs.ts';

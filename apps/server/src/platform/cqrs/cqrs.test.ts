@@ -1,5 +1,5 @@
-import { schema } from '@ticko/db';
-import type { CurrentUser } from '@ticko/shared';
+import { schema } from '@toppo/db';
+import type { CurrentUser } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';

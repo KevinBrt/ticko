@@ -4,9 +4,9 @@
  */
 export const en = {
   app: {
-    name: 'Ticko',
+    name: 'Toppo',
     skipToContent: 'Skip to content',
-    pageTitle: '{page} · Ticko',
+    pageTitle: '{page} · Toppo',
   },
   nav: {
     label: 'Main navigation',
@@ -44,10 +44,10 @@ export const en = {
     backToIssues: 'Back to issues',
   },
   setup: {
-    title: 'Set up Ticko',
+    title: 'Set up Toppo',
     intro: 'Create the first administrator account. You will invite your team afterwards.',
     setupCode: 'Setup code',
-    setupCodeHelp: 'Printed in the server logs at startup. Run: docker compose logs ticko',
+    setupCodeHelp: 'Printed in the server logs at startup. Run: docker compose logs toppo',
     adminName: 'Your name',
     email: 'Email',
     password: 'Password',
@@ -58,7 +58,7 @@ export const en = {
     alreadyCompleted: 'This instance is already set up. Sign in instead.',
   },
   login: {
-    title: 'Sign in to Ticko',
+    title: 'Sign in to Toppo',
     email: 'Email',
     password: 'Password',
     submit: 'Sign in',
@@ -77,7 +77,7 @@ export const en = {
     invalid: 'This value is not valid.',
   },
   errors: {
-    network: 'Ticko cannot be reached. Check your connection and try again.',
+    network: 'Toppo cannot be reached. Check your connection and try again.',
     tooManyRequests: 'Too many attempts. Wait a minute, then try again.',
     unexpected: 'Something went wrong. Please try again.',
   },

@@ -7,7 +7,7 @@ Each step ends with a working demo, green CI and updated docs. Anything touching
 ## Now
 
 - [ ] Protect `main` once contributors arrive: require the CI checks (quality, tests, end-to-end) before merging.
-- [ ] Check that the `ghcr.io/kevinbrt/ticko` package is public once the first `edge` image is published (GitHub → Packages → Package settings).
+- [ ] Check that the `ghcr.io/kevinbrt/toppo` package is public once the first `edge` image is published (GitHub → Packages → Package settings).
 - [ ] Leave the release-please pull request open until 0.1 is ready: merging it publishes the version and the `latest` image.
 - [ ] Answer the [open questions](#open-questions) needed by steps 1 and 2.
 
@@ -110,7 +110,7 @@ _Done when an issue is found in under 3 seconds._
 
 ## After 0.1
 
-- [ ] Plugin system: `@ticko/plugin-sdk` (MIT), manifest and `apiVersion`, loader, hooks fed by `activities` through the job queue, plugin HTTP routes, settings forms generated from Zod, declarative UI contributions.
+- [ ] Plugin system: `@toppo/plugin-sdk` (MIT), manifest and `apiVersion`, loader, hooks fed by `activities` through the job queue, plugin HTTP routes, settings forms generated from Zod, declarative UI contributions.
 - [ ] Official plugins: webhooks, then GitHub.
 - [ ] OIDC, SAML and LDAP, free (Better Auth plugins, added to the endpoint allowlist).
 - [ ] Jira import; inbound email.
@@ -140,6 +140,6 @@ Known compromises to revisit, not blocking:
 - `packages/ui/src/components` holds 9 components, with a limit of 10 per folder: group them (`forms/`, `overlays/`, `feedback/`) with the next component.
 - Drizzle ORM 1.0 is still a release candidate: upgrade when it is stable (new migration format).
 - The npm override pinning the esbuild of `drizzle-kit`'s loader can go once drizzle-kit drops `@esbuild-kit`.
-- The Docker image weighs about 280 MB, largely Better Auth adapters Ticko does not use (MongoDB, Prisma, Kysely): try the `better-auth/minimal` entry point.
+- The Docker image weighs about 280 MB, largely Better Auth adapters Toppo does not use (MongoDB, Prisma, Kysely): try the `better-auth/minimal` entry point.
 - OpenAPI description of `/api/v1`, generated from the Zod schemas (`z.toJSONSchema`), is not published yet.
 - Dark theme: possible later by redefining the tokens in `packages/ui/src/theme.css`.

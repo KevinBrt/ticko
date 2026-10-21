@@ -27,7 +27,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Ticko version
+      label: Toppo version
       description: Image tag you run, e.g. 0.1.0 or edge.
     validations:
       required: true
@@ -35,10 +35,10 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Browser, OS, how Ticko is deployed (Docker Compose, Kubernetes…), PostgreSQL version.
+      description: Browser, OS, how Toppo is deployed (Docker Compose, Kubernetes…), PostgreSQL version.
   - type: textarea
     id: logs
     attributes:
       label: Logs
-      description: Relevant server logs (`docker compose logs ticko`). Remove any secret first.
+      description: Relevant server logs (`docker compose logs toppo`). Remove any secret first.
       render: shell

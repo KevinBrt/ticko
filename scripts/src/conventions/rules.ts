@@ -105,7 +105,7 @@ export const RULES: readonly ConventionRule[] = [
   },
   {
     id: 'light-theme-only',
-    message: 'Ticko ships a single light theme; do not add dark: variants',
+    message: 'Toppo ships a single light theme; do not add dark: variants',
     appliesTo: (path) => FRONTEND_CODE.test(path) && SOURCE_FILE.test(path),
     check(path, source) {
       return lineMatches(this, path, source, [/(^|[\s"'`])dark:/]);
@@ -125,7 +125,7 @@ export const RULES: readonly ConventionRule[] = [
   },
   {
     id: 'no-relative-import-across-packages',
-    message: 'Import other workspaces by package name (@ticko/...), never by relative path',
+    message: 'Import other workspaces by package name (@toppo/...), never by relative path',
     appliesTo: (path) => SOURCE_FILE.test(path),
     check(path, source) {
       const root = workspaceRoot(path);

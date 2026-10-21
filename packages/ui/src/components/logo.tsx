@@ -1,6 +1,6 @@
 import { cn } from '../lib/cn.util.ts';
 
-/** The Ticko mark: a ticket with a check, on the primary color. Decorative: pair it with visible text. */
+/** The Toppo mark: a ticket with a check, on the primary color. Decorative: pair it with visible text. */
 export function Logo({ className }: { className?: string }) {
   return (
     <svg

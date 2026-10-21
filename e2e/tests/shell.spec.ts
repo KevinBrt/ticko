@@ -7,7 +7,7 @@ test('the home page redirects to the issues list', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/issues$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Issues' })).toBeVisible();
-  await expect(page).toHaveTitle('Issues · Ticko');
+  await expect(page).toHaveTitle('Issues · Toppo');
 });
 
 test('navigates between sections', async ({ page, isMobile }) => {

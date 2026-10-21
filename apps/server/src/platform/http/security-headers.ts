@@ -1,7 +1,7 @@
 import helmet from '@fastify/helmet';
 import type { FastifyInstance } from 'fastify';
 
-/** Browser features Ticko never uses; denying them limits what injected content could do. */
+/** Browser features Toppo never uses; denying them limits what injected content could do. */
 const PERMISSIONS_POLICY = [
   'camera=()',
   'microphone=()',

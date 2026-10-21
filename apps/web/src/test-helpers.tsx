@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import type { CurrentUser, Locale } from '@ticko/shared';
+import type { CurrentUser, Locale } from '@toppo/shared';
 import { vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { createAppRouter } from './router.tsx';
@@ -29,7 +29,7 @@ const json = (body: unknown, status = 200) =>
 
 const apiError = (status: number, code: string) => json({ error: { code, message: code } }, status);
 
-/** A tiny in-memory Ticko API, answering the web app's `fetch` calls. */
+/** A tiny in-memory Toppo API, answering the web app's `fetch` calls. */
 export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
   const server: FakeServer = {
     state: { setupRequired: false, user: null, ...initial },

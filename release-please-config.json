@@ -6,7 +6,7 @@
   "bump-patch-for-minor-pre-major": false,
   "packages": {
     ".": {
-      "package-name": "ticko",
+      "package-name": "toppo",
       "changelog-path": "CHANGELOG.md"
     }
   }

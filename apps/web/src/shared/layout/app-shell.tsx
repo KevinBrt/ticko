@@ -1,5 +1,5 @@
 import { Outlet } from '@tanstack/react-router';
-import { Sheet, SheetContent } from '@ticko/ui';
+import { Sheet, SheetContent } from '@toppo/ui';
 import { type ReactNode, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
 import { SidebarContent } from './sidebar-content.tsx';

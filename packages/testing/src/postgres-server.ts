@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { testDatabaseUrl } from './database-url.ts';
@@ -24,12 +25,31 @@ export async function ensurePostgres(): Promise<void> {
       stdio: 'inherit',
     });
   } catch (error) {
+    // Test suites of several packages start in parallel: another one may be creating the very
+    // same container right now, which makes this attempt fail. Wait for its database instead.
+    if (await becomesReachable(STARTUP_TIMEOUT_MS)) {
+      return;
+    }
     throw new Error(
       'PostgreSQL is not reachable and could not be started with Docker. ' +
         'Start Docker, or run `npm run db:up`, or set TEST_DATABASE_URL.',
       { cause: error },
     );
   }
+}
+
+const STARTUP_TIMEOUT_MS = 60_000;
+const POLL_INTERVAL_MS = 500;
+
+async function becomesReachable(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await isReachable()) {
+      return true;
+    }
+    await setTimeout(POLL_INTERVAL_MS);
+  }
+  return false;
 }
 
 /** Runs `task` on the always-present `postgres` database, to create or drop other databases. */

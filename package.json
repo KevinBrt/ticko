@@ -1,12 +1,12 @@
 {
-  "name": "ticko",
+  "name": "toppo",
   "version": "0.0.0",
   "private": true,
   "description": "Modern issue tracking. Self-hosted. Free forever, no strings attached.",
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KevinBrt/ticko.git"
+    "url": "git+https://github.com/KevinBrt/toppo.git"
   },
   "type": "module",
   "packageManager": "npm@11.19.1",
@@ -27,7 +27,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:e2e": "npm run build && npm run test:e2e --workspace=@ticko/e2e",
+    "test:e2e": "npm run build && npm run test:e2e --workspace=@toppo/e2e",
     "lint": "biome check . && prettier --check .",
     "lint:fix": "biome check --write . && prettier --write .",
     "check:conventions": "node scripts/src/check-conventions.ts",

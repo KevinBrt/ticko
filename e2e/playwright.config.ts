@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
-import { testDatabaseUrl } from '@ticko/testing';
+import { testDatabaseUrl } from '@toppo/testing';
 
 const isCI = Boolean(process.env['CI']);
 
@@ -16,7 +16,7 @@ const LOCAL_PORT = 3100;
 const LOCAL_SETUP_CODE = 'E2E0-LOCA-LRUN';
 const baseURL = externalBaseUrl ?? `http://127.0.0.1:${LOCAL_PORT}`;
 
-export const E2E_DATABASE = 'ticko_e2e';
+export const E2E_DATABASE = 'toppo_e2e';
 export const SETUP_CODE = process.env['E2E_SETUP_CODE'] ?? LOCAL_SETUP_CODE;
 /** Session of the administrator created by the setup project, reused by the other projects. */
 export const ADMIN_STORAGE_STATE = fileURLToPath(new URL('.auth/admin.json', import.meta.url));
@@ -59,13 +59,13 @@ export default defineConfig({
           url: `${baseURL}/health`,
           reuseExistingServer: false,
           env: {
-            TICKO_DATABASE_URL: testDatabaseUrl(E2E_DATABASE),
-            TICKO_HOST: '127.0.0.1',
-            TICKO_PORT: String(LOCAL_PORT),
-            TICKO_URL: baseURL,
-            TICKO_LOG_LEVEL: 'warn',
-            TICKO_DATA_DIR: fileURLToPath(new URL('.data', import.meta.url)),
-            TICKO_SETUP_CODE: LOCAL_SETUP_CODE,
+            TOPPO_DATABASE_URL: testDatabaseUrl(E2E_DATABASE),
+            TOPPO_HOST: '127.0.0.1',
+            TOPPO_PORT: String(LOCAL_PORT),
+            TOPPO_URL: baseURL,
+            TOPPO_LOG_LEVEL: 'warn',
+            TOPPO_DATA_DIR: fileURLToPath(new URL('.data', import.meta.url)),
+            TOPPO_SETUP_CODE: LOCAL_SETUP_CODE,
           },
         },
       }),

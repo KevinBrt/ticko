@@ -1,5 +1,5 @@
 /*
- * Ticko design tokens. Light theme only.
+ * Toppo design tokens. Light theme only.
  * The default Tailwind palette is removed on purpose: components may only use these tokens,
  * so the interface stays consistent and a future theme only has to redefine this file.
  */

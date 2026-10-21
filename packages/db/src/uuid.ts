@@ -3,7 +3,7 @@ import { randomFillSync } from 'node:crypto';
 /**
  * Generates a UUID version 7 (RFC 9562): 48 bits of Unix time in milliseconds, then random bits.
  * Ids sort by creation time, which keeps B-tree indexes compact. Generated here because
- * PostgreSQL only has `uuidv7()` from version 18 and Ticko supports 16+.
+ * PostgreSQL only has `uuidv7()` from version 18 and Toppo supports 16+.
  */
 export function uuidv7(now: number = Date.now()): string {
   const bytes = randomFillSync(new Uint8Array(16));

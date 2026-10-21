@@ -11,7 +11,7 @@ export type RouteAccess = 'public' | 'authenticated';
 declare module 'fastify' {
   interface FastifyContextConfig {
     access?: RouteAccess;
-    /** The response is produced by a vetted library (Better Auth), not by a Ticko handler. */
+    /** The response is produced by a vetted library (Better Auth), not by a Toppo handler. */
     delegated?: true;
   }
 }

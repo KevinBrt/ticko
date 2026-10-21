@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { createDatabase, waitForDatabase } from '@ticko/db';
+import { createDatabase, waitForDatabase } from '@toppo/db';
 import { buildApp, createServices } from './app.ts';
 import { getSetupStatus } from './features/setup/queries/get-setup-status.query.ts';
 import { generateSetupCode } from './features/setup/utils/setup-code.util.ts';
@@ -74,12 +74,12 @@ try {
     const origin = config.publicUrl.origin;
     app.log.warn(
       config.setupCode
-        ? `Ticko is not set up yet: open ${origin} and enter the setup code from TICKO_SETUP_CODE`
-        : `Ticko is not set up yet: open ${origin} and enter the setup code ${setupCode}`,
+        ? `Toppo is not set up yet: open ${origin} and enter the setup code from TOPPO_SETUP_CODE`
+        : `Toppo is not set up yet: open ${origin} and enter the setup code ${setupCode}`,
     );
   }
 } catch (error) {
-  app.log.fatal({ err: error }, 'Ticko failed to start');
+  app.log.fatal({ err: error }, 'Toppo failed to start');
   await database.close();
   process.exit(1);
 }

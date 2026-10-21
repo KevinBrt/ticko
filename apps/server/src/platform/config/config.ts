@@ -6,13 +6,13 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 export interface Config {
-  /** Public URL users reach Ticko at, e.g. `https://ticko.example.com`. */
+  /** Public URL users reach Toppo at, e.g. `https://toppo.example.com`. */
   publicUrl: URL;
   host: string;
   port: number;
   databaseUrl: string;
   logLevel: LogLevel;
-  /** Trust `X-Forwarded-*` headers. Enable only when Ticko is reachable solely through a reverse proxy. */
+  /** Trust `X-Forwarded-*` headers. Enable only when Toppo is reachable solely through a reverse proxy. */
   trustProxy: boolean;
   /** Persistent files: generated secret key, attachments. */
   dataDir: string;
@@ -26,27 +26,27 @@ export const SECRET_MIN_LENGTH = 32;
 export const SETUP_CODE_MIN_LENGTH = 12;
 
 const envSchema = z.object({
-  TICKO_URL: z
+  TOPPO_URL: z
     .url({ protocol: /^https?$/ })
     .default('http://localhost:3000')
     .transform((value) => new URL(value))
     .refine((url) => url.pathname === '/' && url.search === '' && url.hash === '', {
-      message: 'must be an origin without path, query or fragment, e.g. https://ticko.example.com',
+      message: 'must be an origin without path, query or fragment, e.g. https://toppo.example.com',
     }),
-  TICKO_HOST: z.string().min(1).default('0.0.0.0'),
-  TICKO_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-  TICKO_DATABASE_URL: z.url({
+  TOPPO_HOST: z.string().min(1).default('0.0.0.0'),
+  TOPPO_PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
+  TOPPO_DATABASE_URL: z.url({
     protocol: /^postgres(ql)?$/,
     error: 'must be a postgres:// URL',
   }),
-  TICKO_LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
-  TICKO_TRUST_PROXY: z.stringbool().default(false),
-  TICKO_DATA_DIR: z.string().min(1).default('/data'),
-  TICKO_SECRET: z
+  TOPPO_LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+  TOPPO_TRUST_PROXY: z.stringbool().default(false),
+  TOPPO_DATA_DIR: z.string().min(1).default('/data'),
+  TOPPO_SECRET: z
     .string()
     .min(SECRET_MIN_LENGTH, `must be at least ${SECRET_MIN_LENGTH} characters`)
     .optional(),
-  TICKO_SETUP_CODE: z
+  TOPPO_SETUP_CODE: z
     .string()
     .min(SETUP_CODE_MIN_LENGTH, `must be at least ${SETUP_CODE_MIN_LENGTH} characters`)
     .optional(),
@@ -54,7 +54,7 @@ const envSchema = z.object({
 
 const KNOWN_VARIABLES = new Set(Object.keys(envSchema.shape));
 
-/** Suffix that reads a variable from a file, for Docker secrets: `TICKO_DATABASE_URL_FILE=/run/secrets/db`. */
+/** Suffix that reads a variable from a file, for Docker secrets: `TOPPO_DATABASE_URL_FILE=/run/secrets/db`. */
 const FILE_SUFFIX = '_FILE';
 
 export class ConfigError extends Error {
@@ -72,7 +72,7 @@ type ReadFile = (path: string) => string;
 
 const readFileUtf8: ReadFile = (path) => readFileSync(path, 'utf8');
 
-/** Reads and validates `TICKO_*` variables. Throws a `ConfigError` listing every problem at once. */
+/** Reads and validates `TOPPO_*` variables. Throws a `ConfigError` listing every problem at once. */
 export function loadConfig(env: Env, readFile: ReadFile = readFileUtf8): Config {
   const issues: string[] = [];
   const values = resolveVariables(env, readFile, issues);
@@ -89,15 +89,15 @@ export function loadConfig(env: Env, readFile: ReadFile = readFileUtf8): Config 
 
   const parsed = result.data;
   return {
-    publicUrl: parsed.TICKO_URL,
-    host: parsed.TICKO_HOST,
-    port: parsed.TICKO_PORT,
-    databaseUrl: parsed.TICKO_DATABASE_URL,
-    logLevel: parsed.TICKO_LOG_LEVEL,
-    trustProxy: parsed.TICKO_TRUST_PROXY,
-    dataDir: parsed.TICKO_DATA_DIR,
-    secret: parsed.TICKO_SECRET,
-    setupCode: parsed.TICKO_SETUP_CODE,
+    publicUrl: parsed.TOPPO_URL,
+    host: parsed.TOPPO_HOST,
+    port: parsed.TOPPO_PORT,
+    databaseUrl: parsed.TOPPO_DATABASE_URL,
+    logLevel: parsed.TOPPO_LOG_LEVEL,
+    trustProxy: parsed.TOPPO_TRUST_PROXY,
+    dataDir: parsed.TOPPO_DATA_DIR,
+    secret: parsed.TOPPO_SECRET,
+    setupCode: parsed.TOPPO_SETUP_CODE,
   };
 }
 
@@ -105,8 +105,8 @@ function resolveVariables(env: Env, readFile: ReadFile, issues: string[]): Env {
   const values: Env = {};
 
   for (const [name, value] of Object.entries(env)) {
-    // Empty means unset: Compose turns `${TICKO_SECRET:-}` into an empty string.
-    if (!name.startsWith('TICKO_') || value === undefined || value === '') {
+    // Empty means unset: Compose turns `${TOPPO_SECRET:-}` into an empty string.
+    if (!name.startsWith('TOPPO_') || value === undefined || value === '') {
       continue;
     }
     const target = name.endsWith(FILE_SUFFIX) ? name.slice(0, -FILE_SUFFIX.length) : name;

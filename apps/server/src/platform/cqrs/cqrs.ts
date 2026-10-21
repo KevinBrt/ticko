@@ -1,5 +1,5 @@
-import type { Db } from '@ticko/db';
-import type { CurrentUser } from '@ticko/shared';
+import type { Db } from '@toppo/db';
+import type { CurrentUser } from '@toppo/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { z } from 'zod';
 import { HttpError } from '../http/http-error.ts';
@@ -20,7 +20,7 @@ export type Access = 'public' | 'authenticated';
 export interface Services {
   /** Hashes a password exactly as Better Auth verifies it. */
   hashPassword(password: string): Promise<string>;
-  /** First-run code accepted by the setup wizard (printed in the logs or `TICKO_SETUP_CODE`). */
+  /** First-run code accepted by the setup wizard (printed in the logs or `TOPPO_SETUP_CODE`). */
   setupCode: string;
 }
 

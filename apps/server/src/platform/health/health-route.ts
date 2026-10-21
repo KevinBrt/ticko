@@ -1,4 +1,4 @@
-import { type HealthResponse, healthResponseSchema } from '@ticko/shared';
+import { type HealthResponse, healthResponseSchema } from '@toppo/shared';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from '../http/zod.ts';
 
@@ -10,7 +10,7 @@ export interface HealthDependencies {
 
 const DEFAULT_CHECK_TIMEOUT_MS = 3000;
 
-/** `GET /health`: 200 when Ticko can serve requests, 503 otherwise. Never exposes versions or errors. */
+/** `GET /health`: 200 when Toppo can serve requests, 503 otherwise. Never exposes versions or errors. */
 export function registerHealthRoute(
   app: FastifyInstance,
   { database, checkTimeoutMs = DEFAULT_CHECK_TIMEOUT_MS }: HealthDependencies,

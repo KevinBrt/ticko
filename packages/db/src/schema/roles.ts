@@ -1,4 +1,4 @@
-import { PERMISSION_SCOPES, type Permission } from '@ticko/core';
+import { PERMISSION_SCOPES, type Permission } from '@toppo/core';
 import { sql } from 'drizzle-orm';
 import { check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './columns.ts';
