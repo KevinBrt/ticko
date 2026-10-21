@@ -3,7 +3,7 @@ import { schema } from '@toppo/db';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import type { ExecutionContext } from '../../../platform/cqrs/cqrs.ts';
-import { setupTestDatabase } from '../../../test-helpers.ts';
+import { setupTestDatabase, testServices } from '../../../test-helpers.ts';
 import { completeSetup } from './complete-setup.command.ts';
 
 const context = setupTestDatabase();
@@ -14,10 +14,10 @@ function executionContext(): ExecutionContext {
     db: context.database.db,
     actor: null,
     log: Fastify({ logger: false }).log,
-    services: {
+    services: testServices({
       hashPassword: (password) => Promise.resolve(`hashed:${password}`),
       setupCode: SETUP_CODE,
-    },
+    }),
   };
 }
 

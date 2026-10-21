@@ -4,7 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MIGRATIONS_FOLDER } from '../vitest.global-setup.ts';
 import { createDatabase, type Database } from './database.ts';
-import { instanceSettings, roles, users } from './schema/index.ts';
+import { instanceSettings, invitations, roles, users } from './schema/index.ts';
 import { uuidv7 } from './uuid.ts';
 
 async function appliedMigrations(database: Database): Promise<number> {
@@ -187,6 +187,45 @@ describe('initial data and constraints', () => {
 
     await expect(
       database.db.delete(roles).where(eq(roles.id, DEFAULT_ROLE_IDS.requester)),
+    ).rejects.toThrow();
+  });
+
+  it('keeps one pending invitation per address, and expiries after creation', async () => {
+    const [inviter] = await database.db
+      .insert(users)
+      .values({
+        name: 'Inviter',
+        email: `inviter-${uuidv7()}@example.com`,
+        instanceRoleId: DEFAULT_ROLE_IDS.administrator,
+      })
+      .returning({ id: users.id });
+    const invitation = (tokenHash: string, acceptedAt: Date | null = null) => ({
+      email: 'invited@example.com',
+      roleId: DEFAULT_ROLE_IDS.team,
+      tokenHash,
+      invitedById: inviter?.id ?? '',
+      expiresAt: new Date(Date.now() + 60_000),
+      acceptedAt,
+    });
+
+    await database.db.insert(invitations).values(invitation('accepted', new Date()));
+    await database.db.insert(invitations).values(invitation('pending'));
+    await expect(database.db.insert(invitations).values(invitation('second'))).rejects.toThrow();
+    await expect(
+      database.db
+        .insert(invitations)
+        .values({ ...invitation('past'), email: 'past@example.com', expiresAt: new Date(0) }),
+    ).rejects.toThrow();
+  });
+
+  it('lets a deleted account be only a deactivated one', async () => {
+    await expect(
+      database.db.insert(users).values({
+        name: '',
+        email: `deleted-${uuidv7()}@deleted.invalid`,
+        instanceRoleId: DEFAULT_ROLE_IDS.team,
+        deletedAt: new Date(),
+      }),
     ).rejects.toThrow();
   });
 });

@@ -14,7 +14,7 @@ describe('no-role-name-check', () => {
     "if (user.roleName !== 'Guest') {}",
     "if ('admin' === role.name) {}",
     "const isAdmin = role.key == 'administrator';",
-    "switch (role) { case 'member': break; }",
+    "switch (role) { case 'requester': break; }",
   ])('flags %s', (source) => {
     expect(rulesBroken(SERVER, source)).toContain('no-role-name-check');
   });
@@ -22,6 +22,7 @@ describe('no-role-name-check', () => {
   it.each([
     "await authorize(user, 'issue.delete', { projectId });",
     "const status = issue.status === 'open';",
+    "const isMember = row.type === 'member';",
   ])('accepts %s', (source) => {
     expect(rulesBroken(SERVER, source)).not.toContain('no-role-name-check');
   });

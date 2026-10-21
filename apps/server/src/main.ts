@@ -67,7 +67,12 @@ try {
   await app.listen({ host: config.host, port: config.port });
 
   const { required } = await getSetupStatus.execute(
-    { db: database.db, actor: null, log: app.log, services: createServices({ auth, setupCode }) },
+    {
+      db: database.db,
+      actor: null,
+      log: app.log,
+      services: createServices({ auth, setupCode, publicUrl: config.publicUrl }),
+    },
     {},
   );
   if (required) {

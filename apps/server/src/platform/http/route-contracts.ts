@@ -1,11 +1,12 @@
 import type { FastifyInstance, HTTPMethods } from 'fastify';
 import type { Access } from '../auth/access-control.ts';
 
-/** What a registered route promises: who may call it. */
+/** What a registered route promises: who may call it, and whether its use is rate limited. */
 export interface RouteContract {
   method: HTTPMethods;
   url: string;
   access: Access;
+  rateLimited: boolean;
 }
 
 declare module 'fastify' {
@@ -45,7 +46,12 @@ export function enforceRouteContracts(app: FastifyInstance): void {
       throw new Error(`Route ${label} must declare a response schema`);
     }
     for (const method of [route.method].flat()) {
-      contracts.push({ method, url: route.url, access });
+      contracts.push({
+        method,
+        url: route.url,
+        access,
+        rateLimited: route.config?.rateLimit !== undefined,
+      });
     }
   });
 }

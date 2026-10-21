@@ -1,35 +1,39 @@
-import type { AssignableRolesResponse, UserSummary } from '@toppo/shared';
+import type { MemberRow, RoleBadge } from '@toppo/shared';
 
-/** What an administrator does to an account from the users screen. */
+/** What an administrator does to an account from the members screen. */
 export type UserChange =
   | { type: 'changeRole'; userId: string; roleId: string }
   | { type: 'deactivate'; userId: string }
-  | { type: 'reactivate'; userId: string };
+  | { type: 'reactivate'; userId: string }
+  | { type: 'delete'; userId: string };
 
-/** The list as it will be once the server accepts `change`: shown at once, rolled back if not. */
+/** A page as it will be once the server accepts `change`: shown at once, rolled back if not. */
 export function applyUserChange(
-  users: readonly UserSummary[],
+  rows: readonly MemberRow[],
   change: UserChange,
-  roles: AssignableRolesResponse['roles'],
+  roles: readonly RoleBadge[],
   now: Date,
-): UserSummary[] {
-  return users.map((user) =>
-    user.id === change.userId ? changed(user, change, roles, now) : user,
+): MemberRow[] {
+  if (change.type === 'delete') {
+    return rows.filter((row) => row.id !== change.userId);
+  }
+  return rows.map((row) =>
+    row.type === 'member' && row.id === change.userId ? changed(row, change, roles, now) : row,
   );
 }
 
 function changed(
-  user: UserSummary,
-  change: UserChange,
-  roles: AssignableRolesResponse['roles'],
+  member: Extract<MemberRow, { type: 'member' }>,
+  change: Exclude<UserChange, { type: 'delete' }>,
+  roles: readonly RoleBadge[],
   now: Date,
-): UserSummary {
+): MemberRow {
   switch (change.type) {
     case 'changeRole':
-      return { ...user, role: roles.find((role) => role.id === change.roleId) ?? user.role };
+      return { ...member, role: roles.find((role) => role.id === change.roleId) ?? member.role };
     case 'deactivate':
-      return { ...user, deactivatedAt: now.toISOString() };
+      return { ...member, deactivatedAt: now.toISOString() };
     case 'reactivate':
-      return { ...user, deactivatedAt: null };
+      return { ...member, deactivatedAt: null };
   }
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
 import { registerSetupRoutes } from './features/setup/setup.routes.ts';
 import { registerUserRoutes } from './features/users/users.routes.ts';
 import { registerAccessControl } from './platform/auth/access-control.ts';
@@ -13,6 +14,7 @@ import { registerExecutionContext } from './platform/cqrs/execution-context.ts';
 import { registerHealthRoute } from './platform/health/health-route.ts';
 import { registerErrorHandler } from './platform/http/error-handler.ts';
 import { registerOriginCheck } from './platform/http/origin-check.ts';
+import { registerRateLimit } from './platform/http/rate-limit.ts';
 import { enforceRouteContracts } from './platform/http/route-contracts.ts';
 import { registerSecurityHeaders } from './platform/http/security-headers.ts';
 import { registerWebApp } from './platform/http/web-app.ts';
@@ -35,10 +37,12 @@ const REQUEST_TIMEOUT_MS = 60_000;
 export function createServices({
   auth,
   setupCode,
-}: Pick<AppDependencies, 'auth' | 'setupCode'>): Services {
+  publicUrl,
+}: Pick<AppDependencies, 'auth' | 'setupCode'> & { publicUrl: URL }): Services {
   return {
     hashPassword: async (password) => (await auth.$context).password.hash(password),
     setupCode,
+    publicUrl,
   };
 }
 
@@ -70,10 +74,11 @@ export async function buildApp({
   registerErrorHandler(app);
   await registerSecurityHeaders(app, { publicUrl: config.publicUrl });
   registerOriginCheck(app, { publicUrl: config.publicUrl });
+  registerRateLimit(app, { db: database.db });
   registerAccessControl(app, { auth, db: database.db });
   registerExecutionContext(app, {
     db: database.db,
-    services: createServices({ auth, setupCode }),
+    services: createServices({ auth, setupCode, publicUrl: config.publicUrl }),
   });
   app.addHook('onRequest', (request, reply, done) => {
     reply.header('x-request-id', request.id);
@@ -87,6 +92,7 @@ export async function buildApp({
   // Features.
   registerSetupRoutes(app);
   registerUserRoutes(app);
+  registerInvitationRoutes(app);
 
   const servesWebApp = await registerWebApp(app, webRoot);
   if (!servesWebApp) {

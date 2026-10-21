@@ -42,7 +42,11 @@ function lineMatches(
   });
 }
 
-const ROLE_NAMES = '(admin|administrator|member|guest|owner|manager|team|requester)';
+/**
+ * Literal role names that give away a role check. Not "member": everyone in the instance is
+ * one, and members and invitations are told apart by `type === 'member'`.
+ */
+const ROLE_NAMES = '(admin|administrator|guest|owner|manager|team|requester|supervisor)';
 
 export const RULES: readonly ConventionRule[] = [
   {

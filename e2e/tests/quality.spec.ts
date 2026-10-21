@@ -29,15 +29,18 @@ test('the navigation drawer is accessible', { tag: '@mobile-only' }, async ({ pa
 });
 
 test('the layout never scrolls horizontally', async ({ page }) => {
-  for (const width of [320, 375, 768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 800 });
-    await page.goto('/issues');
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  // A plain page, and one with its own section navigation.
+  for (const path of ['/issues', '/settings/members']) {
+    for (const width of [320, 375, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow, `horizontal overflow at ${width}px`).toBe(0);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `horizontal overflow of ${path} at ${width}px`).toBe(0);
+    }
   }
 });
 

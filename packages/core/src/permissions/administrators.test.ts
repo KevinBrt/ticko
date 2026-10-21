@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { type InstanceAccounts, keepsAnAdministrator } from './administrators.ts';
+import { canActOnRole, type InstanceAccounts, keepsAnAdministrator } from './administrators.ts';
+
+describe('canActOnRole', () => {
+  const systemRole = { grantsAll: true };
+  const otherRole = { grantsAll: false };
+
+  it('lets anyone who manages members hand out ordinary roles', () => {
+    expect(canActOnRole(['instance.users.manage'], otherRole)).toBe(true);
+  });
+
+  it('keeps the system role to those who hold it', () => {
+    expect(canActOnRole(['instance.users.manage'], systemRole)).toBe(false);
+    expect(canActOnRole(['instance.users.manage', 'instance.roles.manage'], systemRole)).toBe(true);
+  });
+});
 
 const ROLES: InstanceAccounts['roles'] = [
   { id: 'administrator', grantsAll: true },

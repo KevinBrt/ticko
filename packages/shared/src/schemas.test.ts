@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { apiErrorSchema } from './api-error.ts';
 import { healthResponseSchema } from './health.ts';
-import { userSummarySchema } from './users.ts';
+import { invitationTokenSchema } from './members/invitations.ts';
+import { userSummarySchema } from './members/users.ts';
 
 describe('userSummarySchema', () => {
   const ada = {
@@ -64,5 +65,15 @@ describe('apiErrorSchema', () => {
 
   it('rejects an error without a code', () => {
     expect(apiErrorSchema.safeParse({ error: { message: 'Oops' } }).success).toBe(false);
+  });
+});
+
+describe('invitationTokenSchema', () => {
+  it('accepts 32 random bytes in base64url only', () => {
+    expect(invitationTokenSchema.safeParse('a'.repeat(43)).success).toBe(true);
+    expect(invitationTokenSchema.safeParse(`${'a'.repeat(42)}_`).success).toBe(true);
+    expect(invitationTokenSchema.safeParse('a'.repeat(42)).success).toBe(false);
+    expect(invitationTokenSchema.safeParse(`${'a'.repeat(42)}=`).success).toBe(false);
+    expect(invitationTokenSchema.safeParse(`${'a'.repeat(42)}/`).success).toBe(false);
   });
 });

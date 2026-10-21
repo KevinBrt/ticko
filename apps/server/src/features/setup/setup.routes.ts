@@ -20,7 +20,8 @@ export function registerSetupRoutes(app: FastifyInstance): void {
   routes.post(
     '/api/v1/setup',
     {
-      config: { access: completeSetup.access },
+      // Open to anyone until set up: guessing the setup code must stay slow.
+      config: { access: completeSetup.access, rateLimit: { max: 10, windowSeconds: 600 } },
       schema: { body: setupRequestSchema, response: { 201: setupResponseSchema } },
     },
     async (request, reply) =>

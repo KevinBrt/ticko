@@ -1,5 +1,20 @@
-/** The accounts of an instance and the roles they hold, as far as administration goes. */
+import { can } from './grants.ts';
+
+/**
+ * Whether an actor may give `role` to someone, or act on a member who holds it. Only holders of
+ * the system role, the only ones who manage roles, touch the system role: nobody can make
+ * themselves an administrator by managing members.
+ */
+export function canActOnRole(
+  actorPermissions: readonly string[],
+  role: { grantsAll: boolean },
+): boolean {
+  return !role.grantsAll || can(actorPermissions, 'instance.roles.manage');
+}
+
+/** The accounts that matter to administration, and the roles they hold. */
 export interface InstanceAccounts {
+  /** At least the active administrators and the member a change is about; others never count. */
   users: readonly { id: string; roleId: string; active: boolean }[];
   /** Holding a role that grants every permission makes an administrator. */
   roles: readonly { id: string; grantsAll: boolean }[];

@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "deleted_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_deleted_are_deactivated" CHECK ("users"."deleted_at" is null or "users"."deactivated_at" is not null);

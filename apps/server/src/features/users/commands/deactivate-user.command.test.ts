@@ -5,7 +5,7 @@ import Fastify from 'fastify';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Actor } from '../../../platform/auth/actor.ts';
 import type { ExecutionContext } from '../../../platform/cqrs/cqrs.ts';
-import { setupTestDatabase } from '../../../test-helpers.ts';
+import { setupTestDatabase, testServices } from '../../../test-helpers.ts';
 import { deactivateUser } from './deactivate-user.command.ts';
 
 const context = setupTestDatabase();
@@ -17,17 +17,25 @@ function executionContext(actor: Actor): ExecutionContext {
     db: context.database.db,
     actor,
     log: Fastify({ logger: false }).log,
-    services: { hashPassword: (password) => Promise.resolve(password), setupCode: 'unused' },
+    services: testServices(),
   };
 }
 
-/** May manage users, but not roles: not an administrator in the sense of the last-admin rule. */
+/** May manage members, without holding the system role. */
 const userManager = (id: string): Actor => ({
   id,
   name: 'Manager',
   email: 'manager@example.com',
   permissions: ['instance.users.manage'],
 });
+
+/** Holds every permission without being a member, as a plugin or a job might. */
+const SYSTEM_CALLER: Actor = {
+  id: '01a1569b-9900-7000-8000-00000000cafe',
+  name: 'System',
+  email: 'system@example.com',
+  permissions: ['instance.users.manage', 'instance.roles.manage'],
+};
 
 async function insertUser(instanceRoleId: string): Promise<string> {
   const id = uuidv7();
@@ -57,11 +65,18 @@ describe('deactivateUser', () => {
     expect(await deactivatedAt(adminId)).toBeNull();
   });
 
-  it('never deactivates the last administrator, whoever asks', async () => {
+  it('leaves administrators to administrators', async () => {
     const managerId = await insertUser(DEFAULT_ROLE_IDS.team);
 
     await expect(
       deactivateUser.execute(executionContext(userManager(managerId)), { userId: adminId }),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'SYSTEM_ROLE_RESERVED' });
+    expect(await deactivatedAt(adminId)).toBeNull();
+  });
+
+  it('never deactivates the last administrator, even for a caller holding every permission', async () => {
+    await expect(
+      deactivateUser.execute(executionContext(SYSTEM_CALLER), { userId: adminId }),
     ).rejects.toMatchObject({ statusCode: 409, code: 'LAST_ADMINISTRATOR' });
     expect(await deactivatedAt(adminId)).toBeNull();
   });

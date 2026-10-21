@@ -9,6 +9,7 @@ import { protectedRoute } from './routes/protected/protected.route.tsx';
 import { settingsIndexRoute } from './routes/protected/settings/index.route.tsx';
 import { membersRoute } from './routes/protected/settings/members.route.tsx';
 import { settingsRoute } from './routes/protected/settings/settings.route.tsx';
+import { invitationRoute } from './routes/public/invitation.route.tsx';
 import { loginRoute } from './routes/public/login.route.tsx';
 import { setupRoute } from './routes/public/setup.route.tsx';
 import { rootRoute } from './routes/root.route.tsx';
@@ -18,6 +19,7 @@ const routeTree = rootRoute.addChildren([
   // Reachable without a session.
   setupRoute,
   loginRoute,
+  invitationRoute,
   // Behind sign-in, inside the application frame.
   protectedRoute.addChildren([
     indexRoute,
@@ -50,6 +52,10 @@ export function createAppRouter({
 declare module '@tanstack/react-router' {
   interface Register {
     router: ReturnType<typeof createAppRouter>;
+  }
+  interface HistoryState {
+    /** The address of someone who just accepted an invitation, for the sign-in page. */
+    invitedEmail?: string;
   }
   interface StaticDataRouteOption {
     /** Title shown in the top bar and the browser tab. */

@@ -23,31 +23,38 @@ export function SectionLayout({
     return children;
   }
   return (
-    <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
-      <nav aria-label={label} className="lg:w-52 lg:shrink-0">
-        {sections.map((section) => (
-          <div key={section.labelKey ?? 'main'} className="lg:mb-5">
-            {section.labelKey ? (
-              <p className="hidden px-3 pb-2 text-xs font-medium text-muted-foreground lg:block">
-                {t(section.labelKey)}
-              </p>
-            ) : null}
-            <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-              {section.items.map(({ to, labelKey }) => (
-                <li key={to} className="shrink-0">
-                  <Link
-                    to={to}
-                    className="flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground pointer-coarse:min-h-11 data-[status=active]:bg-primary-subtle data-[status=active]:text-primary-subtle-foreground"
-                  >
-                    {t(labelKey)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+    // From lg up, the column reaches past the page padding, from the top bar to the bottom
+    // (lg:h-16 bar): a white panel against the app sidebar, as in the mockups.
+    <div className="flex flex-col gap-5 lg:-my-8 lg:-ml-8 lg:min-h-[calc(100dvh-4rem)] lg:flex-row lg:gap-0">
+      <nav
+        aria-label={label}
+        className="lg:w-56 lg:shrink-0 lg:border-r lg:border-border lg:bg-surface lg:px-3 lg:py-6"
+      >
+        <div className="lg:sticky lg:top-22">
+          {sections.map((section) => (
+            <div key={section.labelKey ?? 'main'} className="lg:mb-5">
+              {section.labelKey ? (
+                <p className="hidden px-3 pb-2 text-xs font-medium text-muted-foreground lg:block">
+                  {t(section.labelKey)}
+                </p>
+              ) : null}
+              <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+                {section.items.map(({ to, labelKey }) => (
+                  <li key={to} className="shrink-0">
+                    <Link
+                      to={to}
+                      className="flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground pointer-coarse:min-h-11 data-[status=active]:bg-primary-subtle data-[status=active]:text-primary-subtle-foreground"
+                    >
+                      {t(labelKey)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1 lg:py-8 lg:pl-8">{children}</div>
     </div>
   );
 }

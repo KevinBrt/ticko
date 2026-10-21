@@ -12,10 +12,22 @@ export {
 export { Field, type FieldControlProps, type FieldProps } from './components/forms/field.tsx';
 export { Input, inputClassName } from './components/forms/input.tsx';
 export { PasswordInput, type PasswordInputProps } from './components/forms/password-input.tsx';
+export { Select } from './components/forms/select.tsx';
+export { Textarea } from './components/forms/textarea.tsx';
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  type DialogContentProps,
+  DialogTrigger,
+} from './components/overlays/dialog.tsx';
 export {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './components/overlays/dropdown-menu.tsx';
 export {

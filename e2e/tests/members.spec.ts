@@ -19,6 +19,6 @@ test('an administrator cannot change their own role or deactivate themselves', a
   await page.goto('/settings/members');
   await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
 
-  await expect(page.getByRole('combobox', { name: `Role of ${ADMIN.name}` })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: `Role of ${ADMIN.name}` })).toHaveCount(0);
   await expect(page.getByRole('button', { name: `Actions for ${ADMIN.name}` })).toHaveCount(0);
 });

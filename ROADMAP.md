@@ -30,9 +30,11 @@ _Done when no route answers without a verified permission._
 **Members** (`features/users`)
 
 - [x] List members, change their role, deactivate and reactivate them (sessions revoked at once, sign-in refused while deactivated).
-- [x] Never leave the instance without an active member holding the system role, even when two administrators act at once.
+- [x] Never leave the instance without an active member holding the system role, even when two administrators act at once; only holders of the system role give it, take it away, or act on its holders; nobody changes their own role.
+- [x] The members list is searched, filtered and paginated by the server, with its filters in the URL.
+- [x] Delete a member, after confirming: their personal data is erased, history keeps an anonymous author, the address is free again.
 - [x] Settings layout after the mockups: settings navigation and breadcrumb; members table with role tabs and counts, search, colored role badges, state and a row menu. The mockup’s selection checkboxes (bulk actions) and the Projects and Activity columns come with their features.
-- [ ] Invitations without SMTP: "Invite members" (emails and a role) gives links to copy (single use, expire after 7 days, only a hash of the token stored, the token after `#` so it stays out of logs); pending invitations show as "Invited", with copy link and revoke; a public page to accept (name, password). Email delivery comes with step 4.
+- [x] Invitations without SMTP: "Invite members" (emails and a role) gives links to copy (single use, expire after 7 days, only a hash of the token stored, the token after `#` so it stays out of logs); pending invitations show among the members as "Invited" or "Expired", with a new link (the old one dies) and revoke; a public page to accept (name, password). Email delivery comes with step 4.
 
 **Roles and permissions** (`features/roles`)
 
@@ -45,7 +47,7 @@ _Done when no route answers without a verified permission._
 
 **Tests**
 
-- [ ] End-to-end: the administrator invites a team member, who accepts, signs in and cannot open the settings.
+- [x] End-to-end: the administrator invites a team member, who accepts, signs in and cannot open the settings.
 
 ## Step 2: projects and issues
 

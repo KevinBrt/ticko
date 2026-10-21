@@ -13,10 +13,20 @@ import {
 import { SessionQueries } from '../queries/session.queries.ts';
 
 /** Email and password sign-in. The caller decides where to go once signed in. */
-export function LoginForm({ onSignedIn }: { onSignedIn: () => Promise<void> | void }) {
+export function LoginForm({
+  defaultEmail = '',
+  onSignedIn,
+}: {
+  /** Filled in for someone who just created their account. */
+  defaultEmail?: string;
+  onSignedIn: () => Promise<void> | void;
+}) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const [values, setValues] = useState<LoginFormValues>(EMPTY_LOGIN_FORM);
+  const [values, setValues] = useState<LoginFormValues>({
+    ...EMPTY_LOGIN_FORM,
+    email: defaultEmail,
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const login = useMutation({

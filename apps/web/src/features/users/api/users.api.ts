@@ -1,8 +1,9 @@
 import {
   type AssignableRolesResponse,
   assignableRolesResponseSchema,
-  type UserSummary,
-  usersResponseSchema,
+  type MembersQuery,
+  type MembersResponse,
+  membersResponseSchema,
 } from '@toppo/shared';
 import { z } from 'zod';
 import { apiRequest } from '../../../shared/api/http.client.ts';
@@ -12,10 +13,22 @@ const noContent = z.null();
 
 const userPath = (userId: string) => `/api/v1/users/${encodeURIComponent(userId)}`;
 
-/** Server calls about the accounts of the instance, for holders of `instance.users.manage`. */
+/** Server calls about the members of the instance, for holders of `instance.users.manage`. */
 export const Users = {
-  async list(): Promise<UserSummary[]> {
-    return (await apiRequest('/api/v1/users', { schema: usersResponseSchema })).users;
+  /** One page of members and pending invitations: the server searches, filters and sorts. */
+  async members({ role, search, page }: MembersQuery): Promise<MembersResponse> {
+    const params = new URLSearchParams();
+    if (role) {
+      params.set('role', role);
+    }
+    if (search) {
+      params.set('search', search);
+    }
+    if (page && page > 1) {
+      params.set('page', String(page));
+    }
+    const query = params.size > 0 ? `?${params}` : '';
+    return await apiRequest(`/api/v1/members${query}`, { schema: membersResponseSchema });
   },
 
   /** The instance roles users can be given. */
@@ -30,6 +43,11 @@ export const Users = {
 
   async deactivate(userId: string): Promise<void> {
     await apiRequest(`${userPath(userId)}/deactivate`, { method: 'POST', schema: noContent });
+  },
+
+  /** Erases the member for good; history keeps an anonymous author. */
+  async delete(userId: string): Promise<void> {
+    await apiRequest(userPath(userId), { method: 'DELETE', schema: noContent });
   },
 
   async reactivate(userId: string): Promise<void> {

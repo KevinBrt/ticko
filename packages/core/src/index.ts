@@ -1,6 +1,12 @@
+export {
+  INVITATION_LIFETIME_DAYS,
+  invitationExpiry,
+  isInvitationExpired,
+} from './invitations.ts';
 export { formatIssueKey, type IssueKeyParts, parseIssueKey } from './issue-key.ts';
 export {
   type AccountChange,
+  canActOnRole,
   type InstanceAccounts,
   keepsAnAdministrator,
 } from './permissions/administrators.ts';

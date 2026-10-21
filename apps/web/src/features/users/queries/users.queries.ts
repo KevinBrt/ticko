@@ -1,14 +1,30 @@
-import { queryOptions } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import type { MembersQuery } from '@toppo/shared';
+import { Invitations } from '../api/invitations.api.ts';
 import { Users } from '../api/users.api.ts';
 
-/** Cached user management data. Keys start with `users`. */
+/** Cached member management data. Keys start with `users`. */
 export const UsersQueries = {
-  list: queryOptions({
-    queryKey: ['users', 'list'],
-    queryFn: () => Users.list(),
-  }),
+  /** Every cached page of the members list, to refresh them all after a change. */
+  allMembers: ['users', 'members'] as const,
+  /** One page, as the server filtered it. The previous page stays shown while the next loads. */
+  members: (query: MembersQuery) =>
+    queryOptions({
+      queryKey: ['users', 'members', query],
+      queryFn: () => Users.members(query),
+      placeholderData: keepPreviousData,
+    }),
+  /** A short configuration list: loaded whole. */
   assignableRoles: queryOptions({
     queryKey: ['users', 'assignable-roles'],
     queryFn: () => Users.assignableRoles(),
   }),
+  /** A link's invitation, as its holder sees it. An answer, even a refusal, does not change. */
+  invitationPreview: (token: string) =>
+    queryOptions({
+      queryKey: ['users', 'invitation-preview', token],
+      queryFn: () => Invitations.preview(token),
+      staleTime: Number.POSITIVE_INFINITY,
+      retry: false,
+    }),
 };

@@ -55,7 +55,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
 /** The settings' own navigation, beside their pages. */
 export const SETTINGS_NAV: readonly NavSection[] = [
   {
-    labelKey: 'settings.organisation',
     items: [
       {
         to: '/settings/members',

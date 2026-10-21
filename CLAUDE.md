@@ -150,6 +150,7 @@ shared/<area>/                code used by several features: api/, i18n/, layout
 - **Responsive by default, mobile first.** Every screen works from 320 px; no horizontal scroll; touch targets ≥ 44 px on coarse pointers (`pointer-coarse:`); respect safe-area insets. Check 375 px and desktop before calling UI done.
 - **Accessible by default**: semantic HTML, one `h1` per page, labelled controls, visible focus, full keyboard use, Radix primitives for dialogs/menus/popovers. axe must stay at zero violations.
 - Server state with TanStack Query and optimistic updates; routing with TanStack Router; no global state library.
+- **Lists are searched, filtered, sorted and paginated by the server.** Never fetch a whole collection to filter it in the browser: the screen sends its filters, search and page (kept in the URL), and the server answers one page plus the counts the screen shows. Only small, bounded configuration lists (roles, statuses) are loaded whole.
 - Components are added to `packages/ui` only when reused; keep them dumb (props in, events out, no data fetching, no i18n lookups: labels come in as props).
 
 ## Database rules
@@ -160,6 +161,7 @@ shared/<area>/                code used by several features: api/, i18n/, layout
 - Every foreign key indexed; constraints in the database (NOT NULL, CHECK, UNIQUE, FK actions), not only in code.
 - Data tied to `@toppo/core` constants (default roles) must match them: a test compares the seeded rows with the constants.
 - Every query on project data is scoped by project and filtered by the user's permissions in the query itself, not after loading.
+- Every list query filters, searches and sorts in SQL and returns one page (at most 100 rows); no endpoint returns an unbounded collection. Search goes through `containsText()` (`@toppo/db`), which escapes `LIKE` wildcards. Checks that need "all of X" count or select only what they need in SQL.
 - Server integration tests call `setupTestDatabase()`: one migrated database per test file, never shared, never mocked.
 
 ## Dependencies

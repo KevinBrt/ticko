@@ -1,7 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { can, DEFAULT_ROLE_IDS, DEFAULT_ROLES, instancePermissionsOf } from '@toppo/core';
-import type { CurrentUser, Locale, UserSummary } from '@toppo/shared';
+import {
+  type CurrentUser,
+  type Locale,
+  MEMBERS_PAGE_SIZE,
+  type MemberRow,
+  type PendingInvitation,
+  type UserSummary,
+} from '@toppo/shared';
 import { vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { createAppRouter } from './router.tsx';
@@ -51,6 +58,20 @@ export interface FakeServerState {
   user: CurrentUser | null;
   /** The accounts user management sees: Ada (administrator) and Grace (team) by default. */
   users: UserSummary[];
+  invitations: PendingInvitation[];
+  /** The links the fake server made, by token, and what opening them shows. */
+  invitationLinks: Map<string, InvitationLinkState>;
+}
+
+export interface InvitationLinkState {
+  email: string;
+  invitedBy: string | null;
+  status: 'pending' | 'expired' | 'used';
+}
+
+/** A well-formed invitation token, distinct for each `seed`. */
+export function invitationToken(seed: number): string {
+  return String(seed).padStart(43, 'x');
 }
 
 export interface FakeServer {
@@ -72,13 +93,18 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       setupRequired: false,
       user: null,
       users: [memberOf(ADA, ROLE_BADGES.administrator), memberOf(GRACE, ROLE_BADGES.team)],
+      invitations: [],
+      invitationLinks: new Map(),
       ...initial,
     },
     requests: [],
   };
   const { state } = server;
 
-  const routes: Record<string, (body: Record<string, unknown>) => Response> = {
+  const routes: Record<
+    string,
+    (body: Record<string, unknown>, search: URLSearchParams) => Response
+  > = {
     'GET /api/v1/setup': () => json({ required: state.setupRequired }),
     'GET /api/v1/me': () => json({ user: state.user }),
     'POST /api/v1/setup': (body) => {
@@ -109,8 +135,23 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       state.user = null;
       return json({ success: true });
     },
-    'GET /api/v1/users': () => asUserManager(state) ?? json({ users: state.users }),
+    'GET /api/v1/members': (_body, search) => asUserManager(state) ?? members(state, search),
     'GET /api/v1/users/roles': () => asUserManager(state) ?? json({ roles: INSTANCE_ROLES }),
+    'POST /api/v1/invitations': (body) => asUserManager(state) ?? invite(state, body),
+    'POST /api/v1/invitations/preview': (body) => {
+      const link = state.invitationLinks.get(String(body['token']));
+      return link?.status === 'pending'
+        ? json({ email: link.email, invitedBy: link.invitedBy })
+        : linkRefusal(link);
+    },
+    'POST /api/v1/invitations/accept': (body) => {
+      const link = state.invitationLinks.get(String(body['token']));
+      if (link?.status !== 'pending') {
+        return linkRefusal(link);
+      }
+      link.status = 'used';
+      return json({ email: link.email }, 201);
+    },
   };
 
   vi.spyOn(window, 'fetch').mockImplementation(async (input, init) => {
@@ -120,11 +161,13 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     );
     const method = init?.method ?? 'GET';
     const body: unknown = init?.body ? JSON.parse(String(init.body)) : undefined;
-    server.requests.push({ method, path: url.pathname, body });
+    server.requests.push({ method, path: url.pathname + url.search, body });
     const handler = routes[`${method} ${url.pathname}`];
     const answer = handler
-      ? handler((body ?? {}) as Record<string, unknown>)
-      : (changeUser(state, method, url.pathname, body) ?? apiError(404, 'NOT_FOUND'));
+      ? handler((body ?? {}) as Record<string, unknown>, url.searchParams)
+      : (changeUser(state, method, url.pathname, body) ??
+        changeInvitation(state, method, url.pathname) ??
+        apiError(404, 'NOT_FOUND'));
     return await Promise.resolve(answer);
   });
 
@@ -149,7 +192,12 @@ function changeUser(
   body: unknown,
 ): Response | undefined {
   const match = /^\/api\/v1\/users\/([^/]+)(?:\/(deactivate|reactivate))?$/.exec(path);
-  const action = method === 'PATCH' ? 'changeRole' : match?.[2];
+  const actions: Record<string, string | undefined> = {
+    PATCH: 'changeRole',
+    DELETE: 'delete',
+    POST: match?.[2],
+  };
+  const action = match?.[2] && method !== 'POST' ? undefined : actions[method];
   if (!(match && action)) {
     return undefined;
   }
@@ -161,8 +209,12 @@ function changeUser(
   if (action === 'changeRole') {
     return changeRole(state, user, (body as { roleId?: string } | undefined)?.roleId);
   }
-  if (action === 'deactivate' && user.id === state.user?.id) {
-    return apiError(409, 'CANNOT_DEACTIVATE_SELF');
+  if (user.id === state.user?.id && action !== 'reactivate') {
+    return apiError(409, action === 'delete' ? 'CANNOT_DELETE_SELF' : 'CANNOT_DEACTIVATE_SELF');
+  }
+  if (action === 'delete') {
+    state.users = state.users.filter((candidate) => candidate !== user);
+    return NO_CONTENT();
   }
   user.deactivatedAt = action === 'deactivate' ? '2026-10-21T08:30:00.000Z' : null;
   return NO_CONTENT();
@@ -207,4 +259,106 @@ export async function renderApp({
     </I18nProvider>,
   );
   return { screen, router };
+}
+
+function linkRefusal(link: InvitationLinkState | undefined): Response {
+  return link?.status === 'expired'
+    ? apiError(410, 'INVITATION_EXPIRED')
+    : apiError(404, 'INVITATION_INVALID');
+}
+
+function newLink(state: FakeServerState, email: string): string {
+  const token = invitationToken(state.invitationLinks.size + 1);
+  state.invitationLinks.set(token, { email, invitedBy: state.user?.name ?? '', status: 'pending' });
+  return `http://localhost:3000/invitation#${token}`;
+}
+
+/** `POST /api/v1/invitations`: inviting an address again replaces its invitation. */
+function invite(state: FakeServerState, body: Record<string, unknown>): Response {
+  const emails = (body['emails'] as string[] | undefined) ?? [];
+  const role = INSTANCE_ROLES.find((candidate) => candidate.id === body['roleId']);
+  if (!role) {
+    return apiError(400, 'INVALID_ROLE');
+  }
+  const alreadyMembers = emails.filter((email) => state.users.some((user) => user.email === email));
+  const invited = emails.filter((email) => !alreadyMembers.includes(email));
+  state.invitations = state.invitations.filter((invitation) => !invited.includes(invitation.email));
+  const links = invited.map((email, index) => {
+    const id = `01a1569b-9900-7000-8000-0000000002${String(state.invitationLinks.size + index).padStart(2, '0')}`;
+    state.invitations.push({
+      id,
+      email,
+      role,
+      invitedBy: state.user?.name ?? '',
+      expiresAt: '2026-10-28T10:00:00.000Z',
+    });
+    return { id, email, link: newLink(state, email) };
+  });
+  return json({ invitations: links, alreadyMembers }, 201);
+}
+
+/** `POST /api/v1/invitations/:id/renew` and `DELETE /api/v1/invitations/:id`. */
+function changeInvitation(
+  state: FakeServerState,
+  method: string,
+  path: string,
+): Response | undefined {
+  const match = /^\/api\/v1\/invitations\/([^/]+?)(\/renew)?$/.exec(path);
+  if (!match || (method === 'POST') !== Boolean(match[2]) || !['POST', 'DELETE'].includes(method)) {
+    return undefined;
+  }
+  const refusal = asUserManager(state);
+  const invitation = state.invitations.find((candidate) => candidate.id === match[1]);
+  if (refusal || !invitation) {
+    return refusal ?? apiError(404, 'INVITATION_NOT_FOUND');
+  }
+  if (method === 'DELETE') {
+    state.invitations = state.invitations.filter((candidate) => candidate !== invitation);
+    return NO_CONTENT();
+  }
+  return json({
+    id: invitation.id,
+    email: invitation.email,
+    link: newLink(state, invitation.email),
+  });
+}
+
+/** Lower case without accents, as the server compares. */
+function fold(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+/** `GET /api/v1/members`: searches, filters, sorts and pages like the server. */
+function members(state: FakeServerState, search: URLSearchParams): Response {
+  const role = search.get('role');
+  const needle = fold(search.get('search') ?? '');
+  const page = Number(search.get('page') ?? '1');
+  const label = (row: MemberRow) => (row.type === 'member' ? row.name : row.email);
+  const rank = (row: MemberRow) => INSTANCE_ROLES.findIndex(({ id }) => id === row.role.id);
+  const rows: MemberRow[] = [
+    ...state.users.map((user): MemberRow => ({ type: 'member', ...user })),
+    ...state.invitations.map((invitation): MemberRow => ({ type: 'invitation', ...invitation })),
+  ]
+    .filter((row) => [label(row), row.email].some((text) => fold(text).includes(needle)))
+    .sort(
+      (left, right) =>
+        rank(left) - rank(right) ||
+        label(left).localeCompare(label(right), undefined, { sensitivity: 'base' }),
+    );
+  const byRole: Record<string, number> = {};
+  for (const row of rows) {
+    byRole[row.role.id] = (byRole[row.role.id] ?? 0) + 1;
+  }
+  const matching = role ? rows.filter((row) => row.role.id === role) : rows;
+  return json({
+    rows: matching.slice((page - 1) * MEMBERS_PAGE_SIZE, page * MEMBERS_PAGE_SIZE),
+    byRole,
+    matching: matching.length,
+    totals: { members: state.users.length, invitations: state.invitations.length },
+    page,
+    pageSize: MEMBERS_PAGE_SIZE,
+  });
 }

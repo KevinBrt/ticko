@@ -1,32 +1,34 @@
 import {
   assignableRolesResponseSchema,
   changeUserRoleRequestSchema,
+  membersQuerySchema,
+  membersResponseSchema,
   userIdParamsSchema,
-  usersResponseSchema,
 } from '@toppo/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { ZodTypeProvider } from '../../platform/http/zod.ts';
 import { changeUserRole } from './commands/change-user-role.command.ts';
 import { deactivateUser } from './commands/deactivate-user.command.ts';
+import { deleteUser } from './commands/delete-user.command.ts';
 import { reactivateUser } from './commands/reactivate-user.command.ts';
 import { listAssignableRoles } from './queries/list-assignable-roles.query.ts';
-import { listUsers } from './queries/list-users.query.ts';
+import { listMembers } from './queries/list-members.query.ts';
 
 /** Commands answer `204 No Content`: the client refetches what it shows. */
 const NO_CONTENT = { 204: z.void() };
 
-/** Accounts of the instance, managed by holders of `instance.users.manage`. */
+/** Members of the instance, managed by holders of `instance.users.manage`. */
 export function registerUserRoutes(app: FastifyInstance): void {
   const routes = app.withTypeProvider<ZodTypeProvider>();
 
   routes.get(
-    '/api/v1/users',
+    '/api/v1/members',
     {
-      config: { access: listUsers.access },
-      schema: { response: { 200: usersResponseSchema } },
+      config: { access: listMembers.access },
+      schema: { querystring: membersQuerySchema, response: { 200: membersResponseSchema } },
     },
-    (request) => listUsers.execute(request.executionContext, {}),
+    (request) => listMembers.execute(request.executionContext, request.query),
   );
 
   routes.get(
@@ -79,5 +81,15 @@ export function registerUserRoutes(app: FastifyInstance): void {
       reply
         .status(204)
         .send(await reactivateUser.execute(request.executionContext, request.params)),
+  );
+
+  routes.delete(
+    '/api/v1/users/:userId',
+    {
+      config: { access: deleteUser.access },
+      schema: { params: userIdParamsSchema, response: NO_CONTENT },
+    },
+    async (request, reply) =>
+      reply.status(204).send(await deleteUser.execute(request.executionContext, request.params)),
   );
 }

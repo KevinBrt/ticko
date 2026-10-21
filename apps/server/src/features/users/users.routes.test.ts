@@ -1,10 +1,12 @@
 import { DEFAULT_ROLE_IDS } from '@toppo/core';
+import { schema } from '@toppo/db';
 import {
   apiErrorSchema,
   assignableRolesResponseSchema,
+  membersResponseSchema,
   meResponseSchema,
-  usersResponseSchema,
 } from '@toppo/shared';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -20,6 +22,7 @@ let app: FastifyInstance;
 let adminCookie: string;
 let teamCookie: string;
 let teamUserId: string;
+let requesterId: string;
 
 const ORIGIN = 'http://localhost:3000';
 const PASSWORD = 'correct horse battery staple';
@@ -39,7 +42,12 @@ function signIn(email: string) {
   });
 }
 
-function call(method: 'GET' | 'PATCH' | 'POST', url: string, cookie: string, body?: object) {
+function call(
+  method: 'GET' | 'PATCH' | 'POST' | 'DELETE',
+  url: string,
+  cookie: string,
+  body?: object,
+) {
   return app.inject({
     method,
     url,
@@ -64,7 +72,7 @@ beforeAll(async () => {
     password: PASSWORD,
     instanceRoleId: DEFAULT_ROLE_IDS.team,
   });
-  await createTestUser(context.database, {
+  requesterId = await createTestUser(context.database, {
     ...REQUESTER,
     password: PASSWORD,
     instanceRoleId: DEFAULT_ROLE_IDS.requester,
@@ -74,35 +82,60 @@ beforeAll(async () => {
   return () => app.close();
 });
 
-describe('GET /api/v1/users', () => {
-  it('lists every account by name, with its role and status only', async () => {
-    const response = await call('GET', '/api/v1/users', adminCookie);
+describe('GET /api/v1/members', () => {
+  it('pages members by role, then by name, with their role and status only', async () => {
+    const response = await call('GET', '/api/v1/members', adminCookie);
 
     expect(response.statusCode).toBe(200);
-    const { users } = usersResponseSchema.parse(response.json());
-    expect(users.map((user) => user.name)).toStrictEqual([
+    const { rows, matching, totals } = membersResponseSchema.parse(response.json());
+    expect(rows.map((row) => (row.type === 'member' ? row.name : row.email))).toStrictEqual([
       'Ada Lovelace',
-      'alan Turing',
       'Grace Hopper',
+      'alan Turing',
     ]);
-    expect(users.find((user) => user.id === teamUserId)).toStrictEqual({
+    expect(rows.find((row) => row.id === teamUserId)).toStrictEqual({
+      type: 'member',
       id: teamUserId,
       ...TEAM_MEMBER,
       role: { id: DEFAULT_ROLE_IDS.team, name: 'Team', color: 'green' },
       deactivatedAt: null,
     });
-    expect(Object.keys(response.json().users[0]).sort()).toStrictEqual([
+    expect(Object.keys(response.json().rows[0]).sort()).toStrictEqual([
       'deactivatedAt',
       'email',
       'id',
       'name',
       'role',
+      'type',
     ]);
+    expect({ matching, totals }).toStrictEqual({
+      matching: 3,
+      totals: { members: 3, invitations: 0 },
+    });
   });
 
-  it('is refused without a session, and to users who cannot manage users', async () => {
-    expect((await app.inject({ method: 'GET', url: '/api/v1/users' })).statusCode).toBe(401);
-    const forbidden = await call('GET', '/api/v1/users', teamCookie);
+  it('filters by role and searches on the server', async () => {
+    const response = await call(
+      'GET',
+      `/api/v1/members?role=${DEFAULT_ROLE_IDS.team}&search=GRACE`,
+      adminCookie,
+    );
+
+    const { rows, byRole } = membersResponseSchema.parse(response.json());
+    expect(rows.map((row) => row.id)).toStrictEqual([teamUserId]);
+    expect(byRole).toStrictEqual({ [DEFAULT_ROLE_IDS.team]: 1 });
+  });
+
+  it('rejects malformed filters', async () => {
+    for (const query of ['role=team', 'page=0', `search=${'x'.repeat(101)}`]) {
+      const response = await call('GET', `/api/v1/members?${query}`, adminCookie);
+      expect(response.statusCode, query).toBe(400);
+    }
+  });
+
+  it('is refused without a session, and to users who cannot manage members', async () => {
+    expect((await app.inject({ method: 'GET', url: '/api/v1/members' })).statusCode).toBe(401);
+    const forbidden = await call('GET', '/api/v1/members', teamCookie);
 
     expect(forbidden.statusCode).toBe(403);
     expect(errorCode(forbidden)).toBe('FORBIDDEN');
@@ -153,14 +186,15 @@ describe('PATCH /api/v1/users/:userId', () => {
     expect(malformed.statusCode).toBe(400);
   });
 
-  it('never demotes the last administrator', async () => {
-    const admin = usersResponseSchema
-      .parse((await call('GET', '/api/v1/users', adminCookie)).json())
-      .users.find((user) => user.email === ADMIN.email);
+  it('never lets administrators change their own role', async () => {
+    const [admin] = await context.database.db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, ADMIN.email));
     const response = await changeRole(admin?.id ?? '', DEFAULT_ROLE_IDS.team);
 
     expect(response.statusCode).toBe(409);
-    expect(errorCode(response)).toBe('LAST_ADMINISTRATOR');
+    expect(errorCode(response)).toBe('CANNOT_CHANGE_OWN_ROLE');
   });
 });
 
@@ -179,11 +213,12 @@ describe('deactivating and reactivating a user', () => {
 
     const me = await call('GET', '/api/v1/me', teamCookie);
     expect(me.json()).toStrictEqual({ user: null });
-    expect((await call('GET', '/api/v1/users', teamCookie)).statusCode).toBe(401);
-    const users = usersResponseSchema.parse(
-      (await call('GET', '/api/v1/users', adminCookie)).json(),
+    expect((await call('GET', '/api/v1/members', teamCookie)).statusCode).toBe(401);
+    const { rows } = membersResponseSchema.parse(
+      (await call('GET', '/api/v1/members?search=grace', adminCookie)).json(),
     );
-    expect(users.users.find((user) => user.id === teamUserId)?.deactivatedAt).toMatch(
+    const [grace] = rows;
+    expect(grace?.type === 'member' ? grace.deactivatedAt : undefined).toMatch(
       /^\d{4}-\d{2}-\d{2}T.+Z$/,
     );
 
@@ -199,5 +234,31 @@ describe('deactivating and reactivating a user', () => {
   it('answers 404 for an unknown user', async () => {
     expect((await action('deactivate', UNKNOWN_USER_ID)).statusCode).toBe(404);
     expect((await action('reactivate', UNKNOWN_USER_ID)).statusCode).toBe(404);
+  });
+});
+
+describe('DELETE /api/v1/users/:userId', () => {
+  it('erases a member, who leaves the list for good', async () => {
+    const deleted = await call('DELETE', `/api/v1/users/${requesterId}`, adminCookie);
+    expect(deleted.statusCode).toBe(204);
+
+    const { rows, totals } = membersResponseSchema.parse(
+      (await call('GET', '/api/v1/members?search=alan', adminCookie)).json(),
+    );
+    expect(rows).toStrictEqual([]);
+    expect(totals.members).toBe(2);
+    const again = await call('DELETE', `/api/v1/users/${requesterId}`, adminCookie);
+    expect(again.statusCode).toBe(404);
+  });
+
+  it('never deletes the caller', async () => {
+    const [admin] = await context.database.db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.email, ADMIN.email));
+    const response = await call('DELETE', `/api/v1/users/${admin?.id}`, adminCookie);
+
+    expect(response.statusCode).toBe(409);
+    expect(errorCode(response)).toBe('CANNOT_DELETE_SELF');
   });
 });

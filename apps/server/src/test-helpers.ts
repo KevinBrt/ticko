@@ -8,6 +8,7 @@ import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll } from 'vitest';
 import { buildApp } from './app.ts';
 import { createAuth } from './platform/auth/auth.ts';
+import type { Services } from './platform/cqrs/cqrs.ts';
 
 export const TEST_SECRET = 'test-secret-that-is-long-enough-to-be-accepted';
 export const TEST_SETUP_CODE = 'TEST-SETU-PCDE';
@@ -34,6 +35,16 @@ export function buildTestApp({
     setupCode: TEST_SETUP_CODE,
     webRoot,
   });
+}
+
+/** Services for commands run directly in tests: passwords are "hashed" as themselves. */
+export function testServices(overrides: Partial<Services> = {}): Services {
+  return {
+    hashPassword: (password) => Promise.resolve(password),
+    setupCode: TEST_SETUP_CODE,
+    publicUrl: new URL('http://localhost:3000'),
+    ...overrides,
+  };
 }
 
 /** A private, migrated database for the current test file. */

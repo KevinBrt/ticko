@@ -1,7 +1,13 @@
 import { ChevronDownIcon } from 'lucide-react';
-import type { ComponentProps } from 'react';
 import { cn } from '../../lib/cn.util.ts';
-import { type BadgeTone, badgeClassName } from '../display/badge.tsx';
+import { Badge, type BadgeTone, badgeClassName } from '../display/badge.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '../overlays/dropdown-menu.tsx';
 
 export interface BadgeSelectOption {
   value: string;
@@ -9,51 +15,62 @@ export interface BadgeSelectOption {
   tone: BadgeTone;
 }
 
-export interface BadgeSelectProps extends Omit<ComponentProps<'select'>, 'value' | 'onChange'> {
+export interface BadgeSelectProps {
   options: readonly BadgeSelectOption[];
   value: string;
   onValueChange: (value: string) => void;
+  /** What the choice is about, e.g. "Role of Grace": the current option is read after it. */
+  'aria-label': string;
+  disabled?: boolean;
+  className?: string;
 }
 
 /**
- * A native select that looks like the badge of its current option, e.g. a member's role.
- * Native on purpose: keyboards, screen readers and phones handle it best.
+ * The badge of the current option, opening a menu of the others: a member's role, a status.
+ * A Radix menu: arrow keys, typeahead and Escape work, and the choice is a radio item.
  */
 export function BadgeSelect({
   options,
   value,
   onValueChange,
+  'aria-label': label,
+  disabled = false,
   className,
-  ...props
 }: BadgeSelectProps) {
-  const tone = options.find((option) => option.value === value)?.tone ?? 'gray';
+  const current = options.find((option) => option.value === value);
+
   return (
-    <span
-      className={badgeClassName(
-        tone,
-        cn(
-          'relative p-0 pointer-coarse:h-11',
-          'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring',
-          className,
-        ),
-      )}
-    >
-      <select
-        {...props}
-        value={value}
-        onChange={(event) => onValueChange(event.target.value)}
-        className="h-full w-full min-w-0 cursor-pointer appearance-none truncate rounded-full bg-transparent pr-7 pl-2.5 outline-none disabled:cursor-not-allowed"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-surface text-foreground">
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDownIcon
-        aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2"
-      />
-    </span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        <button
+          type="button"
+          aria-label={current ? `${label}, ${current.label}` : label}
+          className={badgeClassName(
+            current?.tone ?? 'gray',
+            cn(
+              'max-w-full cursor-pointer pr-1.5 outline-none pointer-coarse:h-11',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+              'disabled:cursor-not-allowed disabled:opacity-60 data-[state=open]:ring-2 data-[state=open]:ring-ring/30',
+              className,
+            ),
+          )}
+        >
+          <span className="truncate">{current?.label}</span>
+          <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 opacity-70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => (next === value ? undefined : onValueChange(next))}
+        >
+          {options.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              <Badge tone={option.tone}>{option.label}</Badge>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

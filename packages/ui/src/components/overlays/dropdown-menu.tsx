@@ -1,4 +1,5 @@
 import * as Menu from '@radix-ui/react-dropdown-menu';
+import { CheckIcon } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { cn } from '../../lib/cn.util.ts';
 
@@ -31,6 +32,12 @@ export function DropdownMenuContent({
   );
 }
 
+const ITEM_CLASS = cn(
+  'flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2.5 outline-none select-none pointer-coarse:min-h-11',
+  'data-highlighted:bg-surface-hover data-disabled:pointer-events-none data-disabled:opacity-50',
+  '[&_svg]:size-4 [&_svg]:shrink-0',
+);
+
 export function DropdownMenuItem({
   className,
   tone = 'default',
@@ -38,14 +45,33 @@ export function DropdownMenuItem({
 }: ComponentProps<typeof Menu.Item> & { tone?: 'default' | 'danger' }) {
   return (
     <Menu.Item
-      className={cn(
-        'flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2.5 outline-none select-none pointer-coarse:min-h-11',
-        'data-highlighted:bg-surface-hover data-disabled:pointer-events-none data-disabled:opacity-50',
-        '[&_svg]:size-4 [&_svg]:shrink-0',
-        tone === 'danger' && 'text-danger',
-        className,
-      )}
+      className={cn(ITEM_CLASS, tone === 'danger' && 'text-danger', className)}
       {...props}
     />
   );
+}
+
+export const DropdownMenuRadioGroup = Menu.RadioGroup;
+
+/** One choice among several; the chosen one carries a check mark. */
+export function DropdownMenuRadioItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof Menu.RadioItem>) {
+  return (
+    <Menu.RadioItem className={cn(ITEM_CLASS, 'justify-between', className)} {...props}>
+      {children}
+      <Menu.ItemIndicator>
+        <CheckIcon aria-hidden="true" className="text-primary" />
+      </Menu.ItemIndicator>
+    </Menu.RadioItem>
+  );
+}
+
+export function DropdownMenuSeparator({
+  className,
+  ...props
+}: ComponentProps<typeof Menu.Separator>) {
+  return <Menu.Separator className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />;
 }

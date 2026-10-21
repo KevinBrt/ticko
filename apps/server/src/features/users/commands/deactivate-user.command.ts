@@ -1,4 +1,4 @@
-import { keepsAnAdministrator } from '@toppo/core';
+import { canActOnRole, keepsAnAdministrator } from '@toppo/core';
 import { schema } from '@toppo/db';
 import { userIdParamsSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
@@ -17,13 +17,17 @@ export const deactivateUser = defineCommand({
   access: { permission: 'instance.users.manage' },
   input: userIdParamsSchema,
   async handler({ tx, actor, log }, { userId }): Promise<void> {
-    if (userId === actor?.id) {
+    if (userId === actor.id) {
       throw new HttpError(409, 'CANNOT_DEACTIVATE_SELF', 'You cannot deactivate your own account');
     }
-    const accounts = await lockInstanceAccounts(tx);
+    const accounts = await lockInstanceAccounts(tx, userId);
     const user = accounts.users.find((candidate) => candidate.id === userId);
     if (!user) {
       throw new HttpError(404, 'USER_NOT_FOUND', 'This user does not exist');
+    }
+    const role = accounts.roles.find((candidate) => candidate.id === user.roleId);
+    if (!(role && canActOnRole(actor.permissions, role))) {
+      throw new HttpError(403, 'SYSTEM_ROLE_RESERVED', 'Only administrators handle that role');
     }
     if (!user.active) {
       return;
@@ -33,6 +37,6 @@ export const deactivateUser = defineCommand({
     }
     await tx.update(users).set({ deactivatedAt: new Date() }).where(eq(users.id, userId));
     await tx.delete(sessions).where(eq(sessions.userId, userId));
-    log.info({ userId, by: actor?.id }, 'User deactivated');
+    log.info({ userId, by: actor.id }, 'User deactivated');
   },
 });

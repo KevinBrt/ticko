@@ -22,10 +22,15 @@ const OPEN_API_ROUTES = [
   'GET /api/auth/get-session',
   'POST /api/auth/sign-in/email',
   'POST /api/auth/sign-out',
+  'POST /api/v1/invitations/accept',
+  'POST /api/v1/invitations/preview',
   'GET /api/v1/me',
   'GET /api/v1/setup',
   'POST /api/v1/setup',
 ];
+
+/** Better Auth limits these itself (`platform/auth/auth.ts`). */
+const DELEGATED_ROUTES = ['POST /api/auth/sign-in/email', 'POST /api/auth/sign-out'];
 
 const ROUTES = await (async () => {
   const app = await buildTestApp();
@@ -104,6 +109,14 @@ it('opens only the expected API routes without a permission', () => {
 
   expect(open.sort()).toStrictEqual([...OPEN_API_ROUTES].sort());
   expect(GUARDED_ROUTES.length).toBeGreaterThan(0);
+});
+
+it('rate limits every public route that writes', () => {
+  const unlimited = ROUTES.filter(
+    ({ method, access, rateLimited }) => access === 'public' && method !== 'GET' && !rateLimited,
+  ).map(({ method, url }) => `${method} ${url}`);
+
+  expect(unlimited).toStrictEqual(DELEGATED_ROUTES);
 });
 
 describe.each(GUARDED_ROUTES)('$method $url', ({ method, url, permission }) => {

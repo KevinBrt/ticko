@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { setupTestDatabase } from '../../test-helpers.ts';
+import { setupTestDatabase, testServices } from '../../test-helpers.ts';
 import type { Actor } from '../auth/actor.ts';
 import { HttpError } from '../http/http-error.ts';
 import { RequestValidationError } from '../http/zod.ts';
@@ -23,7 +23,7 @@ function executionContext(actor: Actor | null = null): ExecutionContext {
     db: context.database.db,
     actor,
     log: Fastify({ logger: false }).log,
-    services: { hashPassword: (password) => Promise.resolve(password), setupCode: 'unused' },
+    services: testServices(),
   };
 }
 
