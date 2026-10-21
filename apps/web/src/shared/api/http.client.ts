@@ -18,7 +18,7 @@ export class ApiRequestError extends Error {
 const betterAuthErrorSchema = z.object({ code: z.string(), message: z.string() });
 
 export interface ApiRequestOptions<T> {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** Every response is validated: the UI never works on data of an unexpected shape. */
   schema: z.ZodType<T>;

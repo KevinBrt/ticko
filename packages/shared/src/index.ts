@@ -42,10 +42,22 @@ export {
   membersResponseSchema,
 } from './members/members.ts';
 export {
+  createRoleResponseSchema,
   ROLE_COLORS,
+  ROLE_NAME_MAX_LENGTH,
+  ROLES_MAX,
   type RoleBadge,
   type RoleColor,
+  type RoleDetails,
+  type RolePermissionsRequest,
+  type RoleRequest,
+  type RolesResponse,
   roleBadgeSchema,
+  roleDetailsSchema,
+  roleIdParamsSchema,
+  rolePermissionsRequestSchema,
+  roleRequestSchema,
+  rolesResponseSchema,
 } from './members/roles.ts';
 export {
   type AssignableRolesResponse,

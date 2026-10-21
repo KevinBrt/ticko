@@ -4,11 +4,13 @@ import { join } from 'node:path';
 import { createDatabase, type Database, schema, uuidv7 } from '@toppo/db';
 import { CSP_NONCE_PLACEHOLDER } from '@toppo/shared';
 import { createTestDatabase, type TestDatabase } from '@toppo/testing';
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { sql } from 'drizzle-orm';
+import Fastify, { type FastifyInstance, type LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll } from 'vitest';
 import { buildApp } from './app.ts';
+import type { Actor } from './platform/auth/actor.ts';
 import { createAuth } from './platform/auth/auth.ts';
-import type { Services } from './platform/cqrs/cqrs.ts';
+import type { ExecutionContext, Services } from './platform/cqrs/cqrs.ts';
 
 export const TEST_SECRET = 'test-secret-that-is-long-enough-to-be-accepted';
 export const TEST_SETUP_CODE = 'TEST-SETU-PCDE';
@@ -45,6 +47,29 @@ export function testServices(overrides: Partial<Services> = {}): Services {
     publicUrl: new URL('http://localhost:3000'),
     ...overrides,
   };
+}
+
+/** What a command or query run directly in a test gets, as `actor` with these permissions. */
+export function testExecutionContext(
+  database: Database,
+  actor: Pick<Actor, 'id' | 'permissions'>,
+): ExecutionContext {
+  return {
+    db: database.db,
+    actor: { name: 'Test actor', email: 'actor@example.com', ...actor },
+    log: Fastify({ logger: false }).log,
+    services: testServices(),
+  };
+}
+
+/** Connections of this test database waiting for a row lock, e.g. one taken `for update`. */
+export async function waitingForRowLocks(database: Database): Promise<number> {
+  const [row] = await database.db.execute<{ count: string }>(
+    sql`select count(*) as count from pg_stat_activity
+        where datname = current_database() and wait_event_type = 'Lock'
+          and wait_event in ('transactionid', 'tuple')`,
+  );
+  return Number(row?.count);
 }
 
 /** A private, migrated database for the current test file. */

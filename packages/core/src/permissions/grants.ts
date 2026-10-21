@@ -34,15 +34,30 @@ export function canBeGranted(permission: Permission): boolean {
 }
 
 /**
- * What a role really grants, from what is stored on it. The system role grants everything;
- * otherwise a permission the catalog no longer knows (its plugin was removed), or one only the
- * system role may hold, grants nothing.
+ * What a role really grants, from what is stored on it, in catalog order. The system role grants
+ * everything; otherwise a permission the catalog no longer knows (its plugin was removed), or one
+ * only the system role may hold, grants nothing.
  */
 export function permissionsOfRole({ grantsAll, permissions }: RoleGrants): Permission[] {
-  if (grantsAll) {
-    return [...ALL_PERMISSIONS];
-  }
-  return permissions.filter(isPermission).filter(canBeGranted);
+  return grantsAll ? [...ALL_PERMISSIONS] : rolePermissionsFrom(permissions).permissions;
+}
+
+/**
+ * What a role may store out of `requested`: the permissions it may be given, once each, in
+ * catalog order. `refused` lists the rest (unknown, or held by the system role only), for the
+ * caller to report rather than drop silently.
+ */
+export function rolePermissionsFrom(requested: readonly string[]): {
+  permissions: Permission[];
+  refused: string[];
+} {
+  const grantable = (value: string) => isPermission(value) && canBeGranted(value);
+  return {
+    permissions: ALL_PERMISSIONS.filter(
+      (permission) => canBeGranted(permission) && requested.includes(permission),
+    ),
+    refused: [...new Set(requested.filter((value) => !grantable(value)))],
+  };
 }
 
 /** The permissions a member's role grants in the whole instance. */

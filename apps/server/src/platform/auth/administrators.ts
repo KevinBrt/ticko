@@ -29,8 +29,12 @@ export async function lockInstanceAccounts(
         and(eq(roles.grantsAll, true), isNull(users.deactivatedAt)),
       ),
     );
-  // Roles are a short configuration list.
-  const allRoles = await tx.select({ id: roles.id, grantsAll: roles.grantsAll }).from(roles);
+  // Roles are a short configuration list. Share-locked: none can be deleted while a member may
+  // be given it, so a role deleted meanwhile is reported as such, not as a database error.
+  const allRoles = await tx
+    .select({ id: roles.id, grantsAll: roles.grantsAll })
+    .from(roles)
+    .for('key share');
   return {
     users: accounts.map(({ id, roleId, deactivatedAt }) => ({
       id,

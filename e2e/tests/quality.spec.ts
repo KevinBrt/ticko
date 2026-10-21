@@ -8,6 +8,7 @@ const PAGES = [
   '/projects',
   '/settings',
   '/settings/members',
+  '/settings/roles',
   '/nothing/here',
 ];
 
@@ -29,8 +30,8 @@ test('the navigation drawer is accessible', { tag: '@mobile-only' }, async ({ pa
 });
 
 test('the layout never scrolls horizontally', async ({ page }) => {
-  // A plain page, and one with its own section navigation.
-  for (const path of ['/issues', '/settings/members']) {
+  // A plain page, one with its own section navigation, and a wide table.
+  for (const path of ['/issues', '/settings/members', '/settings/roles']) {
     for (const width of [320, 375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto(path);

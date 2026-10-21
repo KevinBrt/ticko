@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
+import { registerRoleRoutes } from './features/roles/roles.routes.ts';
 import { registerSetupRoutes } from './features/setup/setup.routes.ts';
 import { registerUserRoutes } from './features/users/users.routes.ts';
 import { registerAccessControl } from './platform/auth/access-control.ts';
@@ -93,6 +94,7 @@ export async function buildApp({
   registerSetupRoutes(app);
   registerUserRoutes(app);
   registerInvitationRoutes(app);
+  registerRoleRoutes(app);
 
   const servesWebApp = await registerWebApp(app, webRoot);
   if (!servesWebApp) {

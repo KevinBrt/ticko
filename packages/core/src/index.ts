@@ -37,4 +37,5 @@ export {
   instancePermissionsOf,
   permissionsOfRole,
   type RoleGrants,
+  rolePermissionsFrom,
 } from './permissions/grants.ts';

@@ -8,6 +8,7 @@ import { projectsRoute } from './routes/protected/projects/projects.route.tsx';
 import { protectedRoute } from './routes/protected/protected.route.tsx';
 import { settingsIndexRoute } from './routes/protected/settings/index.route.tsx';
 import { membersRoute } from './routes/protected/settings/members.route.tsx';
+import { rolesRoute } from './routes/protected/settings/roles.route.tsx';
 import { settingsRoute } from './routes/protected/settings/settings.route.tsx';
 import { invitationRoute } from './routes/public/invitation.route.tsx';
 import { loginRoute } from './routes/public/login.route.tsx';
@@ -26,7 +27,7 @@ const routeTree = rootRoute.addChildren([
     issuesRoute,
     myIssuesRoute,
     projectsRoute,
-    settingsRoute.addChildren([settingsIndexRoute, membersRoute]),
+    settingsRoute.addChildren([settingsIndexRoute, membersRoute, rolesRoute]),
     notFoundRoute,
   ]),
 ]);

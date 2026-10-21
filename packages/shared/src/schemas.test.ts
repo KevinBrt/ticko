@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { apiErrorSchema } from './api-error.ts';
 import { healthResponseSchema } from './health.ts';
 import { invitationTokenSchema } from './members/invitations.ts';
+import {
+  ROLE_NAME_MAX_LENGTH,
+  rolePermissionsRequestSchema,
+  roleRequestSchema,
+} from './members/roles.ts';
 import { userSummarySchema } from './members/users.ts';
 
 describe('userSummarySchema', () => {
@@ -75,5 +80,38 @@ describe('invitationTokenSchema', () => {
     expect(invitationTokenSchema.safeParse('a'.repeat(42)).success).toBe(false);
     expect(invitationTokenSchema.safeParse(`${'a'.repeat(42)}=`).success).toBe(false);
     expect(invitationTokenSchema.safeParse(`${'a'.repeat(42)}/`).success).toBe(false);
+  });
+});
+
+describe('roleRequestSchema', () => {
+  it('trims the name and refuses a blank or long one', () => {
+    expect(roleRequestSchema.parse({ name: '  Supervisor ', color: 'violet' })).toStrictEqual({
+      name: 'Supervisor',
+      color: 'violet',
+    });
+    expect(roleRequestSchema.safeParse({ name: '   ', color: 'violet' }).success).toBe(false);
+    expect(
+      roleRequestSchema.safeParse({ name: 'x'.repeat(ROLE_NAME_MAX_LENGTH + 1), color: 'gray' })
+        .success,
+    ).toBe(false);
+    expect(roleRequestSchema.safeParse({ name: 'Supervisor', color: '#f00' }).success).toBe(false);
+  });
+});
+
+describe('rolePermissionsRequestSchema', () => {
+  const change = (roleId: string) => ({ roleId, from: [], to: ['issue.read'] });
+
+  it('takes each role at most once', () => {
+    const team = '01a1569b-9801-747e-91c9-d058653f2a8e';
+    const requester = '01a1569b-9802-7f0a-b82f-656d1e2109c6';
+
+    expect(
+      rolePermissionsRequestSchema.safeParse({ changes: [change(team), change(requester)] })
+        .success,
+    ).toBe(true);
+    expect(
+      rolePermissionsRequestSchema.safeParse({ changes: [change(team), change(team)] }).success,
+    ).toBe(false);
+    expect(rolePermissionsRequestSchema.safeParse({ changes: [] }).success).toBe(false);
   });
 });

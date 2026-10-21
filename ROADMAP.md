@@ -39,8 +39,8 @@ _Done when no route answers without a verified permission._
 
 **Roles and permissions** (`features/roles`)
 
-- [ ] Matrix after the mockups: roles in columns, permissions by section in rows, switches; the system role locked; "See issues" as none, own or all; unsaved changes bar, saved in one transaction; one role at a time on phones.
-- [ ] Create a role (name, color), rename it, delete it while nobody holds it (members, pending invitations).
+- [x] Matrix after the mockups: roles in columns, permissions by section in rows, switches; the system role locked; "See issues" as none, own or all; unsaved changes bar, saved in one transaction; one role at a time on phones.
+- [x] Create a role (name, color), rename it, delete it while nobody holds it (members, pending invitations); at most 20 roles. The system role cannot be changed.
 
 **Account**
 
@@ -61,7 +61,7 @@ _Done when an issue can be created and closed._
 
 **Project permissions**
 
-- [ ] Project access per member: every project or chosen ones; the system role reaches every project.
+- [ ] Project access per member: none until given, every project, or chosen ones; chosen when inviting, changed later from the member or the project; the system role reaches every project. A project a member cannot reach answers 404, as if it did not exist.
 - [ ] Effective permissions in a project = the role the project gives the member, or else their own role; `access: { permission, projectOf: (input) => projectId }`.
 
 **Domain** (`core`)

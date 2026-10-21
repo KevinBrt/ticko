@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { Actor } from '../../../platform/auth/actor.ts';
 import { lockInstanceAccounts } from '../../../platform/auth/administrators.ts';
 import type { ExecutionContext } from '../../../platform/cqrs/cqrs.ts';
-import { setupTestDatabase, testServices } from '../../../test-helpers.ts';
+import { setupTestDatabase, testServices, waitingForRowLocks } from '../../../test-helpers.ts';
 import { changeUserRole } from './change-user-role.command.ts';
 
 const context = setupTestDatabase();
@@ -109,5 +109,24 @@ describe('changeUserRole', () => {
       .from(users)
       .where(eq(users.instanceRoleId, DEFAULT_ROLE_IDS.administrator));
     expect(administrators).toStrictEqual([{ id: ada }]);
+  });
+
+  it('waits for the role being deleted, then finds it gone', async () => {
+    const roleId = uuidv7();
+    await context.database.db.insert(schema.roles).values({ id: roleId, name: 'Temporary' });
+    const member = await insertUser(DEFAULT_ROLE_IDS.team);
+    const admin = await insertAdministrator();
+    let roleChange: Promise<void> | undefined;
+
+    await context.database.db.transaction(async (tx) => {
+      // The role is being deleted…
+      await tx.delete(schema.roles).where(eq(schema.roles.id, roleId));
+      // …when an administrator gives it to a member.
+      roleChange = changeUserRole.execute(executionContext(admin), { userId: member, roleId });
+      roleChange.catch(() => undefined);
+      await expect.poll(() => waitingForRowLocks(context.database)).toBe(1);
+    });
+
+    await expect(roleChange).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_ROLE' });
   });
 });

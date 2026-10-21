@@ -28,10 +28,12 @@ export const createInvitations = defineCommand({
     { tx, actor, services, log },
     { emails, roleId },
   ): Promise<CreateInvitationsResponse> {
+    // Share-locked: the role cannot be deleted before the invitations that give it exist.
     const [role] = await tx
       .select({ grantsAll: roles.grantsAll })
       .from(roles)
-      .where(eq(roles.id, roleId));
+      .where(eq(roles.id, roleId))
+      .for('key share');
     if (!role) {
       throw new HttpError(400, 'INVALID_ROLE', 'This role does not exist');
     }

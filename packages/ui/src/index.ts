@@ -13,6 +13,7 @@ export { Field, type FieldControlProps, type FieldProps } from './components/for
 export { Input, inputClassName } from './components/forms/input.tsx';
 export { PasswordInput, type PasswordInputProps } from './components/forms/password-input.tsx';
 export { Select } from './components/forms/select.tsx';
+export { Switch, type SwitchProps } from './components/forms/switch.tsx';
 export { Textarea } from './components/forms/textarea.tsx';
 export {
   Dialog,

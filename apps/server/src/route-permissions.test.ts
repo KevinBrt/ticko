@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { ALL_PERMISSIONS, type InstancePermission, isInstancePermission } from '@toppo/core';
+import {
+  ALL_PERMISSIONS,
+  canBeGranted,
+  type InstancePermission,
+  isInstancePermission,
+} from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
 import { apiErrorSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
@@ -54,6 +59,8 @@ let app: FastifyInstance;
 /** A signed-in user whose role's permissions each test sets: one sign-in for the whole file. */
 let probeCookie: string;
 let probeRoleId: string;
+/** The administrator, for the permissions no role but the system one may hold. */
+let adminCookie: string;
 
 beforeAll(async () => {
   app = await buildTestApp({ database: context.database });
@@ -74,16 +81,21 @@ beforeAll(async () => {
     password: PASSWORD,
     instanceRoleId: probeRoleId,
   });
-  const signIn = await app.inject({
+  probeCookie = await signIn('probe@example.com');
+  adminCookie = await signIn('ada@example.com');
+  return () => app.close();
+});
+
+async function signIn(email: string): Promise<string> {
+  const response = await app.inject({
     method: 'POST',
     url: '/api/auth/sign-in/email',
     headers: { origin: ORIGIN },
-    body: { email: 'probe@example.com', password: PASSWORD },
+    body: { email, password: PASSWORD },
   });
-  expect(signIn.statusCode).toBe(200);
-  probeCookie = cookieHeader(signIn);
-  return () => app.close();
-});
+  expect(response.statusCode).toBe(200);
+  return cookieHeader(response);
+}
 
 async function grantProbe(permissions: InstancePermission[]): Promise<void> {
   await context.database.db
@@ -93,11 +105,11 @@ async function grantProbe(permissions: InstancePermission[]): Promise<void> {
 }
 
 /** Calls a route with made-up parameters and an empty body: enough to get past or be stopped. */
-function callAsProbe(method: HTTPMethods, url: string) {
+function call(method: HTTPMethods, url: string, cookie = probeCookie) {
   return app.inject({
     method,
     url: url.replaceAll(/:\w+/g, () => randomUUID()),
-    headers: { origin: ORIGIN, cookie: probeCookie },
+    headers: { origin: ORIGIN, cookie },
     ...(method === 'GET' ? {} : { body: {} }),
   });
 }
@@ -122,16 +134,23 @@ it('rate limits every public route that writes', () => {
 describe.each(GUARDED_ROUTES)('$method $url', ({ method, url, permission }) => {
   it(`refuses a user who has every permission but ${permission}`, async () => {
     await grantProbe(INSTANCE_PERMISSIONS.filter((granted) => granted !== permission));
-    const response = await callAsProbe(method, url);
+    const response = await call(method, url);
 
     expect(response.statusCode).toBe(403);
     expect(apiErrorSchema.parse(response.json()).error.code).toBe('FORBIDDEN');
   });
 
-  it(`lets a user with only ${permission} through`, async () => {
-    await grantProbe([permission]);
-    const response = await callAsProbe(method, url);
+  // No role but the system one may hold some permissions: an administrator must get through.
+  const systemOnly = !canBeGranted(permission);
+  it(
+    systemOnly ? 'lets the system role through' : `lets a user with only ${permission} through`,
+    async () => {
+      if (!systemOnly) {
+        await grantProbe([permission]);
+      }
+      const response = await call(method, url, systemOnly ? adminCookie : probeCookie);
 
-    expect([401, 403]).not.toContain(response.statusCode);
-  });
+      expect([401, 403]).not.toContain(response.statusCode);
+    },
+  );
 });

@@ -1,12 +1,23 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { can, DEFAULT_ROLE_IDS, DEFAULT_ROLES, instancePermissionsOf } from '@toppo/core';
+import {
+  can,
+  DEFAULT_ROLE_IDS,
+  DEFAULT_ROLES,
+  type InstancePermission,
+  instancePermissionsOf,
+  permissionsOfRole,
+  rolePermissionsFrom,
+} from '@toppo/core';
 import {
   type CurrentUser,
   type Locale,
   MEMBERS_PAGE_SIZE,
   type MemberRow,
   type PendingInvitation,
+  ROLES_MAX,
+  type RoleBadge,
+  type RoleDetails,
   type UserSummary,
 } from '@toppo/shared';
 import { vi } from 'vitest';
@@ -14,7 +25,7 @@ import { render } from 'vitest-browser-react';
 import { createAppRouter } from './router.tsx';
 import { I18nProvider } from './shared/i18n/i18n-provider.tsx';
 
-const permissionsOfRole = (roleId: string) => {
+const instancePermissionsOfRole = (roleId: string) => {
   const role = DEFAULT_ROLES.find((candidate) => candidate.id === roleId);
   return role ? instancePermissionsOf(role) : [];
 };
@@ -24,7 +35,7 @@ export const ADA: CurrentUser = {
   id: '01a1569b-9900-7000-8000-000000000001',
   name: 'Ada Lovelace',
   email: 'ada@example.com',
-  permissions: permissionsOfRole(DEFAULT_ROLE_IDS.administrator),
+  permissions: instancePermissionsOfRole(DEFAULT_ROLE_IDS.administrator),
 };
 
 /** A team member, who manages nothing in the instance. */
@@ -32,7 +43,7 @@ export const GRACE: CurrentUser = {
   id: '01a1569b-9900-7000-8000-000000000002',
   name: 'Grace Hopper',
   email: 'grace@example.com',
-  permissions: permissionsOfRole(DEFAULT_ROLE_IDS.team),
+  permissions: instancePermissionsOfRole(DEFAULT_ROLE_IDS.team),
 };
 export const ADA_PASSWORD = 'correct horse battery staple';
 export const GOOD_SETUP_CODE = 'ABCD-EFGH-JKLM';
@@ -46,8 +57,23 @@ export const ROLE_BADGES = {
   requester: { id: DEFAULT_ROLE_IDS.requester, name: 'Requester', color: 'gray' },
 } as const satisfies Record<string, UserSummary['role']>;
 
-/** The roles, as `GET /api/v1/users/roles` lists them. */
-const INSTANCE_ROLES: UserSummary['role'][] = Object.values(ROLE_BADGES);
+/** A role as the fake server keeps it; who holds it is counted from the members. */
+export type FakeRole = Omit<RoleDetails, 'memberCount' | 'invitationCount'>;
+
+/** The default roles, as a fresh instance has them. */
+function defaultRoles(): FakeRole[] {
+  return DEFAULT_ROLES.map(({ id, name, color, grantsAll, permissions }) => ({
+    id,
+    name,
+    color,
+    grantsAll,
+    permissions: permissionsOfRole({ grantsAll, permissions }),
+  }));
+}
+
+/** The roles as badges, the way member management shows them. */
+const badgesOf = (state: FakeServerState): RoleBadge[] =>
+  state.roles.map(({ id, name, color }) => ({ id, name, color }));
 
 export function memberOf(user: CurrentUser, role: UserSummary['role']): UserSummary {
   return { id: user.id, name: user.name, email: user.email, role, deactivatedAt: null };
@@ -58,6 +84,8 @@ export interface FakeServerState {
   user: CurrentUser | null;
   /** The accounts user management sees: Ada (administrator) and Grace (team) by default. */
   users: UserSummary[];
+  /** The default roles unless a test sets others. */
+  roles: FakeRole[];
   invitations: PendingInvitation[];
   /** The links the fake server made, by token, and what opening them shows. */
   invitationLinks: Map<string, InvitationLinkState>;
@@ -93,6 +121,7 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       setupRequired: false,
       user: null,
       users: [memberOf(ADA, ROLE_BADGES.administrator), memberOf(GRACE, ROLE_BADGES.team)],
+      roles: defaultRoles(),
       invitations: [],
       invitationLinks: new Map(),
       ...initial,
@@ -136,7 +165,12 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       return json({ success: true });
     },
     'GET /api/v1/members': (_body, search) => asUserManager(state) ?? members(state, search),
-    'GET /api/v1/users/roles': () => asUserManager(state) ?? json({ roles: INSTANCE_ROLES }),
+    'GET /api/v1/users/roles': () => asUserManager(state) ?? json({ roles: badgesOf(state) }),
+    'GET /api/v1/roles': () => asHolder(state, 'instance.roles.manage') ?? listRoles(state),
+    'POST /api/v1/roles': (body) =>
+      asHolder(state, 'instance.roles.manage') ?? createRole(state, body),
+    'PUT /api/v1/roles/permissions': (body) =>
+      asHolder(state, 'instance.roles.manage') ?? savePermissions(state, body),
     'POST /api/v1/invitations': (body) => asUserManager(state) ?? invite(state, body),
     'POST /api/v1/invitations/preview': (body) => {
       const link = state.invitationLinks.get(String(body['token']));
@@ -167,6 +201,7 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       ? handler((body ?? {}) as Record<string, unknown>, url.searchParams)
       : (changeUser(state, method, url.pathname, body) ??
         changeInvitation(state, method, url.pathname) ??
+        changeRoleDefinition(state, method, url.pathname, body) ??
         apiError(404, 'NOT_FOUND'));
     return await Promise.resolve(answer);
   });
@@ -174,15 +209,15 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
   return server;
 }
 
-/** The answer a caller without `instance.users.manage` gets, or `undefined` to go on. */
-function asUserManager(state: FakeServerState): Response | undefined {
+/** The answer a caller without `permission` gets, or `undefined` to go on. */
+function asHolder(state: FakeServerState, permission: InstancePermission): Response | undefined {
   if (!state.user) {
     return apiError(401, 'UNAUTHENTICATED');
   }
-  return can(state.user.permissions, 'instance.users.manage')
-    ? undefined
-    : apiError(403, 'FORBIDDEN');
+  return can(state.user.permissions, permission) ? undefined : apiError(403, 'FORBIDDEN');
 }
+
+const asUserManager = (state: FakeServerState) => asHolder(state, 'instance.users.manage');
 
 /** `PATCH /api/v1/users/:id`, `POST …/deactivate` and `POST …/reactivate`, with the server's rules. */
 function changeUser(
@@ -221,7 +256,7 @@ function changeUser(
 }
 
 function changeRole(state: FakeServerState, user: UserSummary, roleId?: string): Response {
-  const role = INSTANCE_ROLES.find((candidate) => candidate.id === roleId);
+  const role = badgesOf(state).find((candidate) => candidate.id === roleId);
   if (!role) {
     return apiError(400, 'INVALID_ROLE');
   }
@@ -276,7 +311,7 @@ function newLink(state: FakeServerState, email: string): string {
 /** `POST /api/v1/invitations`: inviting an address again replaces its invitation. */
 function invite(state: FakeServerState, body: Record<string, unknown>): Response {
   const emails = (body['emails'] as string[] | undefined) ?? [];
-  const role = INSTANCE_ROLES.find((candidate) => candidate.id === body['roleId']);
+  const role = badgesOf(state).find((candidate) => candidate.id === body['roleId']);
   if (!role) {
     return apiError(400, 'INVALID_ROLE');
   }
@@ -337,7 +372,7 @@ function members(state: FakeServerState, search: URLSearchParams): Response {
   const needle = fold(search.get('search') ?? '');
   const page = Number(search.get('page') ?? '1');
   const label = (row: MemberRow) => (row.type === 'member' ? row.name : row.email);
-  const rank = (row: MemberRow) => INSTANCE_ROLES.findIndex(({ id }) => id === row.role.id);
+  const rank = (row: MemberRow) => state.roles.findIndex(({ id }) => id === row.role.id);
   const rows: MemberRow[] = [
     ...state.users.map((user): MemberRow => ({ type: 'member', ...user })),
     ...state.invitations.map((invitation): MemberRow => ({ type: 'invitation', ...invitation })),
@@ -361,4 +396,102 @@ function members(state: FakeServerState, search: URLSearchParams): Response {
     page,
     pageSize: MEMBERS_PAGE_SIZE,
   });
+}
+
+/** `GET /api/v1/roles`: who holds each role is counted from the members and invitations. */
+function listRoles(state: FakeServerState): Response {
+  return json({
+    roles: state.roles.map((role) => ({
+      ...role,
+      memberCount: state.users.filter((user) => user.role.id === role.id).length,
+      invitationCount: state.invitations.filter((invitation) => invitation.role.id === role.id)
+        .length,
+    })),
+  });
+}
+
+const sameName = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+
+/** `POST /api/v1/roles`: a role without permissions, under a name no other role has. */
+function createRole(state: FakeServerState, body: Record<string, unknown>): Response {
+  const name = String(body['name'] ?? '').trim();
+  if (state.roles.some((role) => sameName(role.name, name))) {
+    return apiError(409, 'ROLE_NAME_TAKEN');
+  }
+  if (state.roles.length >= ROLES_MAX) {
+    return apiError(409, 'ROLE_LIMIT_REACHED');
+  }
+  const id = `01a1569b-9900-7000-8000-0000000003${String(state.roles.length).padStart(2, '0')}`;
+  state.roles.push({
+    id,
+    name,
+    color: body['color'] as FakeRole['color'],
+    grantsAll: false,
+    permissions: [],
+  });
+  return json({ id }, 201);
+}
+
+/** `PUT /api/v1/roles/permissions`: every change or none, refused if a role changed meanwhile. */
+function savePermissions(state: FakeServerState, body: Record<string, unknown>): Response {
+  const changes = (body['changes'] as { roleId: string; from: string[]; to: string[] }[]) ?? [];
+  for (const { roleId, from, to } of changes) {
+    const role = state.roles.find((candidate) => candidate.id === roleId);
+    if (!role) {
+      return apiError(404, 'ROLE_NOT_FOUND');
+    }
+    if (role.grantsAll) {
+      return apiError(403, 'SYSTEM_ROLE_LOCKED');
+    }
+    if (rolePermissionsFrom(to).refused.length > 0) {
+      return apiError(400, 'INVALID_PERMISSIONS');
+    }
+    if ([...from].sort().join() !== [...role.permissions].sort().join()) {
+      return apiError(409, 'ROLES_CHANGED');
+    }
+  }
+  for (const { roleId, to } of changes) {
+    const role = state.roles.find((candidate) => candidate.id === roleId);
+    if (role) {
+      role.permissions = rolePermissionsFrom(to).permissions;
+    }
+  }
+  return NO_CONTENT();
+}
+
+/** `PATCH /api/v1/roles/:id` and `DELETE /api/v1/roles/:id`. */
+function changeRoleDefinition(
+  state: FakeServerState,
+  method: string,
+  path: string,
+  body: unknown,
+): Response | undefined {
+  const match = /^\/api\/v1\/roles\/([^/]+)$/.exec(path);
+  if (!(match && ['PATCH', 'DELETE'].includes(method))) {
+    return undefined;
+  }
+  const refusal = asHolder(state, 'instance.roles.manage');
+  const role = state.roles.find((candidate) => candidate.id === match[1]);
+  if (refusal || !role) {
+    return refusal ?? apiError(404, 'ROLE_NOT_FOUND');
+  }
+  if (role.grantsAll) {
+    return apiError(403, 'SYSTEM_ROLE_LOCKED');
+  }
+  if (method === 'DELETE') {
+    const held =
+      state.users.some((user) => user.role.id === role.id) ||
+      state.invitations.some((invitation) => invitation.role.id === role.id);
+    if (held) {
+      return apiError(409, 'ROLE_IN_USE');
+    }
+    state.roles = state.roles.filter((candidate) => candidate !== role);
+    return NO_CONTENT();
+  }
+  const { name, color } = body as { name: string; color: FakeRole['color'] };
+  if (state.roles.some((other) => other !== role && sameName(other.name, name.trim()))) {
+    return apiError(409, 'ROLE_NAME_TAKEN');
+  }
+  Object.assign(role, { name: name.trim(), color });
+  return NO_CONTENT();
 }

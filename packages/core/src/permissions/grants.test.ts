@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_PERMISSIONS } from './catalog.ts';
-import { can, canAny, instancePermissionsOf, permissionsOfRole } from './grants.ts';
+import {
+  can,
+  canAny,
+  instancePermissionsOf,
+  permissionsOfRole,
+  rolePermissionsFrom,
+} from './grants.ts';
 
 describe('can', () => {
   it('allows exactly the granted permissions', () => {
@@ -49,10 +55,30 @@ describe('permissionsOfRole', () => {
   });
 });
 
+describe('rolePermissionsFrom', () => {
+  it('keeps each grantable permission once, in catalog order', () => {
+    expect(
+      rolePermissionsFrom(['comment.create', 'issue.read', 'comment.create', 'project.create']),
+    ).toStrictEqual({
+      permissions: ['issue.read', 'comment.create', 'project.create'],
+      refused: [],
+    });
+  });
+
+  it('refuses unknown permissions and those only the system role holds', () => {
+    expect(
+      rolePermissionsFrom(['issue.read', 'issue.fly', 'instance.roles.manage', 'issue.fly']),
+    ).toStrictEqual({
+      permissions: ['issue.read'],
+      refused: ['issue.fly', 'instance.roles.manage'],
+    });
+  });
+});
+
 describe('instancePermissionsOf', () => {
-  it('keeps the permissions that apply in the whole instance', () => {
+  it('keeps the permissions that apply in the whole instance, in catalog order', () => {
     expect(
       instancePermissionsOf(role(['issue.read', 'project.create', 'instance.users.manage'])),
-    ).toStrictEqual(['project.create', 'instance.users.manage']);
+    ).toStrictEqual(['instance.users.manage', 'project.create']);
   });
 });
