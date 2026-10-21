@@ -1,6 +1,6 @@
 import { type InstancePermission, instancePermissionsOf } from '@toppo/core';
 import { type Db, schema } from '@toppo/db';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Auth } from './auth.ts';
 import { forwardSetCookies, toFetchHeaders } from './fetch-bridge.ts';
@@ -17,7 +17,8 @@ export interface Actor {
 
 /**
  * The signed-in user behind a request, or `null`. The session comes from Better Auth, then the
- * user and their role's permissions from one query: a role change applies on the next request.
+ * user and their role's permissions from one query: a role change or a deactivation applies on
+ * the next request.
  */
 export async function resolveActor(
   { auth, db }: { auth: Auth; db: Db },
@@ -38,10 +39,18 @@ export async function resolveActor(
       id: users.id,
       name: users.name,
       email: users.email,
-      permissions: roles.permissions,
+      role: {
+        grantsAll: roles.grantsAll,
+        audience: roles.audience,
+        permissions: roles.permissions,
+      },
     })
     .from(users)
     .innerJoin(roles, eq(roles.id, users.instanceRoleId))
-    .where(eq(users.id, session.user.id));
-  return user ? { ...user, permissions: instancePermissionsOf(user.permissions) } : null;
+    .where(and(eq(users.id, session.user.id), isNull(users.deactivatedAt)));
+  if (!user) {
+    return null;
+  }
+  const { role, ...identity } = user;
+  return { ...identity, permissions: instancePermissionsOf(role) };
 }

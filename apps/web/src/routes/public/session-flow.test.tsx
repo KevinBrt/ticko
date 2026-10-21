@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import { ADA, ADA_PASSWORD, fakeServer, GOOD_SETUP_CODE, renderApp } from '../../test-helpers.tsx';
+import {
+  ADA,
+  ADA_PASSWORD,
+  DEACTIVATED_EMAIL,
+  fakeServer,
+  GOOD_SETUP_CODE,
+  renderApp,
+} from '../../test-helpers.tsx';
 
 beforeEach(async () => {
   await page.viewport(1280, 800);
@@ -66,16 +73,29 @@ describe('signing in', () => {
       .toHaveTextContent('Incorrect email or password.');
   });
 
+  it('tells the owner of a deactivated account who can help', async () => {
+    fakeServer();
+    const { screen } = await renderApp({ path: '/login' });
+
+    await screen.getByLabelText('Email').fill(DEACTIVATED_EMAIL);
+    await screen.getByLabelText('Password', { exact: true }).fill(ADA_PASSWORD);
+    await screen.getByRole('button', { name: 'Sign in' }).click();
+
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('This account is deactivated. Ask an administrator to reactivate it.');
+  });
+
   it('opens the page the visitor was going to', async () => {
     fakeServer();
-    const { screen, router } = await renderApp({ path: '/login?redirect=%2Fsettings' });
+    const { screen, router } = await renderApp({ path: '/login?redirect=%2Fprojects' });
 
     await screen.getByLabelText('Email').fill(ADA.email);
     await screen.getByLabelText('Password', { exact: true }).fill(ADA_PASSWORD);
     await screen.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect.element(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-    expect(router.state.location.pathname).toBe('/settings');
+    await expect.element(screen.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
+    expect(router.state.location.pathname).toBe('/projects');
   });
 
   it.each(['//evil.example.com', '/\\evil.example.com', 'https://evil.example.com'])(

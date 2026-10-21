@@ -1,4 +1,4 @@
-import { cn } from '../lib/cn.util.ts';
+import { cn } from '../../lib/cn.util.ts';
 
 /** Up to two initials from a display name: "Ada Lovelace" → "AL". */
 export function initialsOf(name: string): string {

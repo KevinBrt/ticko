@@ -46,5 +46,8 @@ export function requestErrorMessage(
   if (error.code === 'TOO_MANY_REQUESTS') {
     return t('errors.tooManyRequests');
   }
+  if (error.code === 'FORBIDDEN') {
+    return t('errors.forbidden');
+  }
   return t('errors.unexpected');
 }

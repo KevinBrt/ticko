@@ -67,6 +67,18 @@ describe('signing in', () => {
     expect(session?.secure).toBeFalsy();
   });
 
+  it('never sends Toppo’s own user columns back', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/auth/get-session',
+      headers: { cookie: sessionCookie },
+    });
+
+    expect(response.json().user).toMatchObject({ email: EMAIL });
+    expect(response.json().user).not.toHaveProperty('instanceRoleId');
+    expect(response.json().user).not.toHaveProperty('deactivatedAt');
+  });
+
   it('gives the same answer for a wrong password and an unknown email', async () => {
     const wrongPassword = await signIn(EMAIL, 'not the right password');
     const unknownEmail = await signIn('nobody@example.com', PASSWORD);

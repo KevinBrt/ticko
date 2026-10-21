@@ -69,17 +69,21 @@ describe('initial data and constraints', () => {
       .select({
         id: roles.id,
         name: roles.name,
-        scope: roles.scope,
+        audience: roles.audience,
+        grantsAll: roles.grantsAll,
+        color: roles.color,
         permissions: roles.permissions,
       })
       .from(roles);
 
     const byId = (left: { id: string }, right: { id: string }) => left.id.localeCompare(right.id);
     expect(seeded.sort(byId)).toStrictEqual(
-      DEFAULT_ROLES.map(({ id, name, scope, permissions }) => ({
+      DEFAULT_ROLES.map(({ id, name, audience, grantsAll, color, permissions }) => ({
         id,
         name,
-        scope,
+        audience,
+        grantsAll,
+        color,
         permissions: [...permissions],
       })).sort(byId),
     );
@@ -104,42 +108,85 @@ describe('initial data and constraints', () => {
     expect(columns.map((column) => column.column_name)).not.toContain('name');
   });
 
-  it('gives new users the default instance role', async () => {
+  it('creates users active, with the instance role they were given', async () => {
     const [user] = await database.db
       .insert(users)
-      .values({ name: 'Ada', email: `ada-${uuidv7()}@example.com` })
+      .values({
+        name: 'Ada',
+        email: `ada-${uuidv7()}@example.com`,
+        instanceRoleId: DEFAULT_ROLE_IDS.team,
+      })
       .returning();
 
-    expect(user?.instanceRoleId).toBe(DEFAULT_ROLE_IDS.instanceTeam);
+    expect(user?.instanceRoleId).toBe(DEFAULT_ROLE_IDS.team);
+    expect(user?.deactivatedAt).toBeNull();
     expect(user?.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it('stores emails in lower case only', async () => {
-    await expect(
-      database.db.insert(users).values({ name: 'Ada', email: 'Ada@Example.com' }),
-    ).rejects.toThrow();
-  });
-
-  it('refuses two roles with the same name, ignoring case, in one scope', async () => {
-    await expect(
-      database.db.insert(roles).values({ name: 'team', scope: 'instance' }),
-    ).rejects.toThrow();
-    await expect(
-      database.db.insert(roles).values({ name: 'Reporter', scope: 'project' }),
-    ).resolves.toBeDefined();
-  });
-
-  it('refuses an unknown role scope', async () => {
+  it('refuses a user whose instance role was not chosen', async () => {
     await expect(
       database.db.execute(
-        sql`insert into roles (id, name, scope) values (${uuidv7()}, 'X', 'global')`,
+        sql`insert into users (id, name, email) values (${uuidv7()}, 'Ada', 'ada@example.com')`,
       ),
     ).rejects.toThrow();
   });
 
-  it('refuses to delete a role still granted to a user', async () => {
+  it('stores emails in lower case only', async () => {
     await expect(
-      database.db.delete(roles).where(eq(roles.id, DEFAULT_ROLE_IDS.instanceTeam)),
+      database.db.insert(users).values({
+        name: 'Ada',
+        email: 'Ada@Example.com',
+        instanceRoleId: DEFAULT_ROLE_IDS.team,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('refuses two roles with the same name, ignoring case', async () => {
+    await expect(database.db.insert(roles).values({ name: 'team' })).rejects.toThrow();
+    await expect(database.db.insert(roles).values({ name: 'Reporter' })).resolves.toBeDefined();
+  });
+
+  it('refuses an unknown audience or color', async () => {
+    await expect(
+      database.db.execute(
+        sql`insert into roles (id, name, audience) values (${uuidv7()}, 'X', 'everyone')`,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      database.db.execute(
+        sql`insert into roles (id, name, color) values (${uuidv7()}, 'Y', '#f00')`,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('keeps a single system role, never a client one', async () => {
+    await expect(
+      database.db.insert(roles).values({ name: 'Second system role', grantsAll: true }),
+    ).rejects.toThrow();
+    await database.db
+      .update(roles)
+      .set({ grantsAll: false })
+      .where(eq(roles.id, DEFAULT_ROLE_IDS.administrator));
+    await expect(
+      database.db
+        .insert(roles)
+        .values({ name: 'Client system role', grantsAll: true, audience: 'client' }),
+    ).rejects.toThrow();
+    await database.db
+      .update(roles)
+      .set({ grantsAll: true })
+      .where(eq(roles.id, DEFAULT_ROLE_IDS.administrator));
+  });
+
+  it('refuses to delete a role still granted to a user', async () => {
+    await database.db.insert(users).values({
+      name: 'Grace',
+      email: `grace-${uuidv7()}@example.com`,
+      instanceRoleId: DEFAULT_ROLE_IDS.requester,
+    });
+
+    await expect(
+      database.db.delete(roles).where(eq(roles.id, DEFAULT_ROLE_IDS.requester)),
     ).rejects.toThrow();
   });
 });

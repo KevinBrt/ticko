@@ -38,13 +38,13 @@ test.describe('signed out', () => {
   test('signing in opens the requested page, signing out ends the session', {
     tag: '@desktop-only',
   }, async ({ page }) => {
-    await page.goto('/settings');
+    await page.goto('/settings/members');
     await page.getByLabel('Email').fill(ADMIN.email);
     await page.getByLabel('Password', { exact: true }).fill(ADMIN.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page).toHaveURL(/\/settings$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\/members$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/login$/);

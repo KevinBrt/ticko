@@ -22,6 +22,41 @@
       "when": 1792531400879,
       "tag": "0002_drop_instance_name",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792604615173,
+      "tag": "0003_user_deactivation",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792608420635,
+      "tag": "0004_drop_project_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792608465798,
+      "tag": "0005_role_kinds",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792608472223,
+      "tag": "0006_drop_role_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792608473447,
+      "tag": "0007_seed_unified_roles",
+      "breakpoints": true
     }
   ]
 }

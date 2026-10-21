@@ -1,0 +1,124 @@
+import { randomUUID } from 'node:crypto';
+import { ALL_PERMISSIONS, type InstancePermission, isInstancePermission } from '@toppo/core';
+import { schema, uuidv7 } from '@toppo/db';
+import { apiErrorSchema } from '@toppo/shared';
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance, HTTPMethods } from 'fastify';
+import { beforeAll, describe, expect, it } from 'vitest';
+import {
+  buildTestApp,
+  cookieHeader,
+  createTestUser,
+  setupTestDatabase,
+  TEST_SETUP_CODE,
+} from './test-helpers.ts';
+
+/*
+ * Generated from the routes the app registers: adding a route adds its tests. A route either
+ * requires a permission, checked here both ways, or is listed below as open on purpose.
+ */
+
+const OPEN_API_ROUTES = [
+  'GET /api/auth/get-session',
+  'POST /api/auth/sign-in/email',
+  'POST /api/auth/sign-out',
+  'GET /api/v1/me',
+  'GET /api/v1/setup',
+  'POST /api/v1/setup',
+];
+
+const ROUTES = await (async () => {
+  const app = await buildTestApp();
+  const contracts = app.routeContracts.filter(
+    (route) => route.method !== 'HEAD' && route.url.startsWith('/api/'),
+  );
+  await app.close();
+  return contracts;
+})();
+
+const GUARDED_ROUTES = ROUTES.flatMap(({ method, url, access }) =>
+  typeof access === 'object' ? [{ method, url, permission: access.permission }] : [],
+);
+
+const INSTANCE_PERMISSIONS = ALL_PERMISSIONS.filter(isInstancePermission);
+const ORIGIN = 'http://localhost:3000';
+const PASSWORD = 'correct horse battery staple';
+
+const context = setupTestDatabase();
+let app: FastifyInstance;
+/** A signed-in user whose role's permissions each test sets: one sign-in for the whole file. */
+let probeCookie: string;
+let probeRoleId: string;
+
+beforeAll(async () => {
+  app = await buildTestApp({ database: context.database });
+  const setup = await app.inject({
+    method: 'POST',
+    url: '/api/v1/setup',
+    body: {
+      setupCode: TEST_SETUP_CODE,
+      admin: { name: 'Ada Lovelace', email: 'ada@example.com', password: PASSWORD },
+    },
+  });
+  expect(setup.statusCode).toBe(201);
+  probeRoleId = uuidv7();
+  await context.database.db.insert(schema.roles).values({ id: probeRoleId, name: 'Probe' });
+  await createTestUser(context.database, {
+    name: 'Probe',
+    email: 'probe@example.com',
+    password: PASSWORD,
+    instanceRoleId: probeRoleId,
+  });
+  const signIn = await app.inject({
+    method: 'POST',
+    url: '/api/auth/sign-in/email',
+    headers: { origin: ORIGIN },
+    body: { email: 'probe@example.com', password: PASSWORD },
+  });
+  expect(signIn.statusCode).toBe(200);
+  probeCookie = cookieHeader(signIn);
+  return () => app.close();
+});
+
+async function grantProbe(permissions: InstancePermission[]): Promise<void> {
+  await context.database.db
+    .update(schema.roles)
+    .set({ permissions })
+    .where(eq(schema.roles.id, probeRoleId));
+}
+
+/** Calls a route with made-up parameters and an empty body: enough to get past or be stopped. */
+function callAsProbe(method: HTTPMethods, url: string) {
+  return app.inject({
+    method,
+    url: url.replaceAll(/:\w+/g, () => randomUUID()),
+    headers: { origin: ORIGIN, cookie: probeCookie },
+    ...(method === 'GET' ? {} : { body: {} }),
+  });
+}
+
+it('opens only the expected API routes without a permission', () => {
+  const open = ROUTES.filter(({ access }) => typeof access === 'string').map(
+    ({ method, url }) => `${method} ${url}`,
+  );
+
+  expect(open.sort()).toStrictEqual([...OPEN_API_ROUTES].sort());
+  expect(GUARDED_ROUTES.length).toBeGreaterThan(0);
+});
+
+describe.each(GUARDED_ROUTES)('$method $url', ({ method, url, permission }) => {
+  it(`refuses a user who has every permission but ${permission}`, async () => {
+    await grantProbe(INSTANCE_PERMISSIONS.filter((granted) => granted !== permission));
+    const response = await callAsProbe(method, url);
+
+    expect(response.statusCode).toBe(403);
+    expect(apiErrorSchema.parse(response.json()).error.code).toBe('FORBIDDEN');
+  });
+
+  it(`lets a user with only ${permission} through`, async () => {
+    await grantProbe([permission]);
+    const response = await callAsProbe(method, url);
+
+    expect([401, 403]).not.toContain(response.statusCode);
+  });
+});

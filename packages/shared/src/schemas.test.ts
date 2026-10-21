@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { apiErrorSchema } from './api-error.ts';
 import { healthResponseSchema } from './health.ts';
+import { userSummarySchema } from './users.ts';
+
+describe('userSummarySchema', () => {
+  const ada = {
+    id: '01a1569b-9900-7000-8000-000000000001',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    role: { id: '01a1569b-9800-7e64-8269-eb18fddc30ee', name: 'Administrator', color: 'blue' },
+    deactivatedAt: null,
+  };
+
+  it('strips what a list of users must never carry', () => {
+    expect(
+      userSummarySchema.parse({ ...ada, password: 'scrypt:hash', sessions: [] }),
+    ).toStrictEqual(ada);
+  });
+
+  it('dates a deactivation in UTC ISO 8601 only', () => {
+    expect(
+      userSummarySchema.parse({ ...ada, deactivatedAt: '2026-10-21T08:30:00.000Z' }),
+    ).toBeTruthy();
+    expect(userSummarySchema.safeParse({ ...ada, deactivatedAt: '21/10/2026' }).success).toBe(
+      false,
+    );
+  });
+});
 
 describe('healthResponseSchema', () => {
   it('accepts a healthy and an unhealthy report', () => {

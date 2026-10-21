@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router';
-import { canAny } from '@toppo/core';
 import { Logo } from '@toppo/ui';
 import type { ReactNode } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
-import { NAV_SECTIONS, type NavSection } from './navigation.constants.ts';
+import { NAV_SECTIONS } from './navigation.constants.ts';
+import { visibleSections } from './navigation.util.ts';
 
 /** Brand and main navigation. Rendered in the fixed sidebar on desktop and in the drawer on mobile. */
 export function SidebarContent({
@@ -18,7 +18,7 @@ export function SidebarContent({
   onNavigate?: () => void;
 }) {
   const { t } = useI18n();
-  const sections = visibleSections(permissions);
+  const sections = visibleSections(NAV_SECTIONS, permissions);
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
@@ -56,13 +56,4 @@ export function SidebarContent({
       {footer}
     </div>
   );
-}
-
-function visibleSections(permissions: readonly string[]): NavSection[] {
-  return NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter(
-      (item) => !item.requiresAnyOf || canAny(permissions, item.requiresAnyOf),
-    ),
-  }));
 }

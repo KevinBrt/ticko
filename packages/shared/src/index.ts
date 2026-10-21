@@ -21,6 +21,12 @@ export {
   projectKeySchema,
 } from './project-key.ts';
 export {
+  ROLE_AUDIENCES,
+  ROLE_COLORS,
+  type RoleAudience,
+  type RoleColor,
+} from './roles.ts';
+export {
   type SetupRequest,
   type SetupResponse,
   type SetupStatusResponse,
@@ -28,3 +34,14 @@ export {
   setupResponseSchema,
   setupStatusResponseSchema,
 } from './setup.ts';
+export {
+  type AssignableRolesResponse,
+  assignableRolesResponseSchema,
+  type ChangeUserRoleRequest,
+  changeUserRoleRequestSchema,
+  type UserSummary,
+  type UsersResponse,
+  userIdParamsSchema,
+  userSummarySchema,
+  usersResponseSchema,
+} from './users.ts';

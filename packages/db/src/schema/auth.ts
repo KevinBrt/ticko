@@ -1,4 +1,3 @@
-import { DEFAULT_ROLE_IDS } from '@toppo/core';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -28,11 +27,15 @@ export const users = pgTable(
     email: text('email').notNull(),
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
-    /** Toppo: the instance-level role, carrying global permissions. */
+    /**
+     * Toppo: the instance-level role, carrying global permissions. No default: whoever creates
+     * the account (setup, invitation) chooses it, so deleting any role never breaks sign-ups.
+     */
     instanceRoleId: uuid('instance_role_id')
       .notNull()
-      .default(DEFAULT_ROLE_IDS.instanceTeam)
       .references(() => roles.id, { onDelete: 'restrict' }),
+    /** Toppo: set while an administrator has deactivated the account; users are never deleted. */
+    deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
     ...timestamps,
   },
   (table) => [

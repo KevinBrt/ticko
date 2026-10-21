@@ -1,18 +1,23 @@
-import { PERMISSION_SCOPES, type Permission } from '@toppo/core';
+import type { Permission } from '@toppo/core';
+import { ROLE_AUDIENCES, ROLE_COLORS } from '@toppo/shared';
 import { sql } from 'drizzle-orm';
-import { check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { id, timestamps } from './columns.ts';
 
 /**
- * A role is a named set of permissions, granted at instance level (`users.instance_role_id`) or
- * inside a project (project members, later). Code checks permissions, never role names.
+ * A role is a named set of permissions. A member holds one for the whole instance
+ * (`users.instance_role_id`); a project may give them another. Code checks permissions, never
+ * role names.
  */
 export const roles = pgTable(
   'roles',
   {
     id: id(),
     name: text('name').notNull(),
-    scope: text('scope', { enum: PERMISSION_SCOPES }).notNull(),
+    audience: text('audience', { enum: ROLE_AUDIENCES }).notNull().default('internal'),
+    /** The system role: every permission, now and to come; it cannot be edited or deleted. */
+    grantsAll: boolean('grants_all').notNull().default(false),
+    color: text('color', { enum: ROLE_COLORS }).notNull().default('gray'),
     permissions: text('permissions')
       .array()
       .$type<Permission[]>()
@@ -21,8 +26,18 @@ export const roles = pgTable(
     ...timestamps,
   },
   (table) => [
-    check('roles_scope_check', sql`${table.scope} in ('instance', 'project')`),
     check('roles_name_not_blank', sql`btrim(${table.name}) <> ''`),
-    uniqueIndex('roles_scope_name_unique').on(table.scope, sql`lower(${table.name})`),
+    check('roles_audience_check', sql`${table.audience} in ('internal', 'client')`),
+    check(
+      'roles_color_check',
+      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan')`,
+    ),
+    // Whoever holds the system role runs the instance: never a client.
+    check(
+      'roles_grants_all_internal',
+      sql`not ${table.grantsAll} or ${table.audience} = 'internal'`,
+    ),
+    uniqueIndex('roles_name_unique').on(sql`lower(${table.name})`),
+    uniqueIndex('roles_single_grants_all').on(table.grantsAll).where(sql`${table.grantsAll}`),
   ],
 );

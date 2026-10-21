@@ -1,6 +1,6 @@
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { type ComponentProps, useState } from 'react';
-import { cn } from '../lib/cn.util.ts';
+import { cn } from '../../lib/cn.util.ts';
 import { inputClassName } from './input.tsx';
 
 export interface PasswordInputProps extends Omit<ComponentProps<'input'>, 'type'> {

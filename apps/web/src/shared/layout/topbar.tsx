@@ -1,13 +1,23 @@
-import { useMatches } from '@tanstack/react-router';
+import { Link, useMatches } from '@tanstack/react-router';
 import { Button } from '@toppo/ui';
 import { MenuIcon } from 'lucide-react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
 
+type RoutePath = ReturnType<typeof useMatches>[number]['fullPath'];
+/** Index routes (`/settings/`) never carry a title, so they are never a step of the path. */
+type StepPath = Exclude<RoutePath, `${string}/`> | '/';
+
+function isStepPath(path: RoutePath): path is StepPath {
+  return path === '/' || !path.endsWith('/');
+}
+
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { t } = useI18n();
-  const titleKey = useMatches({
-    select: (matches) =>
-      matches.findLast((match) => match.staticData.titleKey)?.staticData.titleKey,
+  // Every matched route with a title is a step of the path: Settings / Members.
+  const crumbs = useMatches().flatMap((match) => {
+    const path: RoutePath = match.fullPath;
+    const titleKey = match.staticData.titleKey;
+    return titleKey && isStepPath(path) ? [{ id: match.id, to: path, titleKey }] : [];
   });
 
   return (
@@ -22,10 +32,38 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         >
           <MenuIcon aria-hidden="true" />
         </Button>
-        {titleKey ? (
-          <p className="truncate text-sm font-medium text-foreground">{t(titleKey)}</p>
+        {crumbs.length > 0 ? (
+          <nav aria-label={t('nav.breadcrumb')} className="min-w-0">
+            <ol className="flex items-center gap-1.5 text-sm">
+              {crumbs.map((crumb, index) =>
+                index === crumbs.length - 1 ? (
+                  <li key={crumb.id} className="flex min-w-0 items-center gap-1.5">
+                    {index > 0 ? <Separator /> : null}
+                    <span aria-current="page" className="truncate font-medium text-foreground">
+                      {t(crumb.titleKey)}
+                    </span>
+                  </li>
+                ) : (
+                  <li key={crumb.id} className="flex shrink-0 items-center gap-1.5">
+                    {index > 0 ? <Separator /> : null}
+                    <Link to={crumb.to} className="text-muted-foreground hover:text-foreground">
+                      {t(crumb.titleKey)}
+                    </Link>
+                  </li>
+                ),
+              )}
+            </ol>
+          </nav>
         ) : null}
       </div>
     </header>
+  );
+}
+
+function Separator() {
+  return (
+    <span aria-hidden="true" className="text-muted-foreground">
+      /
+    </span>
   );
 }

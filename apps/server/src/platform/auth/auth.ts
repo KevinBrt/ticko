@@ -2,6 +2,8 @@ import { type Db, schema, uuidv7 } from '@toppo/db';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@toppo/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { APIError } from 'better-auth/api';
+import { eq } from 'drizzle-orm';
 
 export const AUTH_BASE_PATH = '/api/auth';
 
@@ -37,6 +39,13 @@ export function createAuth({ db, secret, publicUrl }: AuthOptions) {
         rateLimit: schema.rateLimits,
       },
     }),
+    user: {
+      additionalFields: {
+        // Declared so Better Auth accepts this required column; it never takes it from a client
+        // nor sends it back. Toppo sets it when it creates an account (setup, invitation).
+        instanceRoleId: { type: 'string', required: true, input: false, returned: false },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       // Accounts are created by the first-run wizard and, later, by administrators.
@@ -47,6 +56,21 @@ export function createAuth({ db, secret, publicUrl }: AuthOptions) {
     session: {
       expiresIn: 30 * DAY_SECONDS,
       updateAge: DAY_SECONDS,
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // Runs once the password is verified: only the account's owner learns it is deactivated.
+          async before(session) {
+            if (await isDeactivated(db, session.userId)) {
+              throw APIError.from('FORBIDDEN', {
+                code: 'ACCOUNT_DEACTIVATED',
+                message: 'This account is deactivated',
+              });
+            }
+          },
+        },
+      },
     },
     rateLimit: {
       // Off by default outside production: always on here, tests included.
@@ -71,3 +95,11 @@ export function createAuth({ db, secret, publicUrl }: AuthOptions) {
 }
 
 export type Auth = ReturnType<typeof createAuth>;
+
+async function isDeactivated(db: Db, userId: string): Promise<boolean> {
+  const [user] = await db
+    .select({ deactivatedAt: schema.users.deactivatedAt })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId));
+  return user !== undefined && user.deactivatedAt !== null;
+}

@@ -1,6 +1,6 @@
 import { CircleAlertIcon, InfoIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { cn } from '../lib/cn.util.ts';
+import { cn } from '../../lib/cn.util.ts';
 
 export interface AlertProps {
   tone?: 'danger' | 'info';

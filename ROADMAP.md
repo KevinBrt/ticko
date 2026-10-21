@@ -17,29 +17,35 @@ _Done when no route answers without a verified permission._
 
 **Authorization**
 
-- [x] `core`: `can(permissions, permission)`, `canAny()`; an instance role never grants a project permission, nor one the catalog no longer knows.
-- [x] `defineCommand` / `defineQuery`: `access: { permission }` (instance permissions), checked before the input; the actor's permissions are loaded with the user on every request.
+- [x] `core`: `can(permissions, permission)`, `canAny()`, `permissionsOfRole()`: a role never grants a permission it may not be given, nor one the catalog no longer knows.
+- [x] `defineCommand` / `defineQuery`: `access: { permission }` (organisation permissions), checked before the input; the actor's permissions are loaded with the user on every request.
 - [x] Routes declare the access of the operation they run, `config: { access: operation.access }` (checked by `check:conventions`).
-- [x] `/api/v1/me` returns the instance permissions; the web app hides the settings from users who cannot manage anything (the server stays the only judge).
-- [ ] Permission matrix tests generated from the catalog: every route refuses without its permission and accepts with it.
+- [x] `/api/v1/me` returns the organisation permissions; the web app hides the settings from users who cannot manage anything (the server stays the only judge).
+- [x] Permission tests generated from the registered routes: every route refuses a user who has every permission but its own and accepts one who has only its own; open API routes are listed explicitly.
 
-**Users** (`features/users`)
+**Roles model**
 
-- [ ] List users, with their instance role and status.
-- [ ] Invite a user without SMTP: an invitation link the administrator copies (single use, expires after 7 days, only a hash of the token stored, the token after `#` so it stays out of logs); email delivery comes with step 4.
-- [ ] Accept an invitation: choose a name and a password.
-- [ ] Change a user's instance role; deactivate and reactivate (sessions revoked at once).
-- [ ] Never leave the instance without an administrator: the last one cannot be demoted or deactivated.
+- [x] One list of roles for the instance and projects (migrations 0004 to 0007): a locked system role (Administrator) with every permission, client roles that can never administer, badge colors from the palette.
+
+**Members** (`features/users`)
+
+- [x] List members, change their role, deactivate and reactivate them (sessions revoked at once, sign-in refused while deactivated).
+- [x] Never leave the instance without an active member holding the system role, even when two administrators act at once.
+- [x] Settings layout after the mockups: settings navigation and breadcrumb; members table with role tabs and counts, search, colored role badges, state and a row menu. The mockup’s selection checkboxes (bulk actions) and the Projects and Activity columns come with their features.
+- [ ] Invitations without SMTP: "Invite members" (emails and a role) gives links to copy (single use, expire after 7 days, only a hash of the token stored, the token after `#` so it stays out of logs); pending invitations show as "Invited", with copy link and revoke; a public page to accept (name, password). Email delivery comes with step 4.
+
+**Roles and permissions** (`features/roles`)
+
+- [ ] Matrix after the mockups: roles in columns, permissions by section in rows, switches; the system role locked; switches a client role may not have disabled; "See issues" as all or own; unsaved changes bar, saved in one transaction.
+- [ ] Create a role (name, internal or client, color), rename it, delete it while nobody holds it.
+
+**Account**
+
 - [ ] Account page: change one's name and password.
-
-**Roles** (`features/roles`)
-
-- [ ] List roles by scope; create, rename, edit permissions (only permissions of the role's scope); delete a role nobody holds.
-- [ ] Settings screens under `routes/protected/settings/` (`users/`, `roles/`), visible only with the matching permissions.
 
 **Tests**
 
-- [ ] End-to-end: the administrator invites a team member, who signs in and cannot open the settings.
+- [ ] End-to-end: the administrator invites a team member, who accepts, signs in and cannot open the settings.
 
 ## Step 2: projects and issues
 
@@ -52,8 +58,8 @@ _Done when an issue can be created and closed._
 
 **Project permissions**
 
-- [ ] Effective permissions in a project = instance role + the member's project role; `access: { permission, projectOf: (input) => projectId }`.
-- [ ] `instance.projects.manage` (Administrator by default) grants every project permission in every project, member or not.
+- [ ] Project access per member: every project or chosen ones; the system role reaches every project.
+- [ ] Effective permissions in a project = the role the project gives the member, or else their own role; `access: { permission, projectOf: (input) => projectId }`.
 
 **Domain** (`core`)
 
@@ -62,7 +68,7 @@ _Done when an issue can be created and closed._
 
 **Commands and queries**
 
-- [ ] Projects: create (key such as `WEB`), update, archive; members and their project role.
+- [ ] Projects: create (key such as `WEB`), update, archive; who reaches it, and role overrides.
 - [ ] Issues: create, update title and description, change status, set priority, assign, close and reopen, delete.
 - [ ] Every issue change writes an `activities` row in the same transaction (`defineCommand` provides the hook).
 - [ ] Workflows: global workflow editor; "customize for this project"; "revert to the global workflow" with the status mapping step.
@@ -137,7 +143,6 @@ Needed for step 5:
 
 Known compromises to revisit, not blocking:
 
-- `packages/ui/src/components` holds 9 components, with a limit of 10 per folder: group them (`forms/`, `overlays/`, `feedback/`) with the next component.
 - Drizzle ORM 1.0 is still a release candidate: upgrade when it is stable (new migration format).
 - The npm override pinning the esbuild of `drizzle-kit`'s loader can go once drizzle-kit drops `@esbuild-kit`.
 - The Docker image weighs about 280 MB, largely Better Auth adapters Toppo does not use (MongoDB, Prisma, Kysely): try the `better-auth/minimal` entry point.

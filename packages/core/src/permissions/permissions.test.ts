@@ -2,12 +2,14 @@ import { SUPPORTED_LOCALES } from '@toppo/shared';
 import { describe, expect, it } from 'vitest';
 import {
   ALL_PERMISSIONS,
+  isInstancePermission,
   isPermission,
+  PERMISSION_SECTIONS,
   PERMISSIONS,
   type Permission,
-  permissionsOfScope,
 } from './catalog.ts';
 import { DEFAULT_ROLE_IDS, DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from './default-roles.ts';
+import { canBeGranted, permissionsOfRole } from './grants.ts';
 
 describe('permission catalog', () => {
   it('names every permission resource.action', () => {
@@ -22,38 +24,59 @@ describe('permission catalog', () => {
     expect(isPermission('toString')).toBe(false);
   });
 
-  it('splits permissions between instance and project roles', () => {
-    expect(permissionsOfScope('instance')).toStrictEqual([
-      'instance.settings.manage',
-      'instance.users.manage',
-      'instance.roles.manage',
-      'project.create',
+  it('applies the organisation section to the whole instance, the rest inside projects', () => {
+    for (const permission of ALL_PERMISSIONS) {
+      expect(isInstancePermission(permission), permission).toBe(
+        PERMISSIONS[permission].section === 'organisation',
+      );
+    }
+  });
+
+  it('lists permissions section by section, in display order', () => {
+    const sections = ALL_PERMISSIONS.map((permission) => PERMISSIONS[permission].section);
+    const order = sections.map((section) => PERMISSION_SECTIONS.indexOf(section));
+
+    expect(order).toStrictEqual([...order].sort((left, right) => left - right));
+  });
+
+  it('keeps administration and moderation away from client roles', () => {
+    const forClients = ALL_PERMISSIONS.filter((permission) => canBeGranted(permission, 'client'));
+
+    expect(forClients).toStrictEqual([
+      'issue.read',
+      'issue.read.own',
+      'issue.create',
+      'issue.update',
+      'issue.assign',
+      'issue.delete',
+      'comment.create',
     ]);
-    expect(
-      [...permissionsOfScope('instance'), ...permissionsOfScope('project')].sort(),
-    ).toStrictEqual([...ALL_PERMISSIONS].sort());
+  });
+
+  it('lets no role but the system one manage roles', () => {
+    expect(canBeGranted('instance.roles.manage', 'internal')).toBe(false);
+    expect(canBeGranted('instance.users.manage', 'internal')).toBe(true);
   });
 });
 
 describe('default roles', () => {
-  it('only grant permissions of their own scope', () => {
+  it('store only permissions their kind of role may be given', () => {
     for (const role of DEFAULT_ROLES) {
       for (const permission of role.permissions) {
-        expect(PERMISSIONS[permission], `${role.scope} ${role.name}: ${permission}`).toBe(
-          role.scope,
-        );
+        expect(canBeGranted(permission, role.audience), `${role.name}: ${permission}`).toBe(true);
       }
     }
   });
 
-  it('have unique ids and unique names per scope', () => {
+  it('have unique ids and names, and a single system role', () => {
     expect(new Set(DEFAULT_ROLES.map((role) => role.id)).size).toBe(DEFAULT_ROLES.length);
-    expect(new Set(DEFAULT_ROLES.map((role) => `${role.scope}:${role.name}`)).size).toBe(
-      DEFAULT_ROLES.length,
-    );
+    expect(new Set(DEFAULT_ROLES.map((role) => role.name)).size).toBe(DEFAULT_ROLES.length);
     expect(Object.values(DEFAULT_ROLE_IDS).sort()).toStrictEqual(
       DEFAULT_ROLES.map((role) => role.id).sort(),
     );
+    expect(DEFAULT_ROLES.filter((role) => role.grantsAll).map((role) => role.id)).toStrictEqual([
+      DEFAULT_ROLE_IDS.administrator,
+    ]);
   });
 
   it('are named in every supported language, distinctly', () => {
@@ -72,12 +95,6 @@ describe('default roles', () => {
 
   // The matrix of ARCHITECTURE.md, written out so that any change to it is deliberate.
   const MATRIX: Record<Permission, [administrator: boolean, team: boolean, requester: boolean]> = {
-    'instance.settings.manage': [true, false, false],
-    'instance.users.manage': [true, false, false],
-    'instance.roles.manage': [true, false, false],
-    'project.create': [true, true, false],
-    'project.settings.manage': [true, false, false],
-    'project.members.manage': [true, false, false],
     'issue.read': [true, true, false],
     'issue.read.own': [true, true, true],
     'issue.create': [true, true, true],
@@ -86,15 +103,19 @@ describe('default roles', () => {
     'issue.delete': [true, false, false],
     'comment.create': [true, true, true],
     'comment.moderate': [true, false, false],
+    'project.settings.manage': [true, false, false],
+    'project.members.manage': [true, false, false],
+    'instance.users.manage': [true, false, false],
+    'project.create': [true, true, false],
+    'instance.settings.manage': [true, false, false],
+    'instance.roles.manage': [true, false, false],
   };
 
   it.each(ALL_PERMISSIONS)('grant %s as documented', (permission) => {
-    const scope = PERMISSIONS[permission];
-    const granted = (['administrator', 'team', 'requester'] as const).map((kind) =>
-      DEFAULT_ROLES.find(
-        (role) => role.scope === scope && role.kind === kind,
-      )?.permissions.includes(permission),
-    );
+    const granted = (['administrator', 'team', 'requester'] as const).map((kind) => {
+      const role = DEFAULT_ROLES.find((candidate) => candidate.kind === kind);
+      return role ? permissionsOfRole(role).includes(permission) : undefined;
+    });
     expect(granted).toStrictEqual(MATRIX[permission]);
   });
 });

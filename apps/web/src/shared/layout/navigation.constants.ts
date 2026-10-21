@@ -6,6 +6,7 @@ import {
   type LucideIcon,
   SlidersHorizontalIcon,
   UserIcon,
+  UsersIcon,
 } from 'lucide-react';
 import type { PlainMessageKey } from '../i18n/i18n.types.ts';
 
@@ -23,7 +24,7 @@ export interface NavSection {
   items: readonly NavItem[];
 }
 
-/** Each of these opens a part of the settings: instance settings, users, roles. */
+/** Each of these opens a part of the settings: instance settings, members, roles. */
 export const SETTINGS_PERMISSIONS: readonly Permission[] = [
   'instance.settings.manage',
   'instance.users.manage',
@@ -46,6 +47,21 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         labelKey: 'nav.settings',
         icon: SlidersHorizontalIcon,
         requiresAnyOf: SETTINGS_PERMISSIONS,
+      },
+    ],
+  },
+];
+
+/** The settings' own navigation, beside their pages. */
+export const SETTINGS_NAV: readonly NavSection[] = [
+  {
+    labelKey: 'settings.organisation',
+    items: [
+      {
+        to: '/settings/members',
+        labelKey: 'members.title',
+        icon: UsersIcon,
+        requiresAnyOf: ['instance.users.manage'],
       },
     ],
   },

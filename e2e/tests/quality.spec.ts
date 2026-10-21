@@ -2,7 +2,14 @@ import { expect, expectAccessible, openNavigation, test } from './fixtures.ts';
 
 test.use({ locale: 'en-US' });
 
-const PAGES = ['/issues', '/my-issues', '/projects', '/settings', '/nothing/here'];
+const PAGES = [
+  '/issues',
+  '/my-issues',
+  '/projects',
+  '/settings',
+  '/settings/members',
+  '/nothing/here',
+];
 
 for (const path of PAGES) {
   test(`${path} has no accessibility violations`, async ({ page }) => {

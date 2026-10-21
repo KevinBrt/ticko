@@ -34,7 +34,7 @@ const createRole = defineCommand({
   async handler({ tx }, { name, failAfterInsert }) {
     const [role] = await tx
       .insert(schema.roles)
-      .values({ name, scope: 'project' })
+      .values({ name })
       .returning({ id: schema.roles.id });
     if (failAfterInsert) {
       throw new Error('something failed after the insert');

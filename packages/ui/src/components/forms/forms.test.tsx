@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { Alert } from './alert.tsx';
-import { Avatar, initialsOf } from './avatar.tsx';
+import { Avatar, initialsOf } from '../display/avatar.tsx';
+import { Alert } from '../feedback/alert.tsx';
 import { Field } from './field.tsx';
 import { Input } from './input.tsx';
 import { PasswordInput } from './password-input.tsx';

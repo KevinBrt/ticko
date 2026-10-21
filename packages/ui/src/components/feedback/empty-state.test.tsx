@@ -1,7 +1,7 @@
 import { InboxIcon } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { Button } from './button.tsx';
+import { Button } from '../button.tsx';
 import { EmptyState } from './empty-state.tsx';
 
 describe('EmptyState', () => {

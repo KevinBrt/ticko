@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
-import { Button } from './button.tsx';
+import { Button } from '../button.tsx';
 import { Sheet, SheetContent, SheetTrigger } from './sheet.tsx';
 
 function Drawer() {

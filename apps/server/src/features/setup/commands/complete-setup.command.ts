@@ -44,7 +44,7 @@ export const completeSetup = defineCommand({
       email: input.admin.email,
       // The administrator typed this address themselves; there is nobody to verify it with yet.
       emailVerified: true,
-      instanceRoleId: DEFAULT_ROLE_IDS.instanceAdministrator,
+      instanceRoleId: DEFAULT_ROLE_IDS.administrator,
     });
     await tx.insert(accounts).values({
       accountId: userId,

@@ -8,11 +8,39 @@ afterEach(async () => {
 });
 
 describe('the settings', () => {
-  it('are open to administrators', async () => {
+  it('open on the first section an administrator manages, with their own navigation', async () => {
     fakeServer({ user: ADA });
+    const { screen, router } = await renderApp({ path: '/settings' });
+
+    await expect.element(screen.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
+    expect(router.state.location.pathname).toBe('/settings/members');
+    await expect
+      .element(
+        screen.getByRole('navigation', { name: 'Settings sections' }).getByRole('link', {
+          name: 'Members',
+        }),
+      )
+      .toHaveAttribute('aria-current', 'page');
+  });
+
+  it('show where one is: Settings / Members', async () => {
+    fakeServer({ user: ADA });
+    const { screen } = await renderApp({ path: '/settings/members' });
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+
+    await breadcrumb.getByRole('link', { name: 'Settings' }).click();
+
+    await expect.element(breadcrumb.getByText('Members')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('have nothing to show yet to users who only manage instance settings', async () => {
+    fakeServer({ user: { ...GRACE, permissions: ['instance.settings.manage'] } });
     const { screen } = await renderApp({ path: '/settings' });
 
     await expect.element(screen.getByText('Nothing to configure yet')).toBeVisible();
+    await expect
+      .element(screen.getByRole('navigation', { name: 'Settings sections' }))
+      .not.toBeInTheDocument();
   });
 
   it('are left out of the navigation of users who manage nothing', async () => {

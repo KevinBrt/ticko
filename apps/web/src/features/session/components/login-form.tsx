@@ -46,6 +46,7 @@ export function LoginForm({ onSignedIn }: { onSignedIn: () => Promise<void> | vo
         <Alert tone="danger">
           {requestErrorMessage(login.error, t, {
             INVALID_EMAIL_OR_PASSWORD: 'login.invalidCredentials',
+            ACCOUNT_DEACTIVATED: 'login.accountDeactivated',
           })}
         </Alert>
       ) : null}

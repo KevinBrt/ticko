@@ -44,10 +44,10 @@ describe('AppShell on desktop', () => {
   it('navigates and updates the heading and the tab title', async () => {
     const { screen } = await renderApp();
 
-    await screen.getByRole('link', { name: 'Settings' }).click();
+    await screen.getByRole('link', { name: 'Projects' }).click();
 
-    await expect.element(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-    expect(document.title).toBe('Settings · Toppo');
+    await expect.element(screen.getByRole('heading', { level: 1, name: 'Projects' })).toBeVisible();
+    expect(document.title).toBe('Projects · Toppo');
   });
 
   it('offers a skip link to the main content', async () => {

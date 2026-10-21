@@ -88,7 +88,7 @@ describe('first-run setup', () => {
       .from(schema.accounts)
       .where(eq(schema.accounts.userId, user?.id ?? ''));
 
-    expect(user?.instanceRoleId).toBe(DEFAULT_ROLE_IDS.instanceAdministrator);
+    expect(user?.instanceRoleId).toBe(DEFAULT_ROLE_IDS.administrator);
     expect(user?.email).toMatch(/^admin\d@example\.com$/);
     expect(account?.providerId).toBe('credential');
     expect(account?.password).toBeTruthy();
@@ -96,10 +96,7 @@ describe('first-run setup', () => {
   });
 
   it('keeps the default role names in English when no language is given', async () => {
-    const names = await context.database.db
-      .select({ name: schema.roles.name })
-      .from(schema.roles)
-      .where(eq(schema.roles.scope, 'instance'));
+    const names = await context.database.db.select({ name: schema.roles.name }).from(schema.roles);
 
     expect(names.map(({ name }) => name).sort()).toStrictEqual([
       'Administrator',

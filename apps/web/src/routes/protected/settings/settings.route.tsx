@@ -1,41 +1,41 @@
 import { useQuery } from '@tanstack/react-query';
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, Outlet } from '@tanstack/react-router';
 import { canAny } from '@toppo/core';
-import { EmptyState } from '@toppo/ui';
-import { LockIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { SessionQueries } from '../../../features/session/queries/session.queries.ts';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
-import { SETTINGS_PERMISSIONS } from '../../../shared/layout/navigation.constants.ts';
+import { AccessDenied } from '../../../shared/layout/access-denied.tsx';
+import { SETTINGS_NAV, SETTINGS_PERMISSIONS } from '../../../shared/layout/navigation.constants.ts';
+import { visibleSections } from '../../../shared/layout/navigation.util.ts';
 import { Page } from '../../../shared/layout/page.tsx';
+import { SectionLayout } from '../../../shared/layout/section-layout.tsx';
 import { protectedRoute } from '../protected.route.tsx';
 
+/** The settings frame: their own navigation beside the page of the chosen section. */
 export const settingsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/settings',
   staticData: { titleKey: 'nav.settings' },
-  component: SettingsScreen,
+  component: SettingsLayout,
 });
 
-function SettingsScreen() {
+function SettingsLayout() {
   const { t } = useI18n();
   const { data: user } = useQuery(SessionQueries.currentUser);
-  // The link is hidden from these users; this covers a typed or bookmarked address.
-  const allowed = canAny(user?.permissions ?? [], SETTINGS_PERMISSIONS);
+  const permissions = user?.permissions ?? [];
+
+  if (!canAny(permissions, SETTINGS_PERMISSIONS)) {
+    return (
+      <Page title={t('nav.settings')}>
+        <AccessDenied />
+      </Page>
+    );
+  }
   return (
-    <Page title={t('nav.settings')}>
-      {allowed ? (
-        <EmptyState
-          icon={SlidersHorizontalIcon}
-          title={t('settings.emptyTitle')}
-          description={t('settings.emptyDescription')}
-        />
-      ) : (
-        <EmptyState
-          icon={LockIcon}
-          title={t('accessDenied.title')}
-          description={t('accessDenied.description')}
-        />
-      )}
-    </Page>
+    <SectionLayout
+      label={t('settings.navLabel')}
+      sections={visibleSections(SETTINGS_NAV, permissions)}
+    >
+      <Outlet />
+    </SectionLayout>
   );
 }

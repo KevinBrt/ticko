@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@toppo/core": "0.0.0",
+    "@toppo/shared": "0.0.0",
     "drizzle-orm": "0.45.4",
     "postgres": "3.4.9"
   },

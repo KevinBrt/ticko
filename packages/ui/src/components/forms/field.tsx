@@ -1,5 +1,5 @@
 import { type ReactNode, useId } from 'react';
-import { cn } from '../lib/cn.util.ts';
+import { cn } from '../../lib/cn.util.ts';
 
 /** Props a form control needs to be labelled and described accessibly. */
 export interface FieldControlProps {

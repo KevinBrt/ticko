@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { cn } from '../lib/cn.util.ts';
+import { cn } from '../../lib/cn.util.ts';
 
 export const inputClassName = cn(
   'flex h-10 w-full min-w-0 rounded-md border border-border-strong bg-surface px-3 text-sm text-foreground shadow-xs',

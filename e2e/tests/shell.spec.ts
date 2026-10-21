@@ -22,10 +22,10 @@ test('navigates between sections', async ({ page, isMobile }) => {
 });
 
 test('deep links survive a reload', async ({ page }) => {
-  await page.goto('/settings');
+  await page.goto('/settings/members');
   await page.reload();
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
 });
 
 test('unknown pages show a not-found page inside the app', async ({ page }) => {

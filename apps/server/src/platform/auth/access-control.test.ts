@@ -1,4 +1,9 @@
-import { DEFAULT_ROLE_IDS, DEFAULT_ROLES, type Permission } from '@toppo/core';
+import {
+  DEFAULT_ROLE_IDS,
+  DEFAULT_ROLES,
+  instancePermissionsOf,
+  type Permission,
+} from '@toppo/core';
 import { schema } from '@toppo/db';
 import { apiErrorSchema, meResponseSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
@@ -25,8 +30,13 @@ const PASSWORD = 'correct horse battery staple';
 const ADMIN_EMAIL = 'ada@example.com';
 const TEAM_EMAIL = 'grace@example.com';
 
-const permissionsOfRole = (roleId: string) =>
+const storedPermissionsOf = (roleId: string) =>
   DEFAULT_ROLES.find((role) => role.id === roleId)?.permissions ?? [];
+const ALL_INSTANCE_PERMISSIONS = instancePermissionsOf({
+  grantsAll: true,
+  audience: 'internal',
+  permissions: [],
+});
 
 async function signIn(email: string): Promise<string> {
   const response = await app.inject({
@@ -80,7 +90,7 @@ beforeAll(async () => {
     name: 'Grace Hopper',
     email: TEAM_EMAIL,
     password: PASSWORD,
-    instanceRoleId: DEFAULT_ROLE_IDS.instanceTeam,
+    instanceRoleId: DEFAULT_ROLE_IDS.team,
   });
   // Two sign-ins for the whole file: sign-in is rate limited to 5 per minute.
   adminCookie = await signIn(ADMIN_EMAIL);
@@ -117,36 +127,34 @@ describe('routes behind a permission', () => {
         .set({ instanceRoleId })
         .where(eq(schema.users.id, teamUserId));
 
-    await setRole(DEFAULT_ROLE_IDS.instanceAdministrator);
+    await setRole(DEFAULT_ROLE_IDS.administrator);
     expect((await callUsersRoute('GET', teamCookie)).statusCode).toBe(200);
 
-    await setRole(DEFAULT_ROLE_IDS.instanceTeam);
+    await setRole(DEFAULT_ROLE_IDS.team);
     expect((await callUsersRoute('GET', teamCookie)).statusCode).toBe(403);
   });
 });
 
 describe('the permissions of the current user', () => {
-  it('are those of their instance role', async () => {
+  it('are the instance-wide permissions of their role', async () => {
     expect((await permissionsInMe(adminCookie))?.sort()).toStrictEqual(
-      [...permissionsOfRole(DEFAULT_ROLE_IDS.instanceAdministrator)].sort(),
+      ALL_INSTANCE_PERMISSIONS.sort(),
     );
-    expect(await permissionsInMe(teamCookie)).toStrictEqual(
-      permissionsOfRole(DEFAULT_ROLE_IDS.instanceTeam),
-    );
+    expect(await permissionsInMe(teamCookie)).toStrictEqual(['project.create']);
   });
 
-  it('never include project or unknown permissions stored on an instance role', async () => {
+  it('never include what the role may not be given, nor unknown permissions', async () => {
     const setTeamPermissions = (permissions: string[]) =>
       context.database.db
         .update(schema.roles)
         // On purpose: what a faulty write or a removed plugin could leave in the database.
         .set({ permissions: permissions as Permission[] })
-        .where(eq(schema.roles.id, DEFAULT_ROLE_IDS.instanceTeam));
-    const original = [...permissionsOfRole(DEFAULT_ROLE_IDS.instanceTeam)];
+        .where(eq(schema.roles.id, DEFAULT_ROLE_IDS.team));
+    const original = [...storedPermissionsOf(DEFAULT_ROLE_IDS.team)];
 
-    await setTeamPermissions([...original, 'issue.delete', 'plugin.removed']);
+    await setTeamPermissions([...original, 'instance.roles.manage', 'plugin.removed']);
     try {
-      expect(await permissionsInMe(teamCookie)).toStrictEqual(original);
+      expect(await permissionsInMe(teamCookie)).toStrictEqual(['project.create']);
     } finally {
       await setTeamPermissions(original);
     }

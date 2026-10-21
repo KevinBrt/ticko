@@ -61,6 +61,20 @@
   --color-status-green: #22c55e;
   --color-status-gray: #9ca3af;
 
+  /* Badges (role colors): a tinted background with a text color that keeps AA contrast on it. */
+  --color-badge-gray: #f3f4f6;
+  --color-badge-gray-foreground: #374151;
+  --color-badge-blue: #dbeafe;
+  --color-badge-blue-foreground: #1e40af;
+  --color-badge-green: #dcfce7;
+  --color-badge-green-foreground: #166534;
+  --color-badge-amber: #fef3c7;
+  --color-badge-amber-foreground: #92400e;
+  --color-badge-violet: #ede9fe;
+  --color-badge-violet-foreground: #5b21b6;
+  --color-badge-cyan: #cffafe;
+  --color-badge-cyan-foreground: #155e75;
+
   /* Priorities */
   --color-priority-urgent: #dc2626;
   --color-priority-high: #ea580c;
