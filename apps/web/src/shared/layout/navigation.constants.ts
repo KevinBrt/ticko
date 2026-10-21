@@ -1,4 +1,5 @@
 import type { LinkProps } from '@tanstack/react-router';
+import type { Permission } from '@toppo/core';
 import {
   FolderKanbanIcon,
   InboxIcon,
@@ -12,6 +13,8 @@ export interface NavItem {
   to: NonNullable<LinkProps['to']>;
   labelKey: PlainMessageKey;
   icon: LucideIcon;
+  /** Shown only to users holding at least one of these permissions; to everyone when absent. */
+  requiresAnyOf?: readonly Permission[];
 }
 
 export interface NavSection {
@@ -19,6 +22,13 @@ export interface NavSection {
   labelKey?: PlainMessageKey;
   items: readonly NavItem[];
 }
+
+/** Each of these opens a part of the settings: instance settings, users, roles. */
+export const SETTINGS_PERMISSIONS: readonly Permission[] = [
+  'instance.settings.manage',
+  'instance.users.manage',
+  'instance.roles.manage',
+];
 
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
@@ -31,7 +41,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     labelKey: 'nav.workspace',
     items: [
       { to: '/projects', labelKey: 'nav.projects', icon: FolderKanbanIcon },
-      { to: '/settings', labelKey: 'nav.settings', icon: SlidersHorizontalIcon },
+      {
+        to: '/settings',
+        labelKey: 'nav.settings',
+        icon: SlidersHorizontalIcon,
+        requiresAnyOf: SETTINGS_PERMISSIONS,
+      },
     ],
   },
 ];

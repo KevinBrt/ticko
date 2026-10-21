@@ -9,7 +9,7 @@ Each step ends with a working demo, green CI and updated docs. Anything touching
 - [ ] Protect `main` once contributors arrive: require the CI checks (quality, tests, end-to-end) before merging.
 - [ ] Check that the `ghcr.io/kevinbrt/toppo` package is public once the first `edge` image is published (GitHub → Packages → Package settings).
 - [ ] Leave the release-please pull request open until 0.1 is ready: merging it publishes the version and the `latest` image.
-- [ ] Answer the [open questions](#open-questions) needed by steps 1 and 2.
+- [ ] Answer the [open questions](#open-questions) needed by step 2.
 
 ## Step 1: roles, permissions and users
 
@@ -17,16 +17,16 @@ _Done when no route answers without a verified permission._
 
 **Authorization**
 
-- [ ] `core`: effective permissions = instance role + project role; `can(permissions, permission)`; scope rules (an instance permission is never granted by a project role).
-- [ ] `defineCommand` / `defineQuery`: `access: { permission, projectOf?: (input) => projectId }`, checked before the input; the actor's permissions are loaded once per request.
-- [ ] Route contracts: routes declare the same permission as the operation they call; the app refuses to boot otherwise.
-- [ ] `/api/v1/me` returns the effective instance permissions, so the web app hides what the user cannot do (the server stays the only judge).
+- [x] `core`: `can(permissions, permission)`, `canAny()`; an instance role never grants a project permission, nor one the catalog no longer knows.
+- [x] `defineCommand` / `defineQuery`: `access: { permission }` (instance permissions), checked before the input; the actor's permissions are loaded with the user on every request.
+- [x] Routes declare the access of the operation they run, `config: { access: operation.access }` (checked by `check:conventions`).
+- [x] `/api/v1/me` returns the instance permissions; the web app hides the settings from users who cannot manage anything (the server stays the only judge).
 - [ ] Permission matrix tests generated from the catalog: every route refuses without its permission and accepts with it.
 
 **Users** (`features/users`)
 
 - [ ] List users, with their instance role and status.
-- [ ] Invite a user without SMTP: an invitation link the administrator copies (single use, expiring); email delivery comes with step 4.
+- [ ] Invite a user without SMTP: an invitation link the administrator copies (single use, expires after 7 days, only a hash of the token stored, the token after `#` so it stays out of logs); email delivery comes with step 4.
 - [ ] Accept an invitation: choose a name and a password.
 - [ ] Change a user's instance role; deactivate and reactivate (sessions revoked at once).
 - [ ] Never leave the instance without an administrator: the last one cannot be demoted or deactivated.
@@ -49,6 +49,11 @@ _Done when an issue can be created and closed._
 
 - [ ] `projects`, `project_members`, `statuses`, `workflows`, `workflow_statuses`, `priorities`, `issues`, `activities`.
 - [ ] Issue numbers unique per project and safe under concurrency (counter on the project row, locked in the creating transaction).
+
+**Project permissions**
+
+- [ ] Effective permissions in a project = instance role + the member's project role; `access: { permission, projectOf: (input) => projectId }`.
+- [ ] `instance.projects.manage` (Administrator by default) grants every project permission in every project, member or not.
 
 **Domain** (`core`)
 
@@ -117,11 +122,6 @@ _Done when an issue is found in under 3 seconds._
 - [ ] Kanban board, as a plugin or in core (to decide).
 
 ## Open questions
-
-Needed for step 1:
-
-- **Invitations before SMTP exists**: copyable invitation link (proposed), or an initial password set by the administrator?
-- **Instance administrators and projects**: access to every project implicitly (proposed), or only where they are members?
 
 Needed for step 2:
 

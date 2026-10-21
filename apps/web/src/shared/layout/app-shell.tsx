@@ -8,9 +8,17 @@ import { Topbar } from './topbar.tsx';
 /**
  * Application frame. From `lg` up the sidebar is fixed on the left; below, it moves into a
  * drawer opened from the top bar, so every screen works from 320 px phones to wide desktops.
- * The sidebar footer comes from the caller, so this frame stays free of any feature.
+ * The permissions and the sidebar footer come from the caller, so this frame stays free of any
+ * feature.
  */
-export function AppShell({ sidebarFooter }: { sidebarFooter?: ReactNode }) {
+export function AppShell({
+  permissions,
+  sidebarFooter,
+}: {
+  /** What the signed-in user may do: the navigation hides the rest. */
+  permissions: readonly string[];
+  sidebarFooter?: ReactNode;
+}) {
   const { t } = useI18n();
   const [isMenuOpen, setMenuOpen] = useState(false);
 
@@ -24,7 +32,7 @@ export function AppShell({ sidebarFooter }: { sidebarFooter?: ReactNode }) {
       </a>
 
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 border-r border-sidebar-border lg:flex">
-        <SidebarContent footer={sidebarFooter} />
+        <SidebarContent permissions={permissions} footer={sidebarFooter} />
       </aside>
 
       <Sheet open={isMenuOpen} onOpenChange={setMenuOpen}>
@@ -33,7 +41,11 @@ export function AppShell({ sidebarFooter }: { sidebarFooter?: ReactNode }) {
           closeLabel={t('nav.closeMenu')}
           className="bg-sidebar text-sidebar-foreground lg:hidden"
         >
-          <SidebarContent footer={sidebarFooter} onNavigate={() => setMenuOpen(false)} />
+          <SidebarContent
+            permissions={permissions}
+            footer={sidebarFooter}
+            onNavigate={() => setMenuOpen(false)}
+          />
         </SheetContent>
       </Sheet>
 

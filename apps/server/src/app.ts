@@ -69,7 +69,7 @@ export async function buildApp({
   registerErrorHandler(app);
   await registerSecurityHeaders(app, { publicUrl: config.publicUrl });
   registerOriginCheck(app, { publicUrl: config.publicUrl });
-  registerAccessControl(app, { auth });
+  registerAccessControl(app, { auth, db: database.db });
   registerExecutionContext(app, {
     db: database.db,
     services: createServices({ auth, setupCode }),
@@ -81,7 +81,7 @@ export async function buildApp({
 
   registerHealthRoute(app, { database });
   registerAuthRoutes(app, { auth, publicUrl: config.publicUrl });
-  registerMeRoute(app, { auth });
+  registerMeRoute(app, { auth, db: database.db });
 
   // Features.
   registerSetupRoutes(app);

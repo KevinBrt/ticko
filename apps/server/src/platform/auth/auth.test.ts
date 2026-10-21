@@ -34,7 +34,7 @@ beforeAll(async () => {
     config: { access: 'authenticated' },
     schema: { response: { 200: z.object({ email: z.string() }) } },
   } as const;
-  const whoAmI = (request: FastifyRequest) => ({ email: request.currentUser?.email ?? '' });
+  const whoAmI = (request: FastifyRequest) => ({ email: request.actor?.email ?? '' });
   const routes = app.withTypeProvider<ZodTypeProvider>();
   routes.get('/api/test/private', privateRoute, whoAmI);
   routes.post(
@@ -106,7 +106,12 @@ describe('the current user', () => {
       name: 'Ada Lovelace',
       email: EMAIL,
     });
-    expect(Object.keys(response.json().user).sort()).toStrictEqual(['email', 'id', 'name']);
+    expect(Object.keys(response.json().user).sort()).toStrictEqual([
+      'email',
+      'id',
+      'name',
+      'permissions',
+    ]);
   });
 
   it('is gone once signed out', async () => {

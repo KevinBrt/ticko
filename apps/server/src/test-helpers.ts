@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDatabase, type Database } from '@toppo/db';
+import { createDatabase, type Database, schema, uuidv7 } from '@toppo/db';
 import { CSP_NONCE_PLACEHOLDER } from '@toppo/shared';
 import { createTestDatabase, type TestDatabase } from '@toppo/testing';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
@@ -59,6 +59,38 @@ export function setupTestDatabase(): { readonly database: Database } {
       return database;
     },
   };
+}
+
+export interface TestUser {
+  name: string;
+  email: string;
+  password: string;
+  instanceRoleId: string;
+}
+
+/** Adds a user who can sign in with `password`, as an accepted invitation would. Returns their id. */
+export async function createTestUser(database: Database, user: TestUser): Promise<string> {
+  const auth = createAuth({
+    db: database.db,
+    secret: TEST_SECRET,
+    publicUrl: new URL('http://localhost:3000'),
+  });
+  const passwordHash = await (await auth.$context).password.hash(user.password);
+  const id = uuidv7();
+  await database.db.insert(schema.users).values({
+    id,
+    name: user.name,
+    email: user.email,
+    emailVerified: true,
+    instanceRoleId: user.instanceRoleId,
+  });
+  await database.db.insert(schema.accounts).values({
+    accountId: id,
+    providerId: 'credential',
+    userId: id,
+    password: passwordHash,
+  });
+  return id;
 }
 
 /** The `name=value` pairs of a response's cookies, ready to send back in a `cookie` header. */

@@ -1,19 +1,24 @@
 import { Link } from '@tanstack/react-router';
+import { canAny } from '@toppo/core';
 import { Logo } from '@toppo/ui';
 import type { ReactNode } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
-import { NAV_SECTIONS } from './navigation.constants.ts';
+import { NAV_SECTIONS, type NavSection } from './navigation.constants.ts';
 
 /** Brand and main navigation. Rendered in the fixed sidebar on desktop and in the drawer on mobile. */
 export function SidebarContent({
+  permissions,
   footer,
   onNavigate,
 }: {
+  /** What the signed-in user may do: links they could not use are left out. */
+  permissions: readonly string[];
   /** Shown at the bottom, e.g. the signed-in account. */
   footer?: ReactNode;
   onNavigate?: () => void;
 }) {
   const { t } = useI18n();
+  const sections = visibleSections(permissions);
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
@@ -23,7 +28,7 @@ export function SidebarContent({
       </div>
 
       <nav aria-label={t('nav.label')} className="flex-1 overflow-y-auto px-3 pb-4">
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <div key={section.labelKey ?? 'main'} className="mt-2 first:mt-0">
             {section.labelKey ? (
               <p className="px-3 pt-4 pb-2 text-xs font-medium text-sidebar-muted">
@@ -51,4 +56,13 @@ export function SidebarContent({
       {footer}
     </div>
   );
+}
+
+function visibleSections(permissions: readonly string[]): NavSection[] {
+  return NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(
+      (item) => !item.requiresAnyOf || canAny(permissions, item.requiresAnyOf),
+    ),
+  }));
 }

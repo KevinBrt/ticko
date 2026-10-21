@@ -17,6 +17,7 @@ const TEST_FILE = /(\.test\.tsx?|\.spec\.ts|\.setup\.ts|test-helpers\.tsx?|test-
 const PRODUCT_CODE = /^(apps|packages|plugins)\//;
 const FRONTEND_CODE = /^(apps\/web|packages\/ui)\/src\//;
 const SERVER_CODE = /^(apps\/server|packages\/(core|db|shared))\/src\//;
+const FEATURE_ROUTES = /^apps\/server\/src\/features\/.+\.routes\.ts$/;
 
 const isProductSource = (path: string) => PRODUCT_CODE.test(path) && SOURCE_FILE.test(path);
 const isProductRuntimeSource = (path: string) => isProductSource(path) && !TEST_FILE.test(path);
@@ -56,6 +57,15 @@ export const RULES: readonly ConventionRule[] = [
         new RegExp(`[!=]==?\\s*['"\`]${ROLE_NAMES}['"\`]`, 'i'),
         new RegExp(`case\\s+['"\`]${ROLE_NAMES}['"\`]`, 'i'),
       ]);
+    },
+  },
+  {
+    id: 'route-access-from-operation',
+    message:
+      'A route declares the access of the operation it runs: config: { access: operation.access }',
+    appliesTo: (path) => FEATURE_ROUTES.test(path),
+    check(path, source) {
+      return lineMatches(this, path, source, [/\baccess:(?!\s*[A-Za-z_$][\w$]*\.access\b)/]);
     },
   },
   {

@@ -25,10 +25,19 @@ export const PERMISSIONS = {
 
 export type Permission = keyof typeof PERMISSIONS;
 
+/** A permission granted by the instance role, everywhere in the instance. */
+export type InstancePermission = {
+  [P in Permission]: (typeof PERMISSIONS)[P] extends 'instance' ? P : never;
+}[Permission];
+
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as readonly Permission[];
 
 export function isPermission(value: string): value is Permission {
   return Object.hasOwn(PERMISSIONS, value);
+}
+
+export function isInstancePermission(value: string): value is InstancePermission {
+  return isPermission(value) && PERMISSIONS[value] === 'instance';
 }
 
 export function permissionsOfScope(scope: PermissionScope): Permission[] {

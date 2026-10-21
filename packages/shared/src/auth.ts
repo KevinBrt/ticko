@@ -15,6 +15,11 @@ export const currentUserSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   email: z.string(),
+  /**
+   * Instance permissions, by catalog name (`@toppo/core`), so the web app can hide what the user
+   * cannot do. Plain strings on the wire: the server stays the only judge.
+   */
+  permissions: z.array(z.string()),
 });
 
 export type CurrentUser = z.infer<typeof currentUserSchema>;

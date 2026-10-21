@@ -1,20 +1,12 @@
 import type { Db } from '@toppo/db';
-import type { CurrentUser } from '@toppo/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { z } from 'zod';
-import { HttpError } from '../http/http-error.ts';
+import { type Access, assertAccess } from '../auth/access-control.ts';
+import type { Actor } from '../auth/actor.ts';
 import { RequestValidationError } from '../http/zod.ts';
 
 /** The transaction a command runs in. */
 export type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0];
-
-/**
- * Who may run a command or query:
- * - `public`: anyone, signed in or not;
- * - `authenticated`: a signed-in user, available as `actor`.
- * Permission checks (`{ permission: 'issue.update' }`) arrive with the permission model.
- */
-export type Access = 'public' | 'authenticated';
 
 /** Capabilities and settings commands may need besides the database. Built once in `app.ts`. */
 export interface Services {
@@ -27,13 +19,13 @@ export interface Services {
 /** What every command and query runs with: per HTTP request today, per plugin call later. */
 export interface ExecutionContext {
   db: Db;
-  actor: CurrentUser | null;
+  actor: Actor | null;
   log: FastifyBaseLogger;
   services: Services;
 }
 
 interface Scope {
-  actor: CurrentUser | null;
+  actor: Actor | null;
   log: FastifyBaseLogger;
   services: Services;
 }
@@ -51,6 +43,7 @@ export interface QueryScope extends Scope {
 interface Definition<Input extends z.ZodType> {
   /** `resource.action`, used in logs: `setup.complete`, `issue.create`. */
   name: string;
+  /** Checked before anything else; the route running the operation declares the same. */
   access: Access;
   /** Validated on every call, including from callers other than HTTP routes. */
   input: Input;
@@ -66,6 +59,8 @@ export interface QueryDefinition<Input extends z.ZodType, Output> extends Defini
 
 export interface Operation<Input extends z.ZodType, Output> {
   name: string;
+  /** For the route's `config.access`, so the route and the operation cannot disagree. */
+  access: Access;
   execute(context: ExecutionContext, input: z.input<Input>): Promise<Output>;
 }
 
@@ -78,6 +73,7 @@ export function defineCommand<Input extends z.ZodType, Output>(
 ): Operation<Input, Output> {
   return {
     name: definition.name,
+    access: definition.access,
     async execute(context, rawInput) {
       const input = prepare(definition, context, rawInput);
       const log = context.log.child({ command: definition.name });
@@ -94,6 +90,7 @@ export function defineQuery<Input extends z.ZodType, Output>(
 ): Operation<Input, Output> {
   return {
     name: definition.name,
+    access: definition.access,
     async execute(context, rawInput) {
       const input = prepare(definition, context, rawInput);
       const log = context.log.child({ query: definition.name });
@@ -105,15 +102,13 @@ export function defineQuery<Input extends z.ZodType, Output>(
   };
 }
 
-/** Access first: an anonymous caller learns nothing, not even what input is expected. */
+/** Access first: a caller without access learns nothing, not even what input is expected. */
 function prepare<Input extends z.ZodType>(
   definition: Definition<Input>,
   context: ExecutionContext,
   rawInput: unknown,
 ): z.output<Input> {
-  if (definition.access === 'authenticated' && !context.actor) {
-    throw new HttpError(401, 'UNAUTHENTICATED', 'Authentication required');
-  }
+  assertAccess(definition.access, context.actor);
   const result = definition.input.safeParse(rawInput);
   if (!result.success) {
     const error = new RequestValidationError(result.error.issues);

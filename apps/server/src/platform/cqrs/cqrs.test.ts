@@ -1,23 +1,24 @@
 import { schema } from '@toppo/db';
-import type { CurrentUser } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { setupTestDatabase } from '../../test-helpers.ts';
+import type { Actor } from '../auth/actor.ts';
 import { HttpError } from '../http/http-error.ts';
 import { RequestValidationError } from '../http/zod.ts';
 import { defineCommand, defineQuery, type ExecutionContext } from './cqrs.ts';
 
 const context = setupTestDatabase();
 
-const ADA: CurrentUser = {
+const ADA: Actor = {
   id: '01a1569b-9900-7000-8000-000000000001',
   name: 'Ada',
   email: 'ada@example.com',
+  permissions: ['project.create'],
 };
 
-function executionContext(actor: CurrentUser | null = null): ExecutionContext {
+function executionContext(actor: Actor | null = null): ExecutionContext {
   return {
     db: context.database.db,
     actor,
@@ -74,6 +75,38 @@ describe('defineCommand', () => {
 
     expect(error).toBeInstanceOf(RequestValidationError);
     expect(error.validationContext).toBe('input');
+  });
+});
+
+describe('operations behind a permission', () => {
+  const listUsers = defineQuery({
+    name: 'user.list',
+    access: { permission: 'instance.users.manage' },
+    input: z.object({ limit: z.number().int() }),
+    handler: () => Promise.resolve('listed'),
+  });
+
+  it('refuse an actor without the permission before looking at their input', async () => {
+    const error = await listUsers.execute(executionContext(ADA), { limit: 0.5 }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error).toMatchObject({ statusCode: 403, code: 'FORBIDDEN' });
+  });
+
+  it('refuse anonymous callers as unauthenticated', async () => {
+    const error = await listUsers.execute(executionContext(null), { limit: 1 }).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 401, code: 'UNAUTHENTICATED' });
+  });
+
+  it('run for an actor whose role grants the permission', async () => {
+    const admin: Actor = { ...ADA, permissions: ['instance.users.manage'] };
+
+    expect(await listUsers.execute(executionContext(admin), { limit: 1 })).toBe('listed');
+  });
+
+  it('expose their access, for the route that runs them', () => {
+    expect(listUsers.access).toStrictEqual({ permission: 'instance.users.manage' });
   });
 });
 

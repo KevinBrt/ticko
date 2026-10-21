@@ -1,40 +1,55 @@
-import type { CurrentUser } from '@toppo/shared';
+import { can, type InstancePermission } from '@toppo/core';
+import type { Db } from '@toppo/db';
 import type { FastifyInstance } from 'fastify';
 import { HttpError } from '../http/http-error.ts';
+import { type Actor, resolveActor } from './actor.ts';
 import type { Auth } from './auth.ts';
-import { forwardSetCookies, toFetchHeaders } from './fetch-bridge.ts';
+
+/**
+ * Who may call a route or run a command or query:
+ * - `public`: anyone, signed in or not;
+ * - `authenticated`: any signed-in user;
+ * - `{ permission }`: a signed-in user whose instance role grants this permission.
+ * Project permissions, checked against the project an input points to, arrive with projects.
+ */
+export type Access = 'public' | 'authenticated' | { permission: InstancePermission };
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** The signed-in user, set on routes whose access requires one. */
-    currentUser: CurrentUser | null;
+    actor: Actor | null;
+  }
+}
+
+/** Throws the HTTP error that `access` calls for when `actor` may not go further. */
+export function assertAccess(access: Access, actor: Actor | null): void {
+  if (access === 'public') {
+    return;
+  }
+  if (!actor) {
+    throw new HttpError(401, 'UNAUTHENTICATED', 'Authentication required');
+  }
+  if (access !== 'authenticated' && !can(actor.permissions, access.permission)) {
+    throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to do this');
   }
 }
 
 /**
- * Enforces `config.access` before the body is even parsed: an anonymous caller learns nothing
- * about a protected route, not even its validation rules.
+ * Enforces `config.access` before the body is even parsed: a caller without access learns
+ * nothing about a protected route, not even its validation rules.
  */
-export function registerAccessControl(app: FastifyInstance, { auth }: { auth: Auth }): void {
-  app.decorateRequest('currentUser', null);
+export function registerAccessControl(
+  app: FastifyInstance,
+  { auth, db }: { auth: Auth; db: Db },
+): void {
+  app.decorateRequest('actor', null);
 
   app.addHook('onRequest', async (request, reply) => {
-    if (request.routeOptions.config.access !== 'authenticated') {
+    const access = request.routeOptions.config.access ?? 'public';
+    if (access === 'public') {
       return;
     }
-    const { headers, response: session } = await auth.api.getSession({
-      headers: toFetchHeaders(request),
-      returnHeaders: true,
-    });
-    if (!session) {
-      throw new HttpError(401, 'UNAUTHENTICATED', 'Authentication required');
-    }
-    // A sliding session renews its cookie from time to time.
-    forwardSetCookies(headers, reply);
-    request.currentUser = {
-      id: session.user.id,
-      name: session.user.name,
-      email: session.user.email,
-    };
+    request.actor = await resolveActor({ auth, db }, request, reply);
+    assertAccess(access, request.actor);
   });
 }

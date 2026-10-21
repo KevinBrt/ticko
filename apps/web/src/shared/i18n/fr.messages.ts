@@ -36,6 +36,11 @@ export const fr: Messages = {
     emptyTitle: 'Rien à configurer pour l’instant',
     emptyDescription: 'Les workflows, champs personnalisés, labels et rôles se configureront ici.',
   },
+  accessDenied: {
+    title: 'Vous n’avez pas accès à cette page',
+    description:
+      'Votre rôle ne la comprend pas. Demandez à un administrateur si vous en avez besoin.',
+  },
   notFound: {
     title: 'Page introuvable',
     description: 'Cette page n’existe pas ou a été déplacée.',

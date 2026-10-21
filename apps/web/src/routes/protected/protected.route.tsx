@@ -1,6 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { createRoute, redirect, useRouter } from '@tanstack/react-router';
 import { AccountFooter } from '../../features/session/components/account-footer.tsx';
-import { loadSession } from '../../features/session/queries/session.queries.ts';
+import { loadSession, SessionQueries } from '../../features/session/queries/session.queries.ts';
 import { AppShell } from '../../shared/layout/app-shell.tsx';
 import { rootRoute } from '../root.route.tsx';
 
@@ -23,8 +24,11 @@ export const protectedRoute = createRoute({
 
 function ProtectedLayout() {
   const router = useRouter();
+  // From the cache rather than the route context, so a refreshed role shows without navigating.
+  const { data: user } = useQuery(SessionQueries.currentUser);
   return (
     <AppShell
+      permissions={user?.permissions ?? []}
       sidebarFooter={<AccountFooter onSignedOut={() => router.navigate({ to: '/login' })} />}
     />
   );

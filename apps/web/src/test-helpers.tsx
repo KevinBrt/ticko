@@ -1,15 +1,30 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
+import { DEFAULT_ROLE_IDS, DEFAULT_ROLES } from '@toppo/core';
 import type { CurrentUser, Locale } from '@toppo/shared';
 import { vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { createAppRouter } from './router.tsx';
 import { I18nProvider } from './shared/i18n/i18n-provider.tsx';
 
+const permissionsOfRole = (roleId: string) => [
+  ...(DEFAULT_ROLES.find((role) => role.id === roleId)?.permissions ?? []),
+];
+
+/** The administrator who set the instance up. */
 export const ADA: CurrentUser = {
   id: '01a1569b-9900-7000-8000-000000000001',
   name: 'Ada Lovelace',
   email: 'ada@example.com',
+  permissions: permissionsOfRole(DEFAULT_ROLE_IDS.instanceAdministrator),
+};
+
+/** A team member, who manages nothing in the instance. */
+export const GRACE: CurrentUser = {
+  id: '01a1569b-9900-7000-8000-000000000002',
+  name: 'Grace Hopper',
+  email: 'grace@example.com',
+  permissions: permissionsOfRole(DEFAULT_ROLE_IDS.instanceTeam),
 };
 export const ADA_PASSWORD = 'correct horse battery staple';
 export const GOOD_SETUP_CODE = 'ABCD-EFGH-JKLM';

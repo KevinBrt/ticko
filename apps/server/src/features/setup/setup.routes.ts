@@ -11,7 +11,7 @@ export function registerSetupRoutes(app: FastifyInstance): void {
   routes.get(
     '/api/v1/setup',
     {
-      config: { access: 'public' },
+      config: { access: getSetupStatus.access },
       schema: { response: { 200: setupStatusResponseSchema } },
     },
     (request) => getSetupStatus.execute(request.executionContext, {}),
@@ -20,7 +20,7 @@ export function registerSetupRoutes(app: FastifyInstance): void {
   routes.post(
     '/api/v1/setup',
     {
-      config: { access: 'public' },
+      config: { access: completeSetup.access },
       schema: { body: setupRequestSchema, response: { 201: setupResponseSchema } },
     },
     async (request, reply) =>

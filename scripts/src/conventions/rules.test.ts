@@ -31,6 +31,28 @@ describe('no-role-name-check', () => {
   });
 });
 
+describe('route-access-from-operation', () => {
+  const ROUTES = 'apps/server/src/features/users/users.routes.ts';
+
+  it.each([
+    "config: { access: 'authenticated' },",
+    "config: { access: { permission: 'instance.users.manage' } },",
+    'config: { access: SOME_ACCESS },',
+  ])('flags %s', (source) => {
+    expect(rulesBroken(ROUTES, source)).toContain('route-access-from-operation');
+  });
+
+  it('accepts the access of the operation the route runs', () => {
+    expect(rulesBroken(ROUTES, 'config: { access: inviteUser.access },')).toStrictEqual([]);
+  });
+
+  it('leaves platform routes, which run no operation, alone', () => {
+    const meRoute = 'apps/server/src/platform/auth/me-route.ts';
+
+    expect(rulesBroken(meRoute, "config: { access: 'public' },")).toStrictEqual([]);
+  });
+});
+
 describe('allow comments', () => {
   it('silence one line when a reason is given', () => {
     const source = [

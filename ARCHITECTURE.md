@@ -150,8 +150,12 @@ Code always checks a permission, never a role name. A role is only a set of perm
 // Forbidden (rejected by `npm run check:conventions`)
 if (member.role === 'admin') { … }
 
-// Expected
-await authorize(user, 'issue.delete', { projectId });
+// Expected: the operation declares its permission, checked before its input is even read
+export const inviteUser = defineCommand({
+  name: 'user.invite',
+  access: { permission: 'instance.users.manage' },
+  …
+});
 ```
 
 **Permission catalog** (single source in `packages/core`, format `resource.action`)
@@ -177,9 +181,10 @@ The three right-hand columns are only defaults: the admin changes them or create
 
 **Rules**
 
-- One `authorize()` function in `core`, and every Fastify route declares its access (`config.access`). The server refuses to boot if a route forgets it (already enforced).
-- Effective permissions = instance role + project role, computed once per request.
-- The front end receives the effective permissions to hide actions; the server stays the only judge.
+- `can(permissions, permission)` in `core` decides. Commands and queries declare `access: { permission }`, checked before their input; a route declares the access of the operation it runs (`config: { access: operation.access }`, checked by `check:conventions`), enforced before the body is parsed. The server refuses to boot if a route forgets its access.
+- Effective permissions = instance role + project role. The actor's permissions are read with the user on every request (one query), so a role change applies at once. An instance role never grants a project permission, nor one the catalog no longer knows.
+- Until projects exist, only instance permissions are checked; project permissions arrive with project membership.
+- The front end receives the instance permissions in `GET /api/v1/me` to hide what the user cannot do; the server stays the only judge.
 - CI fails if code compares a role name (`check:conventions`).
 - Plugins will declare their own permissions in the same catalog.
 
@@ -248,7 +253,7 @@ Goal: from zero to a working Toppo in under 5 minutes, without reading docs. See
 ## Security
 
 - **CSP**: `default-src 'self'`, no inline script, no `unsafe-inline` or `unsafe-eval`, `frame-ancestors 'none'`. Runtime `<style>` tags (Radix scroll lock) are allowed through a per-request nonce: Vite writes a placeholder into `index.html`, the server replaces it on every page request and the app hands it to `get-nonce`. HSTS and `upgrade-insecure-requests` only when `TOPPO_URL` is HTTPS, so plain-HTTP LAN installs keep working.
-- **Route contracts** enforced at boot: access rule on every route (`public`, `authenticated`, permissions next), response schema on every `/api/` route. Responses are parsed through their schema, which strips undeclared fields. Access is checked before the body is parsed.
+- **Route contracts** enforced at boot: access rule on every route (`public`, `authenticated` or a permission), response schema on every `/api/` route. Responses are parsed through their schema, which strips undeclared fields. Access is checked before the body is parsed.
 - **Authentication** (Better Auth, email and password): passwords of 12 to 128 characters without composition rules, hashed with scrypt; sessions in an `HttpOnly`, `SameSite=Lax` cookie, `Secure` with the `__Secure-` prefix behind HTTPS; 30-day sliding sessions. Only sign-in, sign-out and session endpoints are exposed (allowlist); public sign-up is off. Sign-in is limited to 5 attempts per minute per client, keyed on the address Fastify resolves (Better Auth's default trust in `X-Forwarded-For` is overridden). Telemetry is off.
 - **Cross-site requests**: every state-changing request with a foreign `Origin` or a cross-site `Sec-Fetch-Site` is refused (CSRF, login CSRF included). After sign-in, the app only redirects to same-site paths.
 - **Errors**: one envelope (`{ error: { code, message, details? } }`); 5xx are generic, details stay in logs with the request id (`x-request-id`, generated server-side, never trusted from the client).
@@ -268,7 +273,7 @@ No merge without green tests: a task is done only when its tests exist and pass 
 
 | Level             | Tools                                         | What                                                                               | When          |
 | ----------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- | ------------- |
-| Unit              | Vitest, fast-check                            | `core` logic: `authorize()`, workflows, numbering, validation                      | Every commit  |
+| Unit              | Vitest, fast-check                            | `core` logic: permissions, workflows, numbering, validation                        | Every commit  |
 | API integration   | Vitest + `fastify.inject()` + real PostgreSQL | Each route: success, validation (400), unauthenticated (401), forbidden (403)      | Every PR      |
 | Permission matrix | Vitest, generated from the catalog            | Each route refuses without its permission and accepts with it; default roles match | Every PR      |
 | Components        | Vitest browser mode (Chromium)                | Behavior and accessibility, desktop and phone viewports                            | Every PR      |
@@ -287,7 +292,7 @@ Seven steps, in order; each ends with a working demo and green tests.
 - [x] **0. Foundation**: _done when `docker compose up` leads to a logged-in admin._
   - [x] 0a. Monorepo, tooling and guards, CI, Docker image and compose, `/health`, design tokens, responsive app shell, i18n.
   - [x] 0b. Schema (users, roles, settings) and migrations, permission catalog and default roles, Better Auth local accounts, first-run wizard with setup code, sign-in and sign-out.
-- [ ] **1. Roles and permissions**: custom roles, `authorize()` and route permissions, user management, permission matrix tests. _Done when no route answers without a verified permission._
+- [ ] **1. Roles and permissions**: custom roles, route and operation permissions, user management, permission matrix tests. _Done when no route answers without a verified permission._
 - [ ] **2. Projects and issues**: project CRUD, issues, workflows with global defaults and project overrides, `WEB-42` numbering, `activities` log. _Done when an issue can be created and closed._
 - [ ] **3. Views**: list with sort and grouping, filters, search, command palette. _Done when an issue is found in under 3 seconds._
 - [ ] **4. Collaboration**: comments, attachments, labels, custom fields (required or optional at creation), in-app and email notifications.
@@ -323,6 +328,9 @@ The detailed task list of each step, the open questions and the watch list live 
 | 2026-10-20 | **Web app by features**: `routes/public` and `routes/protected` (one folder per URL section), `features/<feature>` with one folder per kind (`api/` objects such as `Session.signIn()`, `queries/`, `components/`, `models/`, `utils/`), `shared/`. Files carry their kind (`.api.ts`, `.route.tsx`…). Layout and layers are checked.                                         |
 | 2026-10-20 | **Server by features with light CQRS**: `platform/` (technical) and `features/<feature>/` with `.routes.ts` at its root and one folder per kind (`commands/`, `queries/`, `models/`, `utils/`). `defineCommand` / `defineQuery` enforce access, input validation and one transaction per command; they will be the plugins' API. No bus, no event sourcing, no read database. |
 | 2026-10-21 | **Renamed Ticko to Toppo**, before any release: packages `@toppo/*`, variables `TOPPO_*`, image `ghcr.io/kevinbrt/toppo`, repository `KevinBrt/toppo`.                                                                                                                                                                                                                        |
+| 2026-10-21 | **Permissions read on every request**, with the user, rather than cached in the session: a role change or a deactivation applies at once, for one indexed query.                                                                                                                                                                                                              |
+| 2026-10-21 | **Invitations by copyable link** until email exists: single use, expiring, only a hash of the token stored. The same link is emailed once SMTP is configured.                                                                                                                                                                                                                 |
+| 2026-10-21 | **Instance administrators reach every project through a permission** (`instance.projects.manage`, granted to the Administrator role by default), never through a role name.                                                                                                                                                                                                   |
 
 ## Open questions
 

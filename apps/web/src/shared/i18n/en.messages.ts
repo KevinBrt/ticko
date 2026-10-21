@@ -38,6 +38,10 @@ export const en = {
     emptyTitle: 'Nothing to configure yet',
     emptyDescription: 'Workflows, custom fields, labels and roles will be configured here.',
   },
+  accessDenied: {
+    title: 'You do not have access to this page',
+    description: 'Your role does not include it. Ask an administrator if you need it.',
+  },
   notFound: {
     title: 'Page not found',
     description: 'This page does not exist or has been moved.',

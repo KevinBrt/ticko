@@ -1,16 +1,13 @@
 import type { FastifyInstance } from 'fastify';
-
-/**
- * Who may call a route. Declared on every route through `config.access`:
- * - `public`: anyone, signed in or not;
- * - `authenticated`: any signed-in user (enforced by `access-control.ts`).
- * Permission-based access (`{ permission: 'issue.update' }`) arrives with the permission checks.
- */
-export type RouteAccess = 'public' | 'authenticated';
+import type { Access } from '../auth/access-control.ts';
 
 declare module 'fastify' {
   interface FastifyContextConfig {
-    access?: RouteAccess;
+    /**
+     * Who may call the route, enforced by `access-control.ts`. A feature route passes the access
+     * of the operation it runs: `config: { access: inviteUser.access }`.
+     */
+    access?: Access;
     /** The response is produced by a vetted library (Better Auth), not by a Toppo handler. */
     delegated?: true;
   }

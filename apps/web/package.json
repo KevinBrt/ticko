@@ -15,6 +15,7 @@
   "dependencies": {
     "@tanstack/react-query": "5.104.5",
     "@tanstack/react-router": "1.170.45",
+    "@toppo/core": "0.0.0",
     "@toppo/shared": "0.0.0",
     "@toppo/ui": "0.0.0",
     "get-nonce": "1.0.1",
