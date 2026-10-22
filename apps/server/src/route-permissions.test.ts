@@ -24,12 +24,14 @@ import {
  */
 
 const OPEN_API_ROUTES = [
+  'POST /api/auth/change-password',
   'GET /api/auth/get-session',
   'POST /api/auth/sign-in/email',
   'POST /api/auth/sign-out',
   'POST /api/v1/invitations/accept',
   'POST /api/v1/invitations/preview',
   'GET /api/v1/me',
+  'PATCH /api/v1/me',
   'GET /api/v1/setup',
   'POST /api/v1/setup',
 ];

@@ -9,6 +9,7 @@ const PAGES = [
   '/settings',
   '/settings/members',
   '/settings/roles',
+  '/account',
   '/nothing/here',
 ];
 

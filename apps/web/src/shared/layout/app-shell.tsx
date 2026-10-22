@@ -17,7 +17,8 @@ export function AppShell({
 }: {
   /** What the signed-in user may do: the navigation hides the rest. */
   permissions: readonly string[];
-  sidebarFooter?: ReactNode;
+  /** Drawn in the sidebar and in the drawer, whose links call `onNavigate` to close it. */
+  sidebarFooter?: (options: { onNavigate?: () => void }) => ReactNode;
 }) {
   const { t } = useI18n();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -32,7 +33,7 @@ export function AppShell({
       </a>
 
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 border-r border-sidebar-border lg:flex">
-        <SidebarContent permissions={permissions} footer={sidebarFooter} />
+        <SidebarContent permissions={permissions} footer={sidebarFooter?.({})} />
       </aside>
 
       <Sheet open={isMenuOpen} onOpenChange={setMenuOpen}>
@@ -43,7 +44,7 @@ export function AppShell({
         >
           <SidebarContent
             permissions={permissions}
-            footer={sidebarFooter}
+            footer={sidebarFooter?.({ onNavigate: () => setMenuOpen(false) })}
             onNavigate={() => setMenuOpen(false)}
           />
         </SheetContent>

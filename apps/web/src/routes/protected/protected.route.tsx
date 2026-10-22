@@ -29,7 +29,12 @@ function ProtectedLayout() {
   return (
     <AppShell
       permissions={user?.permissions ?? []}
-      sidebarFooter={<AccountFooter onSignedOut={() => router.navigate({ to: '/login' })} />}
+      sidebarFooter={({ onNavigate }) => (
+        <AccountFooter
+          onNavigate={onNavigate}
+          onSignedOut={() => router.navigate({ to: '/login' })}
+        />
+      )}
     />
   );
 }

@@ -44,7 +44,7 @@ _Done when no route answers without a verified permission._
 
 **Account**
 
-- [ ] Account page: change one's name and password.
+- [x] Account page, from the account in the sidebar: change one's name; change one's password (the current one first), which signs out every other device.
 
 **Tests**
 

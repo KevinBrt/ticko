@@ -1,6 +1,8 @@
 export { type ApiError, apiErrorSchema } from './api-error.ts';
 export {
+  type ChangePasswordRequest,
   type CurrentUser,
+  changePasswordRequestSchema,
   currentUserSchema,
   displayNameSchema,
   emailSchema,
@@ -9,6 +11,8 @@ export {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   passwordSchema,
+  type UpdateAccountRequest,
+  updateAccountRequestSchema,
 } from './auth.ts';
 export { CSP_NONCE_PLACEHOLDER } from './csp.ts';
 export { type HealthResponse, healthResponseSchema } from './health.ts';

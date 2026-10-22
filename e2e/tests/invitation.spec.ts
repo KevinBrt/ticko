@@ -4,9 +4,10 @@ import { expect, expectAccessible, test } from './fixtures.ts';
 test.use({ locale: 'en-US' });
 
 const PASSWORD = 'a long passphrase for the new member';
+const NEW_PASSWORD = 'another long passphrase, of their own choosing';
 
 // Desktop only: sign-ins are rate limited, and phones have no other path to cover here.
-test('an invited member joins, cannot open the settings, and is deleted', {
+test('an invited member joins, cannot open the settings, sets up their account, and is deleted', {
   tag: '@desktop-only',
 }, async ({ page, browser, baseURL }) => {
   const email = `invited-${Date.now()}@example.com`;
@@ -52,6 +53,23 @@ test('an invited member joins, cannot open the settings, and is deleted', {
   await expect(
     invitee.getByRole('heading', { name: 'You do not have access to this page' }),
   ).toBeVisible();
+
+  // Their own account: a fuller name, and a password of their own.
+  await invitee.getByRole('link', { name: /^My account/ }).click();
+  await invitee.getByLabel('Name').fill('Grace Brewster Hopper');
+  await invitee.getByRole('button', { name: 'Save' }).click();
+  await expect(invitee.getByText('Your name is saved.')).toBeVisible();
+  await invitee.getByLabel('Current password').fill(PASSWORD);
+  await invitee.getByLabel('New password').fill(NEW_PASSWORD);
+  await invitee.getByRole('button', { name: 'Change password' }).click();
+  await expect(
+    invitee.getByText('Your password is changed. Your other devices are signed out.'),
+  ).toBeVisible();
+  // This device carries on, in the new session.
+  await invitee.reload();
+  await expect(
+    invitee.getByRole('link', { name: /^My account Grace Brewster Hopper/ }),
+  ).toBeVisible();
   await visitor.close();
 
   // The administrator now sees a member where the invitation was…
@@ -59,10 +77,10 @@ test('an invited member joins, cannot open the settings, and is deleted', {
   await expect(row.getByRole('cell').nth(2)).toHaveText('Active');
 
   // …and can erase them for good, after confirming.
-  await page.getByRole('button', { name: 'Actions for Grace Hopper' }).click();
+  await page.getByRole('button', { name: 'Actions for Grace Brewster Hopper' }).click();
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   await page
-    .getByRole('dialog', { name: 'Delete Grace Hopper?' })
+    .getByRole('dialog', { name: 'Delete Grace Brewster Hopper?' })
     .getByRole('button', { name: 'Delete for good' })
     .click();
   await expect(row).toHaveCount(0);

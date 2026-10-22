@@ -1,12 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Avatar, Button } from '@toppo/ui';
 import { LogOutIcon } from 'lucide-react';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
 import { Session } from '../api/session.api.ts';
 import { SessionQueries } from '../queries/session.queries.ts';
 
-/** The signed-in user, with the way out. The caller decides where to go once signed out. */
-export function AccountFooter({ onSignedOut }: { onSignedOut: () => Promise<void> | void }) {
+/**
+ * The signed-in user, leading to their account, with the way out. The caller decides where to
+ * go once signed out.
+ */
+export function AccountFooter({
+  onNavigate,
+  onSignedOut,
+}: {
+  /** Called when the account link is followed, e.g. to close the drawer it sits in. */
+  onNavigate?: (() => void) | undefined;
+  onSignedOut: () => Promise<void> | void;
+}) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const { data: user } = useQuery(SessionQueries.currentUser);
@@ -25,19 +36,28 @@ export function AccountFooter({ onSignedOut }: { onSignedOut: () => Promise<void
   }
 
   return (
-    <div className="flex items-center gap-3 border-t border-sidebar-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-      <Avatar name={user.name} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</p>
-        <p className="truncate text-xs text-sidebar-muted">{user.email}</p>
-      </div>
+    <div className="flex items-center gap-1 border-t border-sidebar-border px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <Link
+        to="/account"
+        onClick={onNavigate}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-sidebar-hover data-[status=active]:bg-sidebar-active"
+      >
+        <span className="sr-only">{t('account.title')}</span>
+        <Avatar name={user.name} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-sidebar-foreground">
+            {user.name}
+          </span>
+          <span className="block truncate text-xs text-sidebar-muted">{user.email}</span>
+        </span>
+      </Link>
       <Button
         variant="ghost"
         size="icon"
         aria-label={signOut.isPending ? t('account.signingOut') : t('account.signOut')}
         disabled={signOut.isPending}
         onClick={() => signOut.mutate()}
-        className="-mr-2 text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground"
+        className="text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground"
       >
         <LogOutIcon aria-hidden="true" />
       </Button>

@@ -22,13 +22,17 @@ export function toFetchHeaders(request: FastifyRequest): Headers {
   return headers;
 }
 
-export function toFetchRequest(request: FastifyRequest, origin: string): Request {
-  const hasBody =
-    request.body !== undefined && request.method !== 'GET' && request.method !== 'HEAD';
+/** The request as Better Auth reads it; `body`, when given, replaces the one received. */
+export function toFetchRequest(
+  request: FastifyRequest,
+  origin: string,
+  body: unknown = request.body,
+): Request {
+  const hasBody = body !== undefined && request.method !== 'GET' && request.method !== 'HEAD';
   return new Request(new URL(request.url, origin), {
     method: request.method,
     headers: toFetchHeaders(request),
-    ...(hasBody ? { body: JSON.stringify(request.body) } : {}),
+    ...(hasBody ? { body: JSON.stringify(body) } : {}),
   });
 }
 

@@ -30,3 +30,18 @@ export const meResponseSchema = z.object({
 });
 
 export type MeResponse = z.infer<typeof meResponseSchema>;
+
+/** Body of `PATCH /api/v1/me`: what one changes of one's own account. */
+export const updateAccountRequestSchema = z.object({
+  name: displayNameSchema,
+});
+
+export type UpdateAccountRequest = z.infer<typeof updateAccountRequestSchema>;
+
+/** Body of `POST /api/auth/change-password`. Every other device is signed out, always. */
+export const changePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+  newPassword: passwordSchema,
+});
+
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;

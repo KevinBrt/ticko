@@ -136,6 +136,23 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
   > = {
     'GET /api/v1/setup': () => json({ required: state.setupRequired }),
     'GET /api/v1/me': () => json({ user: state.user }),
+    'PATCH /api/v1/me': (body) => {
+      if (!state.user) {
+        return apiError(401, 'UNAUTHENTICATED');
+      }
+      const name = String(body['name']).trim();
+      state.user = { ...state.user, name };
+      return NO_CONTENT();
+    },
+    'POST /api/auth/change-password': (body) => {
+      if (!state.user) {
+        return apiError(401, 'UNAUTHENTICATED');
+      }
+      // Better Auth's own error shape.
+      return body['currentPassword'] === ADA_PASSWORD
+        ? NO_CONTENT()
+        : json({ code: 'INVALID_PASSWORD', message: 'Invalid password' }, 400);
+    },
     'POST /api/v1/setup': (body) => {
       if (!state.setupRequired) {
         return apiError(409, 'SETUP_ALREADY_COMPLETED');

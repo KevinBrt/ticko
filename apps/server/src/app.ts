@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { registerAccountRoutes } from './features/account/account.routes.ts';
 import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
 import { registerRoleRoutes } from './features/roles/roles.routes.ts';
 import { registerSetupRoutes } from './features/setup/setup.routes.ts';
@@ -92,6 +93,7 @@ export async function buildApp({
 
   // Features.
   registerSetupRoutes(app);
+  registerAccountRoutes(app);
   registerUserRoutes(app);
   registerInvitationRoutes(app);
   registerRoleRoutes(app);

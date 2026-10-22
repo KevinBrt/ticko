@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRouter, type RouterHistory } from '@tanstack/react-router';
+import { accountRoute } from './routes/protected/account/account.route.tsx';
 import { indexRoute } from './routes/protected/index.route.tsx';
 import { issuesRoute } from './routes/protected/issues/issues.route.tsx';
 import { myIssuesRoute } from './routes/protected/issues/my-issues.route.tsx';
@@ -28,6 +29,7 @@ const routeTree = rootRoute.addChildren([
     myIssuesRoute,
     projectsRoute,
     settingsRoute.addChildren([settingsIndexRoute, membersRoute, rolesRoute]),
+    accountRoute,
     notFoundRoute,
   ]),
 ]);
