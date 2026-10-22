@@ -1,4 +1,5 @@
-import { schema } from '@toppo/db';
+import { DEFAULT_ROLE_IDS, type Permission } from '@toppo/core';
+import { schema, uuidv7 } from '@toppo/db';
 import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
@@ -125,5 +126,145 @@ describe('defineQuery', () => {
 
     expect(await countRoles.execute(executionContext(), { name: '  Contractor ' })).toBe(1);
     expect(handler.mock.calls[0]?.[0]).not.toHaveProperty('tx');
+  });
+});
+
+describe('operations about a project', () => {
+  const db = () => context.database.db;
+
+  async function insertRole(permissions: Permission[]): Promise<string> {
+    const [role] = await db()
+      .insert(schema.roles)
+      .values({ name: `Role ${uuidv7()}`, permissions })
+      .returning({ id: schema.roles.id });
+    return role?.id ?? '';
+  }
+
+  async function insertActor(roleId: string, allProjects = false): Promise<Actor> {
+    const id = uuidv7();
+    await db()
+      .insert(schema.users)
+      .values({
+        id,
+        name: 'Grace',
+        email: `${id}@example.com`,
+        instanceRoleId: roleId,
+        allProjects,
+      });
+    return { id, name: 'Grace', email: `${id}@example.com`, permissions: [] };
+  }
+
+  async function insertProject(key: string, archived = false): Promise<string> {
+    const [project] = await db()
+      .insert(schema.projects)
+      .values({ key, name: key, archivedAt: archived ? new Date() : null })
+      .returning({ id: schema.projects.id });
+    return project?.id ?? '';
+  }
+
+  async function join(projectId: string, userId: string, roleId: string | null = null) {
+    await db().insert(schema.projectMembers).values({ projectId, userId, roleId });
+  }
+
+  const createIssue = defineCommand({
+    name: 'issue.create',
+    access: { project: 'projectKey', permission: 'issue.create' },
+    input: z.object({ projectKey: z.string() }),
+    handler: ({ project }) => Promise.resolve(project),
+  });
+  const readIssue = defineQuery({
+    name: 'issue.get',
+    access: { project: 'issueKey' },
+    input: z.object({ issueKey: z.string() }),
+    handler: ({ project }) => Promise.resolve(project.key),
+  });
+  const unarchive = defineCommand({
+    name: 'project.unarchive',
+    access: { project: 'projectKey', permission: 'project.settings.manage', evenArchived: true },
+    input: z.object({ projectKey: z.string() }),
+    handler: () => Promise.resolve('unarchived'),
+  });
+
+  it('hide a project from who cannot reach it, as if it did not exist', async () => {
+    await insertProject('HIDDEN');
+    const outsider = await insertActor(await insertRole(['issue.create']));
+
+    for (const projectKey of ['HIDDEN', 'NOWHERE']) {
+      await expect(
+        createIssue.execute(executionContext(outsider), { projectKey }),
+      ).rejects.toMatchObject({ statusCode: 404, code: 'PROJECT_NOT_FOUND' });
+    }
+  });
+
+  it('apply the role the project gives, instead of the member’s own', async () => {
+    const projectId = await insertProject('GIVEN');
+    const member = await insertActor(await insertRole(['issue.create']));
+    await join(projectId, member.id, await insertRole(['issue.read']));
+    const other = await insertActor(await insertRole([]));
+    await join(projectId, other.id, await insertRole(['issue.create']));
+
+    await expect(
+      createIssue.execute(executionContext(member), { projectKey: 'GIVEN' }),
+    ).rejects.toMatchObject({ statusCode: 403, code: 'FORBIDDEN' });
+    await expect(
+      createIssue.execute(executionContext(other), { projectKey: 'GIVEN' }),
+    ).resolves.toMatchObject({ id: projectId, key: 'GIVEN', permissions: ['issue.create'] });
+  });
+
+  it('let in members given every project, with their own role', async () => {
+    await insertProject('EVERY');
+    const everywhere = await insertActor(await insertRole(['issue.create']), true);
+
+    await expect(
+      createIssue.execute(executionContext(everywhere), { projectKey: 'EVERY' }),
+    ).resolves.toMatchObject({ key: 'EVERY' });
+  });
+
+  it('keep every permission for the system role, whatever the project gives', async () => {
+    const projectId = await insertProject('ADMIN');
+    const admin = await insertActor(DEFAULT_ROLE_IDS.administrator);
+    await join(projectId, admin.id, await insertRole([]));
+
+    await expect(
+      createIssue.execute(executionContext(admin), { projectKey: 'ADMIN' }),
+    ).resolves.toMatchObject({ key: 'ADMIN' });
+  });
+
+  it('find the project of an issue key', async () => {
+    const projectId = await insertProject('KEYS');
+    const member = await insertActor(await insertRole([]));
+    await join(projectId, member.id);
+
+    expect(await readIssue.execute(executionContext(member), { issueKey: 'KEYS-12' })).toBe('KEYS');
+    await expect(
+      readIssue.execute(executionContext(member), { issueKey: 'not a key' }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'PROJECT_NOT_FOUND' });
+  });
+
+  it('keep an archived project read-only, unless the command says otherwise', async () => {
+    const projectId = await insertProject('OLD', true);
+    const member = await insertActor(await insertRole([]));
+    await join(projectId, member.id, await insertRole(['issue.create', 'project.settings.manage']));
+
+    expect(await readIssue.execute(executionContext(member), { issueKey: 'OLD-1' })).toBe('OLD');
+    await expect(
+      createIssue.execute(executionContext(member), { projectKey: 'OLD' }),
+    ).rejects.toMatchObject({ statusCode: 409, code: 'PROJECT_ARCHIVED' });
+    expect(await unarchive.execute(executionContext(member), { projectKey: 'OLD' })).toBe(
+      'unarchived',
+    );
+  });
+
+  it('never trust a project checked for another key', async () => {
+    await insertProject('MINE');
+    const outsider = await insertActor(await insertRole(['issue.create']));
+    const checkedElsewhere = {
+      ...executionContext(outsider),
+      project: { id: uuidv7(), key: 'OTHER', archived: false, permissions: ['issue.create'] },
+    } satisfies ExecutionContext;
+
+    await expect(
+      createIssue.execute(checkedElsewhere, { projectKey: 'MINE' }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'PROJECT_NOT_FOUND' });
   });
 });

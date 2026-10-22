@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import {
   ADA,
+  fakeProject,
   fakeServer,
   GRACE,
   memberOf,
@@ -244,5 +245,35 @@ describe('the members screen', () => {
       .toBeVisible();
 
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+  });
+});
+
+describe('the projects of a member', () => {
+  it('are switched on one by one, or all at once', async () => {
+    const server = fakeServer({
+      user: ADA,
+      projects: [
+        fakeProject('WEB', 'Website'),
+        fakeProject('API', 'Public API', { members: [{ userId: ADA.id, roleId: null }] }),
+      ],
+    });
+    const { screen } = await renderApp({ path: '/settings/members' });
+
+    await screen.getByRole('button', { name: 'Actions for Grace Hopper' }).click();
+    await screen.getByRole('menuitem', { name: 'Project access' }).click();
+    const dialog = screen.getByRole('dialog', { name: 'Project access of Grace Hopper' });
+
+    await expect.element(dialog.getByRole('switch', { name: 'Access to Website' })).toBeChecked();
+    await dialog.getByRole('switch', { name: 'Access to Public API' }).click();
+    await expect
+      .element(dialog.getByRole('switch', { name: 'Access to Public API' }))
+      .toBeChecked();
+    expect(server.state.projects[1]?.members).toContainEqual({ userId: GRACE.id, roleId: null });
+
+    await dialog.getByRole('switch', { name: 'Every project' }).click();
+
+    await expect.element(dialog.getByRole('switch', { name: 'Every project' })).toBeChecked();
+    await expect.element(dialog.getByRole('switch', { name: 'Access to Website' })).toBeDisabled();
+    expect(server.state.allProjects.has(GRACE.id)).toBe(true);
   });
 });

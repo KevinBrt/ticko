@@ -13,11 +13,13 @@ function isStepPath(path: RoutePath): path is StepPath {
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { t } = useI18n();
-  // Every matched route with a title is a step of the path: Settings / Members.
+  // Every matched route with a title is a step of the path: Projects / WEB / Settings.
   const crumbs = useMatches().flatMap((match) => {
     const path: RoutePath = match.fullPath;
-    const titleKey = match.staticData.titleKey;
-    return titleKey && isStepPath(path) ? [{ id: match.id, to: path, titleKey }] : [];
+    const { titleKey, crumbParam } = match.staticData;
+    const params: Readonly<Record<string, string | undefined>> = match.params;
+    const label = titleKey ? t(titleKey) : crumbParam && params[crumbParam];
+    return label && isStepPath(path) ? [{ id: match.id, to: path, label }] : [];
   });
 
   return (
@@ -40,14 +42,19 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                   <li key={crumb.id} className="flex min-w-0 items-center gap-1.5">
                     {index > 0 ? <Separator /> : null}
                     <span aria-current="page" className="truncate font-medium text-foreground">
-                      {t(crumb.titleKey)}
+                      {crumb.label}
                     </span>
                   </li>
                 ) : (
                   <li key={crumb.id} className="flex shrink-0 items-center gap-1.5">
                     {index > 0 ? <Separator /> : null}
-                    <Link to={crumb.to} className="text-muted-foreground hover:text-foreground">
-                      {t(crumb.titleKey)}
+                    {/* Every step is a parent of this page: the current parameters fill its path. */}
+                    <Link
+                      to={crumb.to}
+                      params={true}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {crumb.label}
                     </Link>
                   </li>
                 ),

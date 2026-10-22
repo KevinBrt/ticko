@@ -5,12 +5,16 @@ import { Button, Dialog, DialogContent, DialogTrigger } from '@toppo/ui';
 import { UserPlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
+import type { ProjectPickerSlot } from '../../models/invitation.model.ts';
 import { UsersQueries } from '../../queries/users.queries.ts';
 import { InvitationLinks } from './invitation-links.tsx';
 import { InviteForm } from './invite-form.tsx';
 
-/** The "Invite members" button and its dialog: addresses and a role first, then the links. */
-export function InviteMembers() {
+/**
+ * The "Invite members" button and its dialog: addresses, a role and projects first, then the
+ * links. The screen passes in the picker of projects.
+ */
+export function InviteMembers({ projectPicker }: { projectPicker: ProjectPickerSlot }) {
   const { t } = useI18n();
   const roles = useQuery(UsersQueries.assignableRoles);
   const [open, setOpen] = useState(false);
@@ -47,7 +51,11 @@ export function InviteMembers() {
             onDone={() => changeOpen(false)}
           />
         ) : (
-          <InviteForm roles={roles.data ?? []} onInvited={setResult} />
+          <InviteForm
+            roles={roles.data ?? []}
+            projectPicker={projectPicker}
+            onInvited={setResult}
+          />
         )}
       </DialogContent>
     </Dialog>

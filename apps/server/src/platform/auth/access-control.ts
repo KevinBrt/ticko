@@ -1,48 +1,81 @@
-import { can, type InstancePermission } from '@toppo/core';
+import { can, type InstancePermission, type ProjectPermission } from '@toppo/core';
 import type { Db } from '@toppo/db';
 import type { FastifyInstance } from 'fastify';
 import { HttpError } from '../http/http-error.ts';
 import { type Actor, resolveActor } from './actor.ts';
 import type { Auth } from './auth.ts';
+import { type ProjectContext, projectKeyIn, resolveProject } from './project-access.ts';
+
+/** Input fields that name a project: its key (`WEB`), or the key of one of its issues (`WEB-42`). */
+export type ProjectField = 'projectKey' | 'issueKey';
+
+/**
+ * Access to the project an input names: a member who reaches it and, when `permission` is given,
+ * whose permissions there include it. The field is part of the route's path, so a route checks
+ * it before reading the body.
+ */
+export interface ProjectAccessRule<Input = never> {
+  project: ProjectField & keyof Input;
+  permission?: ProjectPermission;
+  /** An archived project is read-only: commands on it are refused unless this is set (to unarchive it). */
+  evenArchived?: true;
+}
 
 /**
  * Who may call a route or run a command or query:
  * - `public`: anyone, signed in or not;
  * - `authenticated`: any signed-in user;
- * - `{ permission }`: a signed-in user whose instance role grants this permission.
- * Project permissions, checked against the project an input points to, arrive with projects.
+ * - `{ permission }`: a signed-in user whose instance role grants this permission;
+ * - `{ project, permission? }`: a member of the project the input names (see `ProjectAccessRule`).
  */
-export type Access = 'public' | 'authenticated' | { permission: InstancePermission };
+export type Access<Input = never> =
+  | 'public'
+  | 'authenticated'
+  | { permission: InstancePermission }
+  | ProjectAccessRule<Input>;
+
+export function isProjectAccess<Input>(access: Access<Input>): access is ProjectAccessRule<Input> {
+  return typeof access === 'object' && 'project' in access;
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** The signed-in user, set on routes whose access requires one. */
     actor: Actor | null;
+    /** The project a project route is about, once the actor's access to it is checked. */
+    project: ProjectContext | null;
   }
 }
 
-/** Throws the HTTP error that `access` calls for when `actor` may not go further. */
-export function assertAccess(access: Access, actor: Actor | null): void {
+/**
+ * Throws the HTTP error that `access` calls for when `actor` may not go further. Access to a
+ * project needs the input: here, only a signed-in user is required.
+ */
+export function assertAccess<Input>(access: Access<Input>, actor: Actor | null): void {
   if (access === 'public') {
     return;
   }
   if (!actor) {
     throw new HttpError(401, 'UNAUTHENTICATED', 'Authentication required');
   }
-  if (access !== 'authenticated' && !can(actor.permissions, access.permission)) {
+  if (access === 'authenticated' || isProjectAccess(access)) {
+    return;
+  }
+  if (!can(actor.permissions, access.permission)) {
     throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to do this');
   }
 }
 
 /**
  * Enforces `config.access` before the body is even parsed: a caller without access learns
- * nothing about a protected route, not even its validation rules.
+ * nothing about a protected route, not even its validation rules, nor whether a project exists.
  */
 export function registerAccessControl(
   app: FastifyInstance,
   { auth, db }: { auth: Auth; db: Db },
 ): void {
   app.decorateRequest('actor', null);
+  app.decorateRequest('project', null);
 
   app.addHook('onRequest', async (request, reply) => {
     const access = request.routeOptions.config.access ?? 'public';
@@ -51,5 +84,14 @@ export function registerAccessControl(
     }
     request.actor = await resolveActor({ auth, db }, request, reply);
     assertAccess(access, request.actor);
+    if (request.actor && isProjectAccess(access)) {
+      const params = request.params as Readonly<Record<string, string | undefined>>;
+      request.project = await resolveProject(
+        db,
+        request.actor,
+        projectKeyIn(access.project, params[access.project]),
+        access.permission,
+      );
+    }
   });
 }

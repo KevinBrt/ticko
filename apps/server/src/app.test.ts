@@ -26,6 +26,19 @@ describe('route contracts', () => {
       'Route GET /api/v1/leaky must declare a response schema',
     );
   });
+
+  it('refuses a project route whose path does not name the project', async () => {
+    app = await buildTestApp();
+    const route = {
+      config: { access: { project: 'projectKey' as const } },
+      schema: { response: { 200: z.object({}) } },
+    };
+
+    expect(() => app?.post('/api/v1/issues', route, () => ({}))).toThrow(
+      'Route POST /api/v1/issues must name its project in the path (:projectKey)',
+    );
+    expect(() => app?.post('/api/v1/projects/:projectKey/issues', route, () => ({}))).not.toThrow();
+  });
 });
 
 describe('security headers', () => {

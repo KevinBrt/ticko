@@ -1,5 +1,5 @@
 import type { FastifyInstance, HTTPMethods } from 'fastify';
-import type { Access } from '../auth/access-control.ts';
+import { type Access, isProjectAccess } from '../auth/access-control.ts';
 
 /** What a registered route promises: who may call it, and whether its use is rate limited. */
 export interface RouteContract {
@@ -44,6 +44,10 @@ export function enforceRouteContracts(app: FastifyInstance): void {
     const isApi = route.url.startsWith('/api/');
     if (isApi && route.schema?.response === undefined && route.config?.delegated !== true) {
       throw new Error(`Route ${label} must declare a response schema`);
+    }
+    // Access to a project is checked before the body is read: the project must be in the path.
+    if (isProjectAccess(access) && !route.url.includes(`:${access.project}`)) {
+      throw new Error(`Route ${label} must name its project in the path (:${access.project})`);
     }
     for (const method of [route.method].flat()) {
       contracts.push({

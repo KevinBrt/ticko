@@ -1,11 +1,11 @@
 import { permissionsOfRole } from '@toppo/core';
 import { schema } from '@toppo/db';
 import { ROLES_MAX, type RolesResponse } from '@toppo/shared';
-import { count, isNull } from 'drizzle-orm';
+import { count, countDistinct, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 
-const { invitations, roles, users } = schema;
+const { invitations, projectMembers, roles, users } = schema;
 
 /** Every role with what it grants and who holds it, for the roles and permissions matrix. */
 export const listRoles = defineQuery({
@@ -24,7 +24,7 @@ export const listRoles = defineQuery({
       .from(roles)
       .orderBy(roles.createdAt, roles.id)
       .limit(ROLES_MAX);
-    // What blocks a deletion: members, deactivated ones too, and pending invitations.
+    // What blocks a deletion: members, deactivated ones too, pending invitations, and projects.
     const members = await db
       .select({ roleId: users.instanceRoleId, count: count() })
       .from(users)
@@ -35,6 +35,10 @@ export const listRoles = defineQuery({
       .from(invitations)
       .where(isNull(invitations.acceptedAt))
       .groupBy(invitations.roleId);
+    const inProjects = await db
+      .select({ roleId: projectMembers.roleId, count: countDistinct(projectMembers.projectId) })
+      .from(projectMembers)
+      .groupBy(projectMembers.roleId);
 
     const countOf = (counts: { roleId: string | null; count: number }[], roleId: string) =>
       counts.find((row) => row.roleId === roleId)?.count ?? 0;
@@ -44,6 +48,7 @@ export const listRoles = defineQuery({
         permissions: permissionsOfRole(role),
         memberCount: countOf(members, role.id),
         invitationCount: countOf(pending, role.id),
+        projectCount: countOf(inProjects, role.id),
       })),
     };
   },

@@ -111,7 +111,7 @@ test('a member’s access follows their role, from the invitation to their delet
   await page.getByRole('button', { name: `Actions for ${role}` }).click();
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   const blocked = page.getByRole('dialog', { name: `Delete ${role}?` });
-  await expect(blocked).toContainText('Still given to 1 member.');
+  await expect(blocked).toContainText('Still used by 1 member.');
   await blocked.getByRole('button', { name: 'OK' }).click();
 
   // …so the administrator erases the member for good, after confirming…

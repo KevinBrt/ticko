@@ -4,11 +4,12 @@ import { and, count, eq, isNull } from 'drizzle-orm';
 import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
 
-const { invitations, roles, users } = schema;
+const { invitations, projectMembers, roles, users } = schema;
 
 /**
- * Deletes a role nobody holds: no member, even deactivated, and no pending invitation. Deleted
- * accounts and accepted invitations simply lose it. The database refuses the rest anyway.
+ * Deletes a role nobody holds: no member, even deactivated, no pending invitation, and no project
+ * giving it to one of its members. Deleted accounts and accepted invitations simply lose it. The
+ * database refuses the rest anyway.
  */
 export const deleteRole = defineCommand({
   name: 'role.delete',
@@ -35,8 +36,13 @@ export const deleteRole = defineCommand({
       .select({ count: count() })
       .from(invitations)
       .where(and(eq(invitations.roleId, roleId), isNull(invitations.acceptedAt)));
-    if ((members?.count ?? 0) > 0 || (pending?.count ?? 0) > 0) {
-      throw new HttpError(409, 'ROLE_IN_USE', 'Members or invitations still have this role');
+    const [inProjects] = await tx
+      .select({ count: count() })
+      .from(projectMembers)
+      .where(eq(projectMembers.roleId, roleId));
+    const holders = [members, pending, inProjects].reduce((sum, row) => sum + (row?.count ?? 0), 0);
+    if (holders > 0) {
+      throw new HttpError(409, 'ROLE_IN_USE', 'Members, invitations or projects still give it');
     }
 
     await tx.delete(roles).where(eq(roles.id, roleId));

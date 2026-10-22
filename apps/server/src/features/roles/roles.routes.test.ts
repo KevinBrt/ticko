@@ -180,6 +180,7 @@ describe('POST /api/v1/roles', () => {
       permissions: [],
       memberCount: 0,
       invitationCount: 0,
+      projectCount: 0,
     });
   });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { displayNameSchema, emailSchema, passwordSchema } from '../auth.ts';
+import { projectKeySchema } from '../project-key.ts';
 import { roleBadgeSchema } from './roles.ts';
 
 /** How many addresses one invitation request may carry. */
@@ -12,10 +13,17 @@ export const invitationIdParamsSchema = z.object({
   invitationId: z.uuid(),
 });
 
+/** How many projects one invitation gives access to, one by one. */
+export const INVITATION_PROJECTS_MAX = 50;
+
 /** Body of `POST /api/v1/invitations`. */
 export const createInvitationsRequestSchema = z.object({
   emails: z.array(emailSchema).min(1).max(INVITATIONS_PER_REQUEST_MAX),
   roleId: z.uuid(),
+  /** Access to every project, present and future. */
+  allProjects: z.boolean().default(false),
+  /** Otherwise, the projects to join; none by default. */
+  projectKeys: z.array(projectKeySchema).max(INVITATION_PROJECTS_MAX).default([]),
 });
 
 export type CreateInvitationsRequest = z.input<typeof createInvitationsRequestSchema>;

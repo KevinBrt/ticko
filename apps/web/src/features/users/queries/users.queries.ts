@@ -14,6 +14,15 @@ export const UsersQueries = {
       queryFn: () => Users.members(query),
       placeholderData: keepPreviousData,
     }),
+  /** A member's access to the projects matching `search`. */
+  projects: (userId: string, search: string) =>
+    queryOptions({
+      queryKey: ['users', 'projects', userId, search],
+      queryFn: () => Users.projects(userId, search),
+      placeholderData: keepPreviousData,
+    }),
+  /** Every cached search of a member's projects, to refresh them after a change. */
+  allProjectsOf: (userId: string) => ['users', 'projects', userId] as const,
   /** A short configuration list: loaded whole. */
   assignableRoles: queryOptions({
     queryKey: ['users', 'assignable-roles'],

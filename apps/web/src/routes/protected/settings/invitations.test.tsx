@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import {
   ADA,
+  fakeProject,
   fakeServer,
   invitationToken,
   ROLE_BADGES,
@@ -88,7 +89,13 @@ describe('invitations on the members screen', () => {
     expect(server.requests).toContainEqual({
       method: 'POST',
       path: '/api/v1/invitations',
-      body: { emails: ['nina@example.com', 'grace@example.com'], roleId: ROLE_BADGES.team.id },
+      // No project by default.
+      body: {
+        emails: ['nina@example.com', 'grace@example.com'],
+        roleId: ROLE_BADGES.team.id,
+        allProjects: false,
+        projectKeys: [],
+      },
     });
 
     await links.getByRole('button', { name: 'Done' }).click();
@@ -131,5 +138,37 @@ describe('invitations on the members screen', () => {
     await expect
       .element(screen.getByRole('table').getByText('nina@example.com'))
       .not.toBeInTheDocument();
+  });
+
+  it('open the projects chosen for them', async () => {
+    const server = fakeServer({
+      user: ADA,
+      projects: [fakeProject('WEB', 'Website'), fakeProject('API', 'Public API')],
+    });
+    const { screen } = await renderApp({ path: '/settings/members' });
+
+    await screen.getByRole('button', { name: 'Invite members' }).click();
+    const dialog = screen.getByRole('dialog', { name: 'Invite members' });
+    await dialog.getByLabelText('Email addresses').fill('nina@example.com');
+    await dialog.getByLabelText('Role').selectOptions('Team');
+    await dialog.getByRole('radio', { name: 'Chosen projects' }).click();
+    await dialog.getByRole('button', { name: 'Create the links' }).click();
+    await expect.element(dialog.getByText('This field is required.')).toBeVisible();
+
+    await dialog.getByRole('checkbox', { name: /Website/ }).click();
+    await expect.element(dialog.getByRole('button', { name: 'Remove Website' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Create the links' }).click();
+
+    await expect.element(screen.getByRole('dialog', { name: 'Invitation links' })).toBeVisible();
+    expect(server.requests).toContainEqual({
+      method: 'POST',
+      path: '/api/v1/invitations',
+      body: {
+        emails: ['nina@example.com'],
+        roleId: ROLE_BADGES.team.id,
+        allProjects: false,
+        projectKeys: ['WEB'],
+      },
+    });
   });
 });

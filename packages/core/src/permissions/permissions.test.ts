@@ -4,6 +4,7 @@ import {
   ALL_PERMISSIONS,
   isInstancePermission,
   isPermission,
+  isProjectPermission,
   PERMISSION_SECTIONS,
   PERMISSIONS,
   type Permission,
@@ -26,10 +27,11 @@ describe('permission catalog', () => {
 
   it('applies the organisation section to the whole instance, the rest inside projects', () => {
     for (const permission of ALL_PERMISSIONS) {
-      expect(isInstancePermission(permission), permission).toBe(
-        PERMISSIONS[permission].section === 'organisation',
-      );
+      const organisation = PERMISSIONS[permission].section === 'organisation';
+      expect(isInstancePermission(permission), permission).toBe(organisation);
+      expect(isProjectPermission(permission), permission).toBe(!organisation);
     }
+    expect(isProjectPermission('issue.fly')).toBe(false);
   });
 
   it('lists permissions section by section, in display order', () => {

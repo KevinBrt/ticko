@@ -9,6 +9,7 @@ export {
   DEFAULT_FIELD_NAMES,
   DEFAULT_PRIORITIES,
   DEFAULT_STATUSES,
+  DEFAULT_TRANSITIONS,
   DEFAULT_WORKFLOW_ID,
   type DefaultCategory,
   type DefaultCategoryKind,
@@ -16,7 +17,17 @@ export {
   type DefaultPriorityKind,
   type DefaultStatus,
   type DefaultStatusKind,
+  type DefaultTransition,
 } from './issues/default-fields.ts';
+export {
+  canMoveTo,
+  closedAtFor,
+  effectiveWorkflow,
+  initialStatusOf,
+  nextStatusesOf,
+  type Transition,
+  type WorkflowOwner,
+} from './issues/workflow.ts';
 export {
   type AccountChange,
   canActOnRole,
@@ -28,6 +39,7 @@ export {
   type InstancePermission,
   isInstancePermission,
   isPermission,
+  isProjectPermission,
   PERMISSION_SCOPES,
   PERMISSION_SECTIONS,
   PERMISSIONS,
@@ -35,6 +47,7 @@ export {
   type PermissionDefinition,
   type PermissionScope,
   type PermissionSection,
+  type ProjectPermission,
 } from './permissions/catalog.ts';
 export {
   DEFAULT_ROLE_IDS,
@@ -52,3 +65,10 @@ export {
   type RoleGrants,
   rolePermissionsFrom,
 } from './permissions/grants.ts';
+export {
+  canActOnProjectMember,
+  canGiveProjectRole,
+  canReachProject,
+  type ProjectAccess,
+  projectPermissionsOf,
+} from './permissions/projects.ts';

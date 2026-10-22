@@ -5,6 +5,12 @@ import { indexRoute } from './routes/protected/index.route.tsx';
 import { issuesRoute } from './routes/protected/issues/issues.route.tsx';
 import { myIssuesRoute } from './routes/protected/issues/my-issues.route.tsx';
 import { notFoundRoute } from './routes/protected/not-found.route.tsx';
+import { projectsIndexRoute } from './routes/protected/projects/index.route.tsx';
+import { projectRoute } from './routes/protected/projects/project.route.tsx';
+import { projectGeneralRoute } from './routes/protected/projects/project-general.route.tsx';
+import { projectHomeRoute } from './routes/protected/projects/project-home.route.tsx';
+import { projectMembersRoute } from './routes/protected/projects/project-members.route.tsx';
+import { projectSettingsRoute } from './routes/protected/projects/project-settings.route.tsx';
 import { projectsRoute } from './routes/protected/projects/projects.route.tsx';
 import { protectedRoute } from './routes/protected/protected.route.tsx';
 import { settingsIndexRoute } from './routes/protected/settings/index.route.tsx';
@@ -27,7 +33,13 @@ const routeTree = rootRoute.addChildren([
     indexRoute,
     issuesRoute,
     myIssuesRoute,
-    projectsRoute,
+    projectsRoute.addChildren([
+      projectsIndexRoute,
+      projectRoute.addChildren([
+        projectHomeRoute,
+        projectSettingsRoute.addChildren([projectGeneralRoute, projectMembersRoute]),
+      ]),
+    ]),
     settingsRoute.addChildren([settingsIndexRoute, membersRoute, rolesRoute]),
     accountRoute,
     notFoundRoute,
@@ -63,5 +75,7 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /** Title shown in the top bar and the browser tab. */
     titleKey?: PlainMessageKey;
+    /** For a route about one record, the path parameter the top bar shows, e.g. `WEB`. */
+    crumbParam?: 'projectKey';
   }
 }

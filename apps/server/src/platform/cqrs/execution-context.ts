@@ -16,7 +16,7 @@ export function registerExecutionContext(
 ): void {
   app.decorateRequest('executionContext', {
     getter() {
-      return { db, actor: this.actor, log: this.log, services };
+      return { db, actor: this.actor, project: this.project, log: this.log, services };
     },
   });
 }

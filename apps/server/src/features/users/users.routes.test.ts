@@ -1,10 +1,11 @@
 import { DEFAULT_ROLE_IDS } from '@toppo/core';
-import { schema } from '@toppo/db';
+import { schema, uuidv7 } from '@toppo/db';
 import {
   apiErrorSchema,
   assignableRolesResponseSchema,
   membersResponseSchema,
   meResponseSchema,
+  userProjectsResponseSchema,
 } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
@@ -43,7 +44,7 @@ function signIn(email: string) {
 }
 
 function call(
-  method: 'GET' | 'PATCH' | 'POST' | 'DELETE',
+  method: 'GET' | 'PATCH' | 'POST' | 'PUT' | 'DELETE',
   url: string,
   cookie: string,
   body?: object,
@@ -260,5 +261,96 @@ describe('DELETE /api/v1/users/:userId', () => {
 
     expect(response.statusCode).toBe(409);
     expect(errorCode(response)).toBe('CANNOT_DELETE_SELF');
+  });
+});
+
+describe('a member’s access to projects', () => {
+  let webId: string;
+  /** Someone of their own: other tests change or delete the members above. */
+  let memberId: string;
+
+  async function projectsOf(userId: string, search = '') {
+    const response = await call('GET', `/api/v1/users/${userId}/projects${search}`, adminCookie);
+    expect(response.statusCode).toBe(200);
+    return userProjectsResponseSchema.parse(response.json());
+  }
+
+  beforeAll(async () => {
+    webId = uuidv7();
+    await context.database.db.insert(schema.projects).values([
+      { id: webId, key: 'WEB', name: 'Website' },
+      { key: 'API', name: 'API' },
+      { key: 'OLD', name: 'Archived', archivedAt: new Date() },
+    ]);
+    memberId = await createTestUser(context.database, {
+      name: 'Katherine Johnson',
+      email: 'katherine@example.com',
+      password: PASSWORD,
+      instanceRoleId: DEFAULT_ROLE_IDS.requester,
+    });
+  });
+
+  it('lists the active projects, the member’s first', async () => {
+    expect(await call('PUT', `/api/v1/users/${memberId}/projects/WEB`, adminCookie)).toMatchObject({
+      statusCode: 204,
+    });
+
+    expect(await projectsOf(memberId)).toStrictEqual({
+      allProjects: false,
+      rows: [
+        { key: 'WEB', name: 'Website', member: true },
+        { key: 'API', name: 'API', member: false },
+      ],
+    });
+    expect((await projectsOf(memberId, '?search=ap')).rows.map(({ key }) => key)).toStrictEqual([
+      'API',
+    ]);
+  });
+
+  it('takes a member out of a project, and gives them every project', async () => {
+    const left = await call('DELETE', `/api/v1/users/${memberId}/projects/WEB`, adminCookie);
+    const everything = await call('PUT', `/api/v1/users/${memberId}/projects`, adminCookie, {
+      allProjects: true,
+    });
+
+    expect(left.statusCode).toBe(204);
+    expect(everything.statusCode).toBe(204);
+    expect(await projectsOf(memberId)).toMatchObject({
+      allProjects: true,
+      rows: [
+        { key: 'API', member: false },
+        { key: 'WEB', member: false },
+      ],
+    });
+  });
+
+  it('refuses a project that does not exist or is archived', async () => {
+    const unknown = await call('PUT', `/api/v1/users/${memberId}/projects/NOWHERE`, adminCookie);
+    const archived = await call('PUT', `/api/v1/users/${memberId}/projects/OLD`, adminCookie);
+
+    expect(unknown.statusCode).toBe(404);
+    expect(errorCode(unknown)).toBe('PROJECT_NOT_FOUND');
+    expect(archived.statusCode).toBe(409);
+    expect(errorCode(archived)).toBe('PROJECT_ARCHIVED');
+  });
+
+  it('forgets the project access of a deleted member', async () => {
+    const formerId = await createTestUser(context.database, {
+      name: 'Former',
+      email: 'former@example.com',
+      password: PASSWORD,
+      instanceRoleId: DEFAULT_ROLE_IDS.team,
+    });
+    await context.database.db
+      .insert(schema.projectMembers)
+      .values({ projectId: webId, userId: formerId });
+
+    expect((await call('DELETE', `/api/v1/users/${formerId}`, adminCookie)).statusCode).toBe(204);
+
+    const left = await context.database.db
+      .select({ id: schema.projectMembers.id })
+      .from(schema.projectMembers)
+      .where(eq(schema.projectMembers.userId, formerId));
+    expect(left).toStrictEqual([]);
   });
 });

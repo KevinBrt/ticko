@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InvitationLink, MembersQuery, MembersResponse } from '@toppo/shared';
-import { Alert, Button, Dialog, DialogContent } from '@toppo/ui';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { Alert, Dialog, DialogContent } from '@toppo/ui';
 import { useState } from 'react';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { pluralForm } from '../../../../shared/i18n/plural.util.ts';
+import { Pager } from '../../../../shared/layout/pager.tsx';
 import { Invitations } from '../../api/invitations.api.ts';
 import { Users } from '../../api/users.api.ts';
 import { applyUserChange, type UserChange } from '../../models/user-change.model.ts';
@@ -218,56 +218,5 @@ export function MembersTable({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-/** "12 members shown", or the range and the way to the other pages when there are several. */
-function Pager({
-  page,
-  pageSize,
-  matching,
-  shown,
-  label,
-  onPage,
-}: {
-  page: number;
-  pageSize: number;
-  matching: number;
-  shown: number;
-  label: (count: number) => string;
-  onPage: (page: number) => void;
-}) {
-  const { t } = useI18n();
-  if (matching <= pageSize && page === 1) {
-    return (
-      <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-        {label(matching)}
-      </p>
-    );
-  }
-  const from = shown === 0 ? 0 : (page - 1) * pageSize + 1;
-  return (
-    <nav
-      aria-label={t('members.pages')}
-      className="flex items-center justify-between gap-3 border-t border-border px-4 py-2"
-    >
-      <p className="text-xs text-muted-foreground">
-        {t('members.range', { from, to: from + shown - (shown === 0 ? 0 : 1), total: matching })}
-      </p>
-      <div className="flex gap-1">
-        <Button variant="ghost" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          <ChevronLeftIcon aria-hidden="true" />
-          {t('members.previous')}
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={page * pageSize >= matching}
-          onClick={() => onPage(page + 1)}
-        >
-          {t('members.next')}
-          <ChevronRightIcon aria-hidden="true" />
-        </Button>
-      </div>
-    </nav>
   );
 }

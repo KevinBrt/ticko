@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { apiErrorSchema } from './api-error.ts';
 import { healthResponseSchema } from './health.ts';
-import { PRIORITY_LEVELS, STATUS_CATEGORIES } from './issues/fields.ts';
+import {
+  ISSUE_DESCRIPTION_MAX_LENGTH,
+  ISSUE_TITLE_MAX_LENGTH,
+  issueDescriptionSchema,
+  issueTitleSchema,
+  PRIORITY_LEVELS,
+  STATUS_CATEGORIES,
+} from './issues/fields.ts';
 import { invitationTokenSchema } from './members/invitations.ts';
 import { memberRowSchema, membersQuerySchema } from './members/members.ts';
 import {
@@ -162,5 +169,20 @@ describe('issue fields', () => {
 
   it('end the status categories with done, which closes an issue', () => {
     expect(STATUS_CATEGORIES.at(-1)).toBe('done');
+  });
+
+  it('trim a title, and refuse a blank or too long one', () => {
+    expect(issueTitleSchema.parse('  Export CSV is empty ')).toBe('Export CSV is empty');
+    expect(issueTitleSchema.safeParse('   ').success).toBe(false);
+    expect(issueTitleSchema.safeParse('x'.repeat(ISSUE_TITLE_MAX_LENGTH + 1)).success).toBe(false);
+  });
+
+  it('keep a description as typed, within its limit', () => {
+    const markdown = '    indented code\n\n- a list\n';
+
+    expect(issueDescriptionSchema.parse(markdown)).toBe(markdown);
+    expect(
+      issueDescriptionSchema.safeParse('x'.repeat(ISSUE_DESCRIPTION_MAX_LENGTH + 1)).success,
+    ).toBe(false);
   });
 });

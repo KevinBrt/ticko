@@ -2,14 +2,17 @@ import { randomUUID } from 'node:crypto';
 import {
   ALL_PERMISSIONS,
   canBeGranted,
-  type InstancePermission,
   isInstancePermission,
+  isProjectPermission,
+  type Permission,
+  type ProjectPermission,
 } from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
 import { apiErrorSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
-import type { FastifyInstance, HTTPMethods } from 'fastify';
+import type { FastifyInstance, HTTPMethods, LightMyRequestResponse } from 'fastify';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { isProjectAccess } from './platform/auth/access-control.ts';
 import {
   buildTestApp,
   cookieHeader,
@@ -20,7 +23,9 @@ import {
 
 /*
  * Generated from the routes the app registers: adding a route adds its tests. A route either
- * requires a permission, checked here both ways, or is listed below as open on purpose.
+ * requires a permission of the instance, checked here both ways; or is about a project, which
+ * stays hidden from those who do not reach it and checks its permission there; or is listed
+ * below as open on purpose.
  */
 
 const OPEN_API_ROUTES = [
@@ -32,6 +37,8 @@ const OPEN_API_ROUTES = [
   'POST /api/v1/invitations/preview',
   'GET /api/v1/me',
   'PATCH /api/v1/me',
+  // Lists only the projects the caller reaches, filtered in the query.
+  'GET /api/v1/projects',
   'GET /api/v1/setup',
   'POST /api/v1/setup',
 ];
@@ -48,19 +55,35 @@ const ROUTES = await (async () => {
   return contracts;
 })();
 
-const GUARDED_ROUTES = ROUTES.flatMap(({ method, url, access }) =>
-  typeof access === 'object' ? [{ method, url, permission: access.permission }] : [],
+/** Routes behind a permission of the instance. */
+const INSTANCE_ROUTES = ROUTES.flatMap(({ method, url, access }) =>
+  typeof access === 'object' && !isProjectAccess(access)
+    ? [{ method, url, permission: access.permission }]
+    : [],
+);
+
+/** Routes about one project, named in their path. */
+const PROJECT_ROUTES = ROUTES.flatMap(({ method, url, access }) =>
+  isProjectAccess(access) ? [{ method, url, permission: access.permission }] : [],
 );
 
 const INSTANCE_PERMISSIONS = ALL_PERMISSIONS.filter(isInstancePermission);
+const PROJECT_PERMISSIONS = ALL_PERMISSIONS.filter(isProjectPermission);
+const GRANTABLE_PERMISSIONS = ALL_PERMISSIONS.filter(canBeGranted);
 const ORIGIN = 'http://localhost:3000';
 const PASSWORD = 'correct horse battery staple';
+/** The project project routes are called about. */
+const PROJECT_KEY = 'PERM';
 
 const context = setupTestDatabase();
 let app: FastifyInstance;
 /** A signed-in user whose role's permissions each test sets: one sign-in for the whole file. */
 let probeCookie: string;
+let probeId: string;
 let probeRoleId: string;
+/** The role the project gives the probe, when the probe is one of its members. */
+let probeProjectRoleId: string;
+let projectId: string;
 /** The administrator, for the permissions no role but the system one may hold. */
 let adminCookie: string;
 
@@ -75,9 +98,16 @@ beforeAll(async () => {
     },
   });
   expect(setup.statusCode).toBe(201);
+  const { db } = context.database;
   probeRoleId = uuidv7();
-  await context.database.db.insert(schema.roles).values({ id: probeRoleId, name: 'Probe' });
-  await createTestUser(context.database, {
+  probeProjectRoleId = uuidv7();
+  projectId = uuidv7();
+  await db.insert(schema.roles).values([
+    { id: probeRoleId, name: 'Probe' },
+    { id: probeProjectRoleId, name: 'Probe in the project' },
+  ]);
+  await db.insert(schema.projects).values({ id: projectId, key: PROJECT_KEY, name: 'Permissions' });
+  probeId = await createTestUser(context.database, {
     name: 'Probe',
     email: 'probe@example.com',
     password: PASSWORD,
@@ -99,21 +129,45 @@ async function signIn(email: string): Promise<string> {
   return cookieHeader(response);
 }
 
-async function grantProbe(permissions: InstancePermission[]): Promise<void> {
+async function grantProbe(permissions: readonly Permission[]): Promise<void> {
   await context.database.db
     .update(schema.roles)
-    .set({ permissions })
+    .set({ permissions: [...permissions] })
     .where(eq(schema.roles.id, probeRoleId));
+}
+
+/** Makes the probe a member of the project with a role granting `permissions`, or no member. */
+async function setProbeMembership(permissions: readonly ProjectPermission[] | null) {
+  const { db } = context.database;
+  await db.delete(schema.projectMembers).where(eq(schema.projectMembers.userId, probeId));
+  if (permissions) {
+    await db
+      .update(schema.roles)
+      .set({ permissions: [...permissions] })
+      .where(eq(schema.roles.id, probeProjectRoleId));
+    await db
+      .insert(schema.projectMembers)
+      .values({ projectId, userId: probeId, roleId: probeProjectRoleId });
+  }
 }
 
 /** Calls a route with made-up parameters and an empty body: enough to get past or be stopped. */
 function call(method: HTTPMethods, url: string, cookie = probeCookie) {
+  const path = url
+    .replaceAll(':projectKey', PROJECT_KEY)
+    .replaceAll(':issueKey', `${PROJECT_KEY}-1`)
+    .replaceAll(/:\w+/g, () => randomUUID());
   return app.inject({
     method,
-    url: url.replaceAll(/:\w+/g, () => randomUUID()),
+    url: path,
     headers: { origin: ORIGIN, cookie },
     ...(method === 'GET' ? {} : { body: {} }),
   });
+}
+
+/** The code of the refusal, if the request was refused at all. */
+function refusal(response: LightMyRequestResponse): string | null {
+  return response.statusCode < 400 ? null : apiErrorSchema.parse(response.json()).error.code;
 }
 
 it('opens only the expected API routes without a permission', () => {
@@ -122,7 +176,8 @@ it('opens only the expected API routes without a permission', () => {
   );
 
   expect(open.sort()).toStrictEqual([...OPEN_API_ROUTES].sort());
-  expect(GUARDED_ROUTES.length).toBeGreaterThan(0);
+  expect(INSTANCE_ROUTES.length).toBeGreaterThan(0);
+  expect(PROJECT_ROUTES.length).toBeGreaterThan(0);
 });
 
 it('rate limits every public route that writes', () => {
@@ -133,7 +188,7 @@ it('rate limits every public route that writes', () => {
   expect(unlimited).toStrictEqual(DELEGATED_ROUTES);
 });
 
-describe.each(GUARDED_ROUTES)('$method $url', ({ method, url, permission }) => {
+describe.each(INSTANCE_ROUTES)('$method $url', ({ method, url, permission }) => {
   it(`refuses a user who has every permission but ${permission}`, async () => {
     await grantProbe(INSTANCE_PERMISSIONS.filter((granted) => granted !== permission));
     const response = await call(method, url);
@@ -155,4 +210,34 @@ describe.each(GUARDED_ROUTES)('$method $url', ({ method, url, permission }) => {
       expect([401, 403]).not.toContain(response.statusCode);
     },
   );
+});
+
+describe.each(PROJECT_ROUTES)('$method $url', ({ method, url, permission }) => {
+  it('answers as if the project did not exist to a user who cannot reach it', async () => {
+    await grantProbe(GRANTABLE_PERMISSIONS);
+    await setProbeMembership(null);
+    const response = await call(method, url);
+
+    expect(response.statusCode).toBe(404);
+    expect(refusal(response)).toBe('PROJECT_NOT_FOUND');
+  });
+
+  if (permission) {
+    it(`refuses a member whose role there lacks ${permission}`, async () => {
+      await grantProbe(GRANTABLE_PERMISSIONS);
+      await setProbeMembership(PROJECT_PERMISSIONS.filter((granted) => granted !== permission));
+      const response = await call(method, url);
+
+      expect(response.statusCode).toBe(403);
+      expect(refusal(response)).toBe('FORBIDDEN');
+    });
+  }
+
+  it(`lets in a member whose role there grants ${permission ?? 'nothing'} but that`, async () => {
+    await grantProbe([]);
+    await setProbeMembership(permission ? [permission] : []);
+    const response = await call(method, url);
+
+    expect(['UNAUTHENTICATED', 'FORBIDDEN', 'PROJECT_NOT_FOUND']).not.toContain(refusal(response));
+  });
 });

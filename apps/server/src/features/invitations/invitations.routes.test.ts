@@ -237,3 +237,16 @@ describe('revoking an invitation', () => {
     expect((await asAdmin('DELETE', `/api/v1/invitations/${invitation?.id}`)).statusCode).toBe(404);
   });
 });
+
+describe('the projects an invitation gives', () => {
+  it('must exist', async () => {
+    const response = await asAdmin('POST', '/api/v1/invitations', {
+      emails: ['lost@example.com'],
+      roleId: DEFAULT_ROLE_IDS.team,
+      projectKeys: ['NOWHERE'],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(errorCode(response)).toBe('INVALID_PROJECT');
+  });
+});

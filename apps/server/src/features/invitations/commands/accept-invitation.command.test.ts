@@ -16,7 +16,10 @@ function executionContext(services: Services = testServices()): ExecutionContext
   return { db: context.database.db, actor: null, log: Fastify({ logger: false }).log, services };
 }
 
-async function invitationToken(email: string): Promise<string> {
+async function invitationToken(
+  email: string,
+  projectAccess: { allProjects?: boolean; projectKeys?: string[] } = {},
+): Promise<string> {
   const { invitations } = await createInvitations.execute(
     {
       ...executionContext(),
@@ -27,9 +30,28 @@ async function invitationToken(email: string): Promise<string> {
         permissions: ['instance.users.manage', 'instance.roles.manage'],
       },
     },
-    { emails: [email], roleId: DEFAULT_ROLE_IDS.team },
+    { emails: [email], roleId: DEFAULT_ROLE_IDS.team, ...projectAccess },
   );
   return new URL(invitations[0]?.link ?? '').hash.slice(1);
+}
+
+/** Accepts an invitation, then tells what access to projects the new account has. */
+async function acceptedAccess(token: string) {
+  const { email } = await acceptInvitation.execute(executionContext(), {
+    token,
+    name: 'New member',
+    password: PASSWORD,
+  });
+  const [user] = await context.database.db
+    .select({ id: schema.users.id, allProjects: schema.users.allProjects })
+    .from(schema.users)
+    .where(eq(schema.users.email, email));
+  const memberships = await context.database.db
+    .select({ key: schema.projects.key })
+    .from(schema.projectMembers)
+    .innerJoin(schema.projects, eq(schema.projects.id, schema.projectMembers.projectId))
+    .where(eq(schema.projectMembers.userId, user?.id ?? ''));
+  return { allProjects: user?.allProjects, keys: memberships.map(({ key }) => key).sort() };
 }
 
 beforeAll(async () => {
@@ -72,5 +94,37 @@ describe('acceptInvitation', () => {
       .from(schema.users)
       .where(eq(schema.users.email, 'twice@example.com'));
     expect(accounts).toHaveLength(1);
+  });
+});
+
+describe('the projects an invitation gives', () => {
+  beforeAll(async () => {
+    await context.database.db.insert(schema.projects).values([
+      { key: 'WEB', name: 'Website' },
+      { key: 'API', name: 'API' },
+      { key: 'HR', name: 'People' },
+    ]);
+  });
+
+  it('are the ones the new member joins, and only those', async () => {
+    const token = await invitationToken('chosen@example.com', { projectKeys: ['WEB', 'API'] });
+
+    expect(await acceptedAccess(token)).toStrictEqual({ allProjects: false, keys: ['API', 'WEB'] });
+  });
+
+  it('are none by default', async () => {
+    expect(await acceptedAccess(await invitationToken('none@example.com'))).toStrictEqual({
+      allProjects: false,
+      keys: [],
+    });
+  });
+
+  it('are all of them, present and future, when the invitation says so', async () => {
+    const token = await invitationToken('all@example.com', {
+      allProjects: true,
+      projectKeys: ['WEB'],
+    });
+
+    expect(await acceptedAccess(token)).toStrictEqual({ allProjects: true, keys: [] });
   });
 });

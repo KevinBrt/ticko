@@ -1,7 +1,8 @@
 import type { Locale, PaletteColor, PriorityLevel, StatusCategory } from '@toppo/shared';
 
 /**
- * What a fresh instance starts with: one workflow, four priorities and three categories. Mirrors
+ * What a fresh instance starts with: one workflow and its transitions, four priorities and three
+ * categories. Mirrors
  * the seed of the migrations (checked by tests). The first-run wizard names them in the
  * administrator's language; afterwards they are ordinary data the administrator edits.
  */
@@ -127,6 +128,27 @@ export const DEFAULT_STATUSES: readonly DefaultStatus[] = [
     color: 'green',
     initial: false,
   },
+];
+
+export interface DefaultTransition {
+  id: string;
+  from: DefaultStatusKind;
+  to: DefaultStatusKind;
+}
+
+/** Which status may follow which in the instance's workflow: a guided path, reopening included. */
+export const DEFAULT_TRANSITIONS: readonly DefaultTransition[] = [
+  { id: '01a162b9-6774-7bf8-94e3-01971393af31', from: 'new', to: 'toDo' },
+  { id: '01a162b9-6774-7f51-80fc-08577a26042d', from: 'new', to: 'inProgress' },
+  { id: '01a162b9-6774-779e-af72-dfed260a5c10', from: 'new', to: 'resolved' },
+  { id: '01a162b9-6774-7e26-bf50-c71fdffb408f', from: 'toDo', to: 'inProgress' },
+  { id: '01a162b9-6775-729a-b3dc-817d5454dbaf', from: 'toDo', to: 'resolved' },
+  { id: '01a162b9-6775-7391-afb8-1c8478f22b00', from: 'inProgress', to: 'toDo' },
+  { id: '01a162b9-6775-76c4-8640-0570292c975a', from: 'inProgress', to: 'waiting' },
+  { id: '01a162b9-6775-7bac-bcbb-d8fb7d96e477', from: 'inProgress', to: 'resolved' },
+  { id: '01a162b9-6775-70ed-b915-e803652731fd', from: 'waiting', to: 'inProgress' },
+  { id: '01a162b9-6775-762c-8300-2f750b78d197', from: 'waiting', to: 'resolved' },
+  { id: '01a162b9-6775-7459-9fab-ebafaa245a05', from: 'resolved', to: 'toDo' },
 ];
 
 /** The four priorities, lowest first. */

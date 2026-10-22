@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { RoleDetails } from '@toppo/shared';
+import type { Locale, RoleDetails } from '@toppo/shared';
 import { Alert, Button, Dialog, DialogClose, DialogContent } from '@toppo/ui';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import type { Translate } from '../../../../shared/i18n/i18n.types.ts';
@@ -32,7 +32,7 @@ export function DeleteRoleDialog({
 }) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
-  const holders = holdersOf(role, t, (count) => pluralForm(locale, count));
+  const holders = holdersOf(role, t, locale);
 
   const remove = useMutation({
     mutationFn: () => Roles.delete(role.id),
@@ -81,21 +81,26 @@ export function DeleteRoleDialog({
   );
 }
 
-/** "3 members and 1 pending invitation", or `undefined` when nobody has the role. */
+/** "3 members, 1 pending invitation and 2 projects", or `undefined` when nobody has the role. */
 function holdersOf(
-  { memberCount, invitationCount }: RoleDetails,
+  { memberCount, invitationCount, projectCount }: RoleDetails,
   t: Translate,
-  form: (count: number) => 'one' | 'other',
+  locale: Locale,
 ): string | undefined {
-  const members = t(`roles.holders.members.${form(memberCount)}`, { count: memberCount });
-  const invitations = t(`roles.holders.invitations.${form(invitationCount)}`, {
-    count: invitationCount,
-  });
-  if (memberCount > 0 && invitationCount > 0) {
-    return t('roles.holders.both', { members, invitations });
-  }
-  if (memberCount > 0) {
-    return members;
-  }
-  return invitationCount > 0 ? invitations : undefined;
+  const parts = [
+    memberCount > 0
+      ? t(`roles.holders.members.${pluralForm(locale, memberCount)}`, { count: memberCount })
+      : null,
+    invitationCount > 0
+      ? t(`roles.holders.invitations.${pluralForm(locale, invitationCount)}`, {
+          count: invitationCount,
+        })
+      : null,
+    projectCount > 0
+      ? t(`roles.holders.projects.${pluralForm(locale, projectCount)}`, { count: projectCount })
+      : null,
+  ].filter((part) => part !== null);
+  return parts.length > 0
+    ? new Intl.ListFormat(locale, { type: 'conjunction' }).format(parts)
+    : undefined;
 }

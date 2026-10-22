@@ -2,6 +2,7 @@ import { canActOnRole, invitationExpiry } from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
 import { type CreateInvitationsResponse, createInvitationsRequestSchema } from '@toppo/shared';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { reachableBy } from '../../../platform/auth/project-access.ts';
 import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
 import {
@@ -10,13 +11,14 @@ import {
   newInvitationToken,
 } from '../utils/invitation-token.util.ts';
 
-const { invitations, roles, users } = schema;
+const { invitationProjects, invitations, projects, roles, users } = schema;
 
 /** Arbitrary but fixed: two administrators inviting the same address at once are serialized. */
 const INVITATIONS_LOCK_KEY = 7_461_756_325;
 
 /**
- * Invites addresses with one role. Inviting an address again replaces its pending invitation,
+ * Invites addresses with one role, and access to every project or to chosen ones (none by
+ * default). Inviting an address again replaces its pending invitation,
  * whose link stops working; addresses of existing members are left out. Unlike other commands it
  * returns more than ids: the links exist only now, since only their hash is stored.
  */
@@ -26,7 +28,7 @@ export const createInvitations = defineCommand({
   input: createInvitationsRequestSchema,
   async handler(
     { tx, actor, services, log },
-    { emails, roleId },
+    { emails, roleId, allProjects, projectKeys },
   ): Promise<CreateInvitationsResponse> {
     // Share-locked: the role cannot be deleted before the invitations that give it exist.
     const [role] = await tx
@@ -39,6 +41,20 @@ export const createInvitations = defineCommand({
     }
     if (!canActOnRole(actor.permissions, role)) {
       throw new HttpError(403, 'SYSTEM_ROLE_RESERVED', 'Only administrators handle that role');
+    }
+    // Only projects the inviter reaches: inviting never reveals, nor opens, one they do not know.
+    const keys = allProjects ? [] : [...new Set(projectKeys)];
+    const chosen =
+      keys.length === 0
+        ? []
+        : await tx
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(inArray(projects.key, keys), isNull(projects.archivedAt), reachableBy(actor.id)),
+            );
+    if (chosen.length !== keys.length) {
+      throw new HttpError(400, 'INVALID_PROJECT', 'A chosen project does not exist');
     }
 
     await tx.execute(sql`select pg_advisory_xact_lock(${INVITATIONS_LOCK_KEY})`);
@@ -73,8 +89,18 @@ export const createInvitations = defineCommand({
         tokenHash: hashInvitationToken(token),
         invitedById: actor.id,
         expiresAt,
+        allProjects,
       })),
     );
+    if (chosen.length > 0) {
+      await tx
+        .insert(invitationProjects)
+        .values(
+          invited.flatMap(({ id: invitationId }) =>
+            chosen.map(({ id: projectId }) => ({ invitationId, projectId })),
+          ),
+        );
+    }
 
     log.info({ count: invited.length, roleId, by: actor.id }, 'Members invited');
     return {

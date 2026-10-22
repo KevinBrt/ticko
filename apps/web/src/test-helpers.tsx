@@ -2,11 +2,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import {
   can,
+  canActOnProjectMember,
+  canGiveProjectRole,
   DEFAULT_ROLE_IDS,
   DEFAULT_ROLES,
   type InstancePermission,
   instancePermissionsOf,
+  type ProjectPermission,
   permissionsOfRole,
+  projectPermissionsOf,
   rolePermissionsFrom,
 } from '@toppo/core';
 import {
@@ -15,6 +19,8 @@ import {
   MEMBERS_PAGE_SIZE,
   type MemberRow,
   type PendingInvitation,
+  PROJECT_MEMBERS_PAGE_SIZE,
+  PROJECTS_PAGE_SIZE,
   ROLES_MAX,
   type RoleBadge,
   type RoleDetails,
@@ -58,7 +64,7 @@ export const ROLE_BADGES = {
 } as const satisfies Record<string, UserSummary['role']>;
 
 /** A role as the fake server keeps it; who holds it is counted from the members. */
-export type FakeRole = Omit<RoleDetails, 'memberCount' | 'invitationCount'>;
+export type FakeRole = Omit<RoleDetails, 'memberCount' | 'invitationCount' | 'projectCount'>;
 
 /** The default roles, as a fresh instance has them. */
 function defaultRoles(): FakeRole[] {
@@ -89,12 +95,51 @@ export interface FakeServerState {
   invitations: PendingInvitation[];
   /** The links the fake server made, by token, and what opening them shows. */
   invitationLinks: Map<string, InvitationLinkState>;
+  /** None unless a test adds some. */
+  projects: FakeProject[];
+  /** Members given every project, by id. */
+  allProjects: Set<string>;
+}
+
+/** A project as the fake server keeps it, with the members it lists and the role it gives them. */
+export interface FakeProject {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  archived: boolean;
+  keyEditable: boolean;
+  members: { userId: string; roleId: string | null }[];
 }
 
 export interface InvitationLinkState {
   email: string;
   invitedBy: string | null;
   status: 'pending' | 'expired' | 'used';
+}
+
+let fakeProjects = 0;
+
+/** A project for the fake server: Ada and Grace in it, with their own roles, unless said otherwise. */
+export function fakeProject(
+  key: string,
+  name: string,
+  overrides: Partial<FakeProject> = {},
+): FakeProject {
+  fakeProjects += 1;
+  return {
+    id: `01a1569b-9900-7000-8000-0000000005${String(fakeProjects % 100).padStart(2, '0')}`,
+    key,
+    name,
+    description: '',
+    archived: false,
+    keyEditable: true,
+    members: [
+      { userId: ADA.id, roleId: null },
+      { userId: GRACE.id, roleId: null },
+    ],
+    ...overrides,
+  };
 }
 
 /** A well-formed invitation token, distinct for each `seed`. */
@@ -124,6 +169,8 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       roles: defaultRoles(),
       invitations: [],
       invitationLinks: new Map(),
+      projects: [],
+      allProjects: new Set(),
       ...initial,
     },
     requests: [],
@@ -189,6 +236,9 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     'PUT /api/v1/roles/permissions': (body) =>
       asHolder(state, 'instance.roles.manage') ?? savePermissions(state, body),
     'POST /api/v1/invitations': (body) => asUserManager(state) ?? invite(state, body),
+    'GET /api/v1/projects': (_body, search) => asSignedIn(state) ?? listProjects(state, search),
+    'POST /api/v1/projects': (body) =>
+      asHolder(state, 'project.create') ?? createProject(state, body),
     'POST /api/v1/invitations/preview': (body) => {
       const link = state.invitationLinks.get(String(body['token']));
       return link?.status === 'pending'
@@ -216,7 +266,9 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     const handler = routes[`${method} ${url.pathname}`];
     const answer = handler
       ? handler((body ?? {}) as Record<string, unknown>, url.searchParams)
-      : (changeUser(state, method, url.pathname, body) ??
+      : (projectRequest(state, method, url.pathname, url.searchParams, body) ??
+        userProjects(state, method, url.pathname, url.searchParams, body) ??
+        changeUser(state, method, url.pathname, body) ??
         changeInvitation(state, method, url.pathname) ??
         changeRoleDefinition(state, method, url.pathname, body) ??
         apiError(404, 'NOT_FOUND'));
@@ -423,6 +475,7 @@ function listRoles(state: FakeServerState): Response {
       memberCount: state.users.filter((user) => user.role.id === role.id).length,
       invitationCount: state.invitations.filter((invitation) => invitation.role.id === role.id)
         .length,
+      projectCount: 0,
     })),
   });
 }
@@ -510,5 +563,301 @@ function changeRoleDefinition(
     return apiError(409, 'ROLE_NAME_TAKEN');
   }
   Object.assign(role, { name: name.trim(), color });
+  return NO_CONTENT();
+}
+
+/** The answer an anonymous caller gets, or `undefined` to go on. */
+function asSignedIn(state: FakeServerState): Response | undefined {
+  return state.user ? undefined : apiError(401, 'UNAUTHENTICATED');
+}
+
+/** What the signed-in user may do in `project`, or `null` out of their reach, as the server says. */
+function projectPermissionsFor(
+  state: FakeServerState,
+  project: FakeProject,
+): ProjectPermission[] | null {
+  const user = state.user;
+  if (!user) {
+    return null;
+  }
+  const roleOf = (roleId: string | undefined) => state.roles.find(({ id }) => id === roleId);
+  const own = roleOf(state.users.find(({ id }) => id === user.id)?.role.id) ?? {
+    grantsAll: false,
+    permissions: [],
+  };
+  const membership = project.members.find(({ userId }) => userId === user.id);
+  return projectPermissionsOf({
+    role: own,
+    allProjects: state.allProjects.has(user.id),
+    membership: membership ? { role: roleOf(membership.roleId ?? undefined) ?? null } : null,
+  });
+}
+
+const byName = (left: { name: string; key: string }, right: { name: string; key: string }) =>
+  left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
+  left.key.localeCompare(right.key);
+
+/** `GET /api/v1/projects`: the projects the user reaches, searched, by state, paged. */
+function listProjects(state: FakeServerState, search: URLSearchParams): Response {
+  const archived = search.get('state') === 'archived';
+  const needle = fold(search.get('search') ?? '');
+  const page = Number(search.get('page') ?? '1');
+  const visible = state.projects
+    .filter((project) => projectPermissionsFor(state, project) !== null)
+    .filter(({ key, name }) => [key, name].some((text) => fold(text).includes(needle)))
+    .sort(byName);
+  const inState = visible.filter((project) => project.archived === archived);
+  return json({
+    rows: inState
+      .slice((page - 1) * PROJECTS_PAGE_SIZE, page * PROJECTS_PAGE_SIZE)
+      .map(({ id, key, name, description }) => ({ id, key, name, description })),
+    matching: inState.length,
+    counts: {
+      active: visible.filter((project) => !project.archived).length,
+      archived: visible.filter((project) => project.archived).length,
+    },
+    page,
+    pageSize: PROJECTS_PAGE_SIZE,
+  });
+}
+
+/** `POST /api/v1/projects`: its creator gets access. */
+function createProject(state: FakeServerState, body: Record<string, unknown>): Response {
+  const key = String(body['key']);
+  if (state.projects.some((project) => project.key === key)) {
+    return apiError(409, 'PROJECT_KEY_TAKEN');
+  }
+  const id = `01a1569b-9900-7000-8000-0000000004${String(state.projects.length).padStart(2, '0')}`;
+  state.projects.push({
+    id,
+    key,
+    name: String(body['name']).trim(),
+    description: String(body['description'] ?? '').trim(),
+    archived: false,
+    keyEditable: true,
+    members: state.user ? [{ userId: state.user.id, roleId: null }] : [],
+  });
+  return json({ id, key }, 201);
+}
+
+const PROJECT_PATH =
+  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|members|candidates|roles))?(?:\/([^/]+))?$/;
+
+/** `/api/v1/projects/:key` and what hangs off it, with the server's rules. */
+function projectRequest(
+  state: FakeServerState,
+  method: string,
+  path: string,
+  search: URLSearchParams,
+  body: unknown,
+): Response | undefined {
+  const match = PROJECT_PATH.exec(path);
+  if (!match) {
+    return undefined;
+  }
+  const [, key, part = '', userId = ''] = match;
+  const project = state.projects.find((candidate) => candidate.key === key);
+  const permissions = project ? projectPermissionsFor(state, project) : null;
+  if (!(project && permissions)) {
+    return asSignedIn(state) ?? apiError(404, 'PROJECT_NOT_FOUND');
+  }
+  const unless = (permission: ProjectPermission, answer: () => Response) =>
+    can(permissions, permission) ? answer() : apiError(403, 'FORBIDDEN');
+  const fields = (body ?? {}) as Record<string, unknown>;
+  switch (`${method} ${part}`) {
+    case 'GET ': {
+      const { members: _members, ...shown } = project;
+      return json({ ...shown, permissions });
+    }
+    case 'PATCH ':
+      return unless('project.settings.manage', () => updateProject(state, project, fields));
+    case 'POST archive':
+    case 'POST unarchive':
+      return unless('project.settings.manage', () => {
+        project.archived = part === 'archive';
+        return NO_CONTENT();
+      });
+    case 'GET members':
+      return unless('project.members.manage', () => projectMembers(state, project, search));
+    case 'POST members':
+    case 'PATCH members':
+    case 'DELETE members':
+      return unless('project.members.manage', () =>
+        changeProjectMembers(state, project, permissions, method, userId, fields),
+      );
+    case 'GET candidates':
+      return unless('project.members.manage', () => {
+        const needle = fold(search.get('search') ?? '');
+        return json({
+          people: state.users
+            .filter(({ id }) => !project.members.some((member) => member.userId === id))
+            .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
+            .map(({ id, name, email }) => ({ id, name, email })),
+        });
+      });
+    case 'GET roles':
+      return unless('project.members.manage', () =>
+        json({
+          roles: badgesOf(state).filter((badge) => {
+            const role = state.roles.find(({ id }) => id === badge.id);
+            return role !== undefined && canGiveProjectRole(permissions, role);
+          }),
+        }),
+      );
+    default:
+      return apiError(404, 'NOT_FOUND');
+  }
+}
+
+function updateProject(
+  state: FakeServerState,
+  project: FakeProject,
+  fields: Record<string, unknown>,
+): Response {
+  if (project.archived) {
+    return apiError(409, 'PROJECT_ARCHIVED');
+  }
+  const key = String(fields['key']);
+  if (key !== project.key && !project.keyEditable) {
+    return apiError(409, 'PROJECT_KEY_FIXED');
+  }
+  if (state.projects.some((other) => other !== project && other.key === key)) {
+    return apiError(409, 'PROJECT_KEY_TAKEN');
+  }
+  Object.assign(project, {
+    key,
+    name: String(fields['name']).trim(),
+    description: String(fields['description']).trim(),
+  });
+  return NO_CONTENT();
+}
+
+function projectMembers(
+  state: FakeServerState,
+  project: FakeProject,
+  search: URLSearchParams,
+): Response {
+  const needle = fold(search.get('search') ?? '');
+  const page = Number(search.get('page') ?? '1');
+  const rows = project.members
+    .flatMap(({ userId, roleId }) => {
+      const user = state.users.find(({ id }) => id === userId);
+      const projectRole = badgesOf(state).find(({ id }) => id === roleId) ?? null;
+      return user
+        ? [
+            {
+              userId,
+              name: user.name,
+              email: user.email,
+              ownRole: user.role,
+              projectRole,
+              deactivatedAt: user.deactivatedAt,
+            },
+          ]
+        : [];
+    })
+    .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+  return json({
+    rows: rows.slice((page - 1) * PROJECT_MEMBERS_PAGE_SIZE, page * PROJECT_MEMBERS_PAGE_SIZE),
+    matching: rows.length,
+    page,
+    pageSize: PROJECT_MEMBERS_PAGE_SIZE,
+  });
+}
+
+/** Adds, changes or removes members; nobody gets more than the caller holds in the project. */
+function changeProjectMembers(
+  state: FakeServerState,
+  project: FakeProject,
+  permissions: readonly ProjectPermission[],
+  method: string,
+  userId: string,
+  fields: Record<string, unknown>,
+): Response {
+  const roleId = (fields['roleId'] as string | null | undefined) ?? null;
+  const role = state.roles.find(({ id }) => id === roleId);
+  if (method !== 'DELETE' && role && !canGiveProjectRole(permissions, role)) {
+    return apiError(403, 'ROLE_BEYOND_YOURS');
+  }
+  if (method === 'POST') {
+    for (const id of (fields['userIds'] as string[] | undefined) ?? []) {
+      if (!project.members.some((member) => member.userId === id)) {
+        project.members.push({ userId: id, roleId });
+      }
+    }
+    return NO_CONTENT();
+  }
+  const member = project.members.find((candidate) => candidate.userId === userId);
+  if (!member) {
+    return apiError(404, 'MEMBER_NOT_FOUND');
+  }
+  const ownRoleId = state.users.find(({ id }) => id === userId)?.role.id;
+  const current = state.roles.find(({ id }) => id === (member.roleId ?? ownRoleId));
+  if (current && !canActOnProjectMember(permissions, current)) {
+    return apiError(403, 'ROLE_BEYOND_YOURS');
+  }
+  if (method === 'DELETE') {
+    project.members = project.members.filter((candidate) => candidate !== member);
+  } else {
+    member.roleId = roleId;
+  }
+  return NO_CONTENT();
+}
+
+/** `/api/v1/users/:id/projects` and `/api/v1/users/:id/projects/:key`. */
+function userProjects(
+  state: FakeServerState,
+  method: string,
+  path: string,
+  search: URLSearchParams,
+  body: unknown,
+): Response | undefined {
+  const match = /^\/api\/v1\/users\/([^/]+)\/projects(?:\/([^/]+))?$/.exec(path);
+  if (!match) {
+    return undefined;
+  }
+  const refusal = asUserManager(state);
+  if (refusal) {
+    return refusal;
+  }
+  const [, userId = '', key] = match;
+  const reachable = state.projects.filter(
+    (project) => !project.archived && projectPermissionsFor(state, project) !== null,
+  );
+  const isMember = (project: FakeProject) =>
+    project.members.some((member) => member.userId === userId);
+  if (method === 'GET') {
+    const needle = fold(search.get('search') ?? '');
+    return json({
+      allProjects: state.allProjects.has(userId),
+      rows: reachable
+        .filter((project) =>
+          [project.key, project.name].some((text) => fold(text).includes(needle)),
+        )
+        .sort(
+          (left, right) => Number(isMember(right)) - Number(isMember(left)) || byName(left, right),
+        )
+        .map((project) => ({ key: project.key, name: project.name, member: isMember(project) })),
+    });
+  }
+  if (!key) {
+    if ((body as { allProjects?: boolean } | undefined)?.allProjects === true) {
+      state.allProjects.add(userId);
+    } else {
+      state.allProjects.delete(userId);
+    }
+    return NO_CONTENT();
+  }
+  const project = reachable.find((candidate) => candidate.key === key);
+  if (!project) {
+    return apiError(404, 'PROJECT_NOT_FOUND');
+  }
+  if (method === 'PUT' && !isMember(project)) {
+    project.members.push({ userId, roleId: null });
+  }
+  if (method === 'DELETE') {
+    project.members = project.members.filter((member) => member.userId !== userId);
+  }
   return NO_CONTENT();
 }

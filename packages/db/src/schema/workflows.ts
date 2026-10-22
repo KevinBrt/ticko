@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgTable,
@@ -61,7 +62,7 @@ export const workflows = pgTable(
   ],
 );
 
-/** The statuses of a workflow, in order. Transitions are free: any status to any other. */
+/** The statuses of a workflow, in order. Which one may follow which is in `workflow_transitions`. */
 export const workflowStatuses = pgTable(
   'workflow_statuses',
   {
@@ -85,5 +86,40 @@ export const workflowStatuses = pgTable(
       .where(sql`${table.isInitial}`),
     index('workflow_statuses_status_id_idx').on(table.statusId),
     check('workflow_statuses_position_check', sql`${table.position} >= 0`),
+  ],
+);
+
+/**
+ * The statuses an issue may move to from another, in one workflow: people change an issue's
+ * status, the workflow says which moves are possible. Both ends belong to the workflow (composite
+ * foreign keys): taking a status out of it takes its transitions too.
+ */
+export const workflowTransitions = pgTable(
+  'workflow_transitions',
+  {
+    id: id(),
+    workflowId: uuid('workflow_id').notNull(),
+    fromStatusId: uuid('from_status_id').notNull(),
+    toStatusId: uuid('to_status_id').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    foreignKey({
+      name: 'workflow_transitions_from_fk',
+      columns: [table.workflowId, table.fromStatusId],
+      foreignColumns: [workflowStatuses.workflowId, workflowStatuses.statusId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'workflow_transitions_to_fk',
+      columns: [table.workflowId, table.toStatusId],
+      foreignColumns: [workflowStatuses.workflowId, workflowStatuses.statusId],
+    }).onDelete('cascade'),
+    unique('workflow_transitions_unique').on(
+      table.workflowId,
+      table.fromStatusId,
+      table.toStatusId,
+    ),
+    index('workflow_transitions_to_idx').on(table.workflowId, table.toStatusId),
+    check('workflow_transitions_not_to_itself', sql`${table.fromStatusId} <> ${table.toStatusId}`),
   ],
 );

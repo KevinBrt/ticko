@@ -4,6 +4,7 @@ import { can } from '@toppo/core';
 import type { Locale, MembersQuery } from '@toppo/shared';
 import { useCallback } from 'react';
 import { z } from 'zod';
+import { ProjectPicker } from '../../../features/projects/components/picker/project-picker.tsx';
 import { SessionQueries } from '../../../features/session/queries/session.queries.ts';
 import { InviteMembers } from '../../../features/users/components/invitations/invite-members.tsx';
 import { MembersTable } from '../../../features/users/components/members/members-table.tsx';
@@ -61,7 +62,7 @@ function MembersScreen() {
     <Page
       title={t('members.title')}
       description={totals ? headCount(t, locale, totals.members, totals.invitations) : undefined}
-      actions={<InviteMembers />}
+      actions={<InviteMembers projectPicker={(picker) => <ProjectPicker {...picker} />} />}
     >
       <MembersTable
         query={query}

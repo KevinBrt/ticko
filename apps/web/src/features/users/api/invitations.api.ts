@@ -20,10 +20,14 @@ const invitationPath = (invitationId: string) =>
  */
 export const Invitations = {
   /** One link per new address; the links are shown once and never again. */
-  async create(emails: string[], roleId: string): Promise<CreateInvitationsResponse> {
+  async create(
+    emails: string[],
+    roleId: string,
+    projects: { allProjects: boolean; projectKeys: string[] },
+  ): Promise<CreateInvitationsResponse> {
     return await apiRequest('/api/v1/invitations', {
       method: 'POST',
-      body: { emails, roleId },
+      body: { emails, roleId, ...projects },
       schema: createInvitationsResponseSchema,
     });
   },

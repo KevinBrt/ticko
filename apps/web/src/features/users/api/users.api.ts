@@ -4,6 +4,8 @@ import {
   type MembersQuery,
   type MembersResponse,
   membersResponseSchema,
+  type UserProjectsResponse,
+  userProjectsResponseSchema,
 } from '@toppo/shared';
 import { z } from 'zod';
 import { apiRequest } from '../../../shared/api/http.client.ts';
@@ -52,5 +54,35 @@ export const Users = {
 
   async reactivate(userId: string): Promise<void> {
     await apiRequest(`${userPath(userId)}/reactivate`, { method: 'POST', schema: noContent });
+  },
+
+  /** A member's access to projects: among those the caller reaches, matching `search`. */
+  async projects(userId: string, search: string): Promise<UserProjectsResponse> {
+    const query = search ? `?${new URLSearchParams({ search })}` : '';
+    return await apiRequest(`${userPath(userId)}/projects${query}`, {
+      schema: userProjectsResponseSchema,
+    });
+  },
+
+  async setAllProjects(userId: string, allProjects: boolean): Promise<void> {
+    await apiRequest(`${userPath(userId)}/projects`, {
+      method: 'PUT',
+      body: { allProjects },
+      schema: noContent,
+    });
+  },
+
+  async joinProject(userId: string, projectKey: string): Promise<void> {
+    await apiRequest(`${userPath(userId)}/projects/${encodeURIComponent(projectKey)}`, {
+      method: 'PUT',
+      schema: noContent,
+    });
+  },
+
+  async leaveProject(userId: string, projectKey: string): Promise<void> {
+    await apiRequest(`${userPath(userId)}/projects/${encodeURIComponent(projectKey)}`, {
+      method: 'DELETE',
+      schema: noContent,
+    });
   },
 };

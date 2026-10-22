@@ -20,6 +20,8 @@ export { type HealthResponse, healthResponseSchema } from './health.ts';
 export {
   ISSUE_DESCRIPTION_MAX_LENGTH,
   ISSUE_TITLE_MAX_LENGTH,
+  issueDescriptionSchema,
+  issueTitleSchema,
   PRIORITY_LEVELS,
   type PriorityLevel,
   STATUS_CATEGORIES,
@@ -34,6 +36,7 @@ export {
   type CreateInvitationsResponse,
   createInvitationsRequestSchema,
   createInvitationsResponseSchema,
+  INVITATION_PROJECTS_MAX,
   INVITATIONS_PER_REQUEST_MAX,
   type InvitationLink,
   type InvitationPreview,
@@ -54,6 +57,12 @@ export {
   membersQuerySchema,
   membersResponseSchema,
 } from './members/members.ts';
+export {
+  type UserProjectsResponse,
+  userProjectAccessRequestSchema,
+  userProjectParamsSchema,
+  userProjectsResponseSchema,
+} from './members/project-access.ts';
 export {
   createRoleResponseSchema,
   ROLE_COLORS,
@@ -88,6 +97,45 @@ export {
   type ProjectKey,
   projectKeySchema,
 } from './project-key.ts';
+export {
+  type AddProjectMembersRequest,
+  addProjectMembersRequestSchema,
+  changeProjectMemberRoleRequestSchema,
+  PICKER_RESULTS_MAX,
+  PROJECT_MEMBERS_PAGE_SIZE,
+  PROJECT_MEMBERS_PER_REQUEST_MAX,
+  type ProjectCandidatesResponse,
+  type ProjectMember,
+  type ProjectMembersQuery,
+  type ProjectMembersResponse,
+  pickerQuerySchema,
+  projectCandidatesResponseSchema,
+  projectMemberParamsSchema,
+  projectMemberSchema,
+  projectMembersQuerySchema,
+  projectMembersResponseSchema,
+} from './projects/members.ts';
+export {
+  type CreateProjectRequest,
+  createProjectRequestSchema,
+  createProjectResponseSchema,
+  PROJECT_DESCRIPTION_MAX_LENGTH,
+  PROJECT_NAME_MAX_LENGTH,
+  PROJECTS_PAGE_SIZE,
+  type ProjectResponse,
+  type ProjectSummary,
+  type ProjectsQuery,
+  type ProjectsResponse,
+  projectDescriptionSchema,
+  projectKeyParamsSchema,
+  projectNameSchema,
+  projectResponseSchema,
+  projectSummarySchema,
+  projectsQuerySchema,
+  projectsResponseSchema,
+  type UpdateProjectRequest,
+  updateProjectRequestSchema,
+} from './projects/projects.ts';
 export {
   type SetupRequest,
   type SetupResponse,

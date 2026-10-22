@@ -44,6 +44,9 @@ export type InstancePermission = {
   [P in Permission]: (typeof PERMISSIONS)[P]['scope'] extends 'instance' ? P : never;
 }[Permission];
 
+/** A permission that applies inside one project, granted by the role the member has there. */
+export type ProjectPermission = Exclude<Permission, InstancePermission>;
+
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as readonly Permission[];
 
 export function isPermission(value: string): value is Permission {
@@ -52,4 +55,8 @@ export function isPermission(value: string): value is Permission {
 
 export function isInstancePermission(value: string): value is InstancePermission {
   return isPermission(value) && PERMISSIONS[value].scope === 'instance';
+}
+
+export function isProjectPermission(value: string): value is ProjectPermission {
+  return isPermission(value) && PERMISSIONS[value].scope === 'project';
 }

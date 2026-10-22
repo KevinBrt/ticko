@@ -6,14 +6,15 @@ import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
 import { hashInvitationToken } from '../utils/invitation-token.util.ts';
 
-const { accounts, invitations, users } = schema;
+const { accounts, invitationProjects, invitations, projectMembers, users } = schema;
 
 /** Better Auth's provider id for email and password credentials. */
 const CREDENTIAL_PROVIDER = 'credential';
 
 /**
- * Creates the account an invitation is for, with the chosen name and password, and uses the
- * invitation up. The new member then signs in as anyone does: no session is created here.
+ * Creates the account an invitation is for, with the chosen name and password and the project
+ * access the invitation gives, and uses the invitation up. The new member then signs in as
+ * anyone does: no session is created here.
  */
 export const acceptInvitation = defineCommand({
   name: 'invitation.accept',
@@ -27,6 +28,7 @@ export const acceptInvitation = defineCommand({
         id: invitations.id,
         email: invitations.email,
         roleId: invitations.roleId,
+        allProjects: invitations.allProjects,
         expiresAt: invitations.expiresAt,
       })
       .from(invitations)
@@ -58,7 +60,18 @@ export const acceptInvitation = defineCommand({
       // The administrator typed this address; nobody has proved they read its mail.
       emailVerified: false,
       instanceRoleId: invitation.roleId,
+      allProjects: invitation.allProjects,
     });
+    // The projects the invitation gives, those still there: archived ones keep their members too.
+    const chosen = await tx
+      .select({ projectId: invitationProjects.projectId })
+      .from(invitationProjects)
+      .where(eq(invitationProjects.invitationId, invitation.id));
+    if (chosen.length > 0) {
+      await tx
+        .insert(projectMembers)
+        .values(chosen.map(({ projectId }) => ({ projectId, userId })));
+    }
     await tx.insert(accounts).values({
       accountId: userId,
       providerId: CREDENTIAL_PROVIDER,

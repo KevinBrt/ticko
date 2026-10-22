@@ -5,6 +5,7 @@ import {
   DEFAULT_FIELD_NAMES,
   DEFAULT_PRIORITIES,
   DEFAULT_STATUSES,
+  DEFAULT_TRANSITIONS,
 } from './default-fields.ts';
 
 const distinct = (values: readonly string[]) => new Set(values).size === values.length;
@@ -25,6 +26,24 @@ describe('default fields', () => {
       ['new'],
     );
     expect(DEFAULT_STATUSES.map(({ category }) => category)).toContain('done');
+  });
+
+  it('let issues go from the initial status to every other, and out of each one', () => {
+    const reached = new Set<string>(['new']);
+    for (let added = true; added; ) {
+      const next = DEFAULT_TRANSITIONS.filter(({ from }) => reached.has(from)).map(({ to }) => to);
+      added = next.some((kind) => !reached.has(kind));
+      for (const kind of next) {
+        reached.add(kind);
+      }
+    }
+    const kinds = DEFAULT_STATUSES.map(({ kind }) => kind);
+
+    expect([...reached].sort()).toStrictEqual([...kinds].sort());
+    expect(kinds.every((kind) => DEFAULT_TRANSITIONS.some(({ from }) => from === kind))).toBe(true);
+    expect(DEFAULT_TRANSITIONS.every(({ from, to }) => from !== to)).toBe(true);
+    expect(distinct(DEFAULT_TRANSITIONS.map(({ from, to }) => `${from}>${to}`))).toBe(true);
+    expect(distinct(DEFAULT_TRANSITIONS.map(({ id }) => id))).toBe(true);
   });
 
   it('have the four priority levels in order, one of them the default', () => {

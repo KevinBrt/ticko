@@ -197,7 +197,7 @@ describe('the roles and permissions screen', () => {
     await expect
       .element(dialog)
       .toHaveAccessibleDescription(
-        'Still given to 1 member. Give them another role first, from the members list.',
+        'Still used by 1 member. Give them another role first, from the members list or the projects.',
       );
     await expect
       .element(dialog.getByRole('button', { name: 'Delete the role' }))

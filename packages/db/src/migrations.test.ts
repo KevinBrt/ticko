@@ -4,10 +4,11 @@ import {
   DEFAULT_ROLE_IDS,
   DEFAULT_ROLES,
   DEFAULT_STATUSES,
+  DEFAULT_TRANSITIONS,
   DEFAULT_WORKFLOW_ID,
 } from '@toppo/core';
 import { createEmptyTestDatabase, createTestDatabase, type TestDatabase } from '@toppo/testing';
-import { eq, sql } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MIGRATIONS_FOLDER } from '../vitest.global-setup.ts';
 import { createDatabase, type Database } from './database.ts';
@@ -25,6 +26,7 @@ import {
   users,
   workflowStatuses,
   workflows,
+  workflowTransitions,
 } from './schema/index.ts';
 import { uuidv7 } from './uuid.ts';
 
@@ -425,6 +427,73 @@ describe('projects and issues', () => {
     expect(categoryRows).toStrictEqual(
       DEFAULT_CATEGORIES.map(({ id, name, color, isDefault }) => ({ id, name, color, isDefault })),
     );
+  });
+
+  it('seeds the transitions of the default workflow', async () => {
+    const statusOf = (kind: string) => DEFAULT_STATUSES.find((status) => status.kind === kind)?.id;
+    const rows = await database.db
+      .select({
+        id: workflowTransitions.id,
+        workflowId: workflowTransitions.workflowId,
+        fromStatusId: workflowTransitions.fromStatusId,
+        toStatusId: workflowTransitions.toStatusId,
+      })
+      .from(workflowTransitions);
+
+    const byId = (left: { id: string }, right: { id: string }) => left.id.localeCompare(right.id);
+    expect(rows.sort(byId)).toStrictEqual(
+      DEFAULT_TRANSITIONS.map(({ id, from, to }) => ({
+        id,
+        workflowId: DEFAULT_WORKFLOW_ID,
+        fromStatusId: statusOf(from),
+        toStatusId: statusOf(to),
+      })).sort(byId),
+    );
+  });
+
+  it('keeps transitions between statuses of their workflow, once each, never to the same one', async () => {
+    const [outside] = await database.db
+      .insert(statuses)
+      .values({ name: 'Outside', category: 'todo' })
+      .returning({ id: statuses.id });
+    const [first, second] = DEFAULT_STATUSES;
+    const transition = (fromStatusId: string, toStatusId: string) =>
+      database.db
+        .insert(workflowTransitions)
+        .values({ workflowId: DEFAULT_WORKFLOW_ID, fromStatusId, toStatusId });
+
+    await expect(transition(first?.id ?? '', outside?.id ?? '')).rejects.toThrow();
+    await expect(transition(first?.id ?? '', first?.id ?? '')).rejects.toThrow();
+    await expect(transition(first?.id ?? '', second?.id ?? '')).rejects.toThrow();
+  });
+
+  it('takes a status’s transitions out of the workflow with it', async () => {
+    const [triage] = await database.db
+      .insert(statuses)
+      .values({ name: 'Sorting', category: 'todo' })
+      .returning({ id: statuses.id });
+    const triageId = triage?.id ?? '';
+    const newId = DEFAULT_STATUSES[0]?.id ?? '';
+    await database.db
+      .insert(workflowStatuses)
+      .values({ workflowId: DEFAULT_WORKFLOW_ID, statusId: triageId, position: 6 });
+    await database.db.insert(workflowTransitions).values([
+      { workflowId: DEFAULT_WORKFLOW_ID, fromStatusId: newId, toStatusId: triageId },
+      { workflowId: DEFAULT_WORKFLOW_ID, fromStatusId: triageId, toStatusId: newId },
+    ]);
+
+    await database.db.delete(workflowStatuses).where(eq(workflowStatuses.statusId, triageId));
+
+    const left = await database.db
+      .select({ id: workflowTransitions.id })
+      .from(workflowTransitions)
+      .where(
+        or(
+          eq(workflowTransitions.fromStatusId, triageId),
+          eq(workflowTransitions.toStatusId, triageId),
+        ),
+      );
+    expect(left).toStrictEqual([]);
   });
 
   it('accepts project keys like WEB or API2 only, each once', async () => {

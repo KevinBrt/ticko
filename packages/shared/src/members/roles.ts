@@ -34,6 +34,8 @@ export const roleDetailsSchema = roleBadgeSchema.extend({
   memberCount: z.number().int().nonnegative(),
   /** Pending invitations giving it, expired ones included. */
   invitationCount: z.number().int().nonnegative(),
+  /** Projects giving it to some of their members. */
+  projectCount: z.number().int().nonnegative(),
 });
 
 export type RoleDetails = z.infer<typeof roleDetailsSchema>;

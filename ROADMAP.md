@@ -60,30 +60,32 @@ Nine tasks, each committed on its own. The first issue can be created and closed
 1. **Schema and defaults** (reviewed by hand before the migration)
    - [x] `projects` (`next_issue_number`: the counter, locked by the creating transaction), `project_members`, `statuses`, `workflows`, `workflow_statuses`, `priorities` (four fixed levels), `issue_categories`, `issues` (`UNIQUE (project_id, number)`), `activities` (outliving a deleted issue); project access on users and invitations.
    - [x] Defaults, renamed in the administrator’s language at setup: the workflow New, To do, In progress, Waiting, Resolved; the priorities Low, Normal, High, Urgent; the categories Bug, Request, Question.
+   - [x] `workflow_transitions` (migrations 0014 and 0015): which status may follow which, by default New → To do, In progress, Resolved; To do → In progress, Resolved; In progress → To do, Waiting, Resolved; Waiting → In progress, Resolved; Resolved → To do.
 2. **Domain rules in `core`**
-   - [ ] Effective workflow (the project's or the instance's) and initial status; an issue is closed while its status is in the done category, `closed_at` follows.
-   - [ ] Effective permissions in a project: the role the project gives the member, or else their own role; the system role has everything.
-   - [ ] Issue validation rules shared by the server and the forms.
+   - [x] Effective workflow (the project's or the instance's) and initial status; an issue is closed while its status is in the done category, `closed_at` follows.
+   - [x] Transitions (`nextStatusesOf`, `canMoveTo`): people change an issue’s status, never the system, and only to a status the workflow allows from the current one, administrators included.
+   - [x] Effective permissions in a project: the role the project gives the member, or else their own role; the system role has everything.
+   - [x] Issue validation rules shared by the server and the forms.
 3. **Project permissions**
-   - [ ] `access: { permission, projectOf: (input) => projectId }`; permissions in the project read by the query itself; a project a member cannot reach answers 404, as if it did not exist.
-   - [ ] Generated permission tests cover project routes: no access, access without the permission, a role given by the project.
+   - [x] `access: { project: 'projectKey' | 'issueKey', permission? }`, the project named in the route's path; permissions in the project read by one query; a project a member cannot reach answers 404, as if it did not exist; an archived project is read-only. First route: `GET /api/v1/projects/:projectKey`.
+   - [x] Generated permission tests cover project routes: no access, access without the permission, a role given by the project.
 4. **Projects and access**
-   - [ ] Create (`project.create`; the creator gets access), list (paged and searched by the server), settings (name, description, key until the first issue), archive and unarchive: an archived project is read-only.
-   - [ ] Access per member: none until given, every project, or chosen ones; chosen when inviting (none by default), changed from the member or the project; a role per project; the system role reaches every project.
-   - [ ] Whoever manages a project's members cannot give a role stronger than their own; a role given in a project cannot be deleted.
+   - [x] Create (`project.create`; the creator gets access), list (paged and searched by the server), settings (name, description, key until the first issue), archive and unarchive: an archived project is read-only.
+   - [x] Access per member: none until given, every project, or chosen ones; chosen when inviting (none by default), changed from the member or the project; a role per project; the system role reaches every project.
+   - [x] Whoever manages a project's members cannot give a role stronger than their own; a role given in a project cannot be deleted.
 5. **Issues, server side**
-   - [ ] Create (number from the counter, initial status, default type and priority), read by key (`WEB-42`), change title, description, type, status and priority, assign to anyone who reaches the project, close and reopen.
+   - [ ] Create (number from the counter, initial status, default category and priority), read by key (`WEB-42`), change title, description, category and priority, change the status to one the workflow allows from the current one (closing and reopening included), assign to anyone who reaches the project.
    - [ ] Delete for good after confirming: an activity keeps the key and who deleted it; the number is never reused.
    - [ ] One page of a project's issues, newest first (sorting and filters come with step 3).
    - [ ] Every issue change writes an `activities` row in the same transaction.
 6. **Issues, in the app** (after the mockups)
-   - [ ] The project's issue list, the creation form, the issue page at `/issues/WEB-42`: Markdown description (`react-markdown`, raw HTML ignored), fields edited in place with optimistic updates, activity history, delete after confirming. From 320 px, with the keyboard.
+   - [ ] The project's issue list, the creation form, the issue page at `/issues/WEB-42`: Markdown description (`react-markdown`, raw HTML ignored), fields edited in place with optimistic updates, the status menu offering only the allowed next statuses, activity history, delete after confirming. From 320 px, with the keyboard.
 7. **Categories and priorities in the settings** (`instance.settings.manage`)
    - [ ] Categories: add, rename, recolor, reorder (keyboard buttons, not only drag and drop), choose the default, delete once unused.
    - [ ] Priorities: rename the four levels, choose the default.
 8. **Workflows**
-   - [ ] Global workflow editor: statuses, category, color, order, initial status.
-   - [ ] "Customize for this project" (a copy of its own); "revert to the global workflow" with the status mapping step, in one transaction, one activity per moved issue.
+   - [ ] Global workflow editor: statuses, category, color, order, initial status, and which status may follow which.
+   - [ ] "Customize for this project" (a copy of its own, transitions included); "revert to the global workflow" with the status mapping step, in one transaction, one activity per moved issue.
 9. **End-to-end and docs**
    - [ ] Create project `WEB`, create `WEB-1`, move it through the workflow, close it, on desktop and phone; `ARCHITECTURE.md` and this roadmap updated.
 

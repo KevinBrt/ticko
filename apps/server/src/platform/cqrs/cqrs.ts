@@ -1,8 +1,15 @@
 import type { Db } from '@toppo/db';
 import type { FastifyBaseLogger } from 'fastify';
 import type { z } from 'zod';
-import { type Access, assertAccess } from '../auth/access-control.ts';
+import {
+  type Access,
+  assertAccess,
+  isProjectAccess,
+  type ProjectAccessRule,
+} from '../auth/access-control.ts';
 import type { Actor } from '../auth/actor.ts';
+import { type ProjectContext, projectKeyIn, resolveProject } from '../auth/project-access.ts';
+import { HttpError } from '../http/http-error.ts';
 import { RequestValidationError } from '../http/zod.ts';
 
 /** The transaction a command runs in. */
@@ -24,28 +31,34 @@ export interface ExecutionContext {
   actor: Actor | null;
   log: FastifyBaseLogger;
   services: Services;
+  /** The project an HTTP route already checked the actor's access to, before reading the body. */
+  project?: ProjectContext | null;
 }
 
 /** Who runs an operation: possibly nobody when it is public, a signed-in user otherwise. */
-export type ActorOf<A extends Access> = A extends 'public' ? Actor | null : Actor;
+export type ActorOf<A> = A extends 'public' ? Actor | null : Actor;
 
-interface Scope<A extends Access> {
+/** The project an operation is about, when its access names one. */
+export type ProjectOf<A> = A extends { project: string } ? ProjectContext : undefined;
+
+interface Scope<A> {
   actor: ActorOf<A>;
+  project: ProjectOf<A>;
   log: FastifyBaseLogger;
   services: Services;
 }
 
 /** A command reads and writes through `tx` only: everything it does commits or rolls back together. */
-export interface CommandScope<A extends Access = Access> extends Scope<A> {
+export interface CommandScope<A = Access> extends Scope<A> {
   tx: Transaction;
 }
 
 /** A query reads through `db` and never writes. */
-export interface QueryScope<A extends Access = Access> extends Scope<A> {
+export interface QueryScope<A = Access> extends Scope<A> {
   db: Db;
 }
 
-interface Definition<Input extends z.ZodType, A extends Access> {
+interface Definition<Input extends z.ZodType, A extends Access<z.output<Input>>> {
   /** `resource.action`, used in logs: `setup.complete`, `issue.create`. */
   name: string;
   /** Checked before anything else; the route running the operation declares the same. */
@@ -54,12 +67,15 @@ interface Definition<Input extends z.ZodType, A extends Access> {
   input: Input;
 }
 
-export interface CommandDefinition<Input extends z.ZodType, Output, A extends Access>
-  extends Definition<Input, A> {
+export interface CommandDefinition<
+  Input extends z.ZodType,
+  Output,
+  A extends Access<z.output<Input>>,
+> extends Definition<Input, A> {
   handler(scope: CommandScope<A>, input: z.output<Input>): Promise<Output>;
 }
 
-export interface QueryDefinition<Input extends z.ZodType, Output, A extends Access>
+export interface QueryDefinition<Input extends z.ZodType, Output, A extends Access<z.output<Input>>>
   extends Definition<Input, A> {
   handler(scope: QueryScope<A>, input: z.output<Input>): Promise<Output>;
 }
@@ -74,47 +90,55 @@ export interface Operation<Input extends z.ZodType, Output> {
 /**
  * A state change: access checked, input validated, then the handler runs in one transaction.
  * Return at most what the caller needs to go on (an id), not a read model: that is a query's job.
+ * An archived project is read-only: commands on it are refused, unless their access says otherwise.
  */
-export function defineCommand<Input extends z.ZodType, Output, A extends Access>(
+export function defineCommand<Input extends z.ZodType, Output, A extends Access<z.output<Input>>>(
   definition: CommandDefinition<Input, Output, A>,
 ): Operation<Input, Output> {
   return {
     name: definition.name,
     access: definition.access,
     async execute(context, rawInput) {
-      const { actor, input } = prepare(definition, context, rawInput);
+      const { actor, input, project } = await prepare(definition, context, rawInput);
+      const { access } = definition;
+      if (project?.archived && isProjectAccess(access) && !access.evenArchived) {
+        throw new HttpError(409, 'PROJECT_ARCHIVED', 'This project is archived: it is read-only');
+      }
       const log = context.log.child({ command: definition.name });
       return await context.db.transaction((tx) =>
-        definition.handler({ tx, actor, log, services: context.services }, input),
+        definition.handler({ tx, actor, project, log, services: context.services }, input),
       );
     },
   };
 }
 
 /** A read: access checked, input validated, no transaction, no write. */
-export function defineQuery<Input extends z.ZodType, Output, A extends Access>(
+export function defineQuery<Input extends z.ZodType, Output, A extends Access<z.output<Input>>>(
   definition: QueryDefinition<Input, Output, A>,
 ): Operation<Input, Output> {
   return {
     name: definition.name,
     access: definition.access,
     async execute(context, rawInput) {
-      const { actor, input } = prepare(definition, context, rawInput);
+      const { actor, input, project } = await prepare(definition, context, rawInput);
       const log = context.log.child({ query: definition.name });
       return await definition.handler(
-        { db: context.db, actor, log, services: context.services },
+        { db: context.db, actor, project, log, services: context.services },
         input,
       );
     },
   };
 }
 
-/** Access first: a caller without access learns nothing, not even what input is expected. */
-function prepare<Input extends z.ZodType, A extends Access>(
+/**
+ * Access first: a caller without access learns nothing, not even what input is expected. Access
+ * to a project needs the input that names it, so it comes right after.
+ */
+async function prepare<Input extends z.ZodType, A extends Access<z.output<Input>>>(
   definition: Definition<Input, A>,
   context: ExecutionContext,
   rawInput: unknown,
-): { actor: ActorOf<A>; input: z.output<Input> } {
+): Promise<{ actor: ActorOf<A>; input: z.output<Input>; project: ProjectOf<A> }> {
   assertAccess(definition.access, context.actor);
   const result = definition.input.safeParse(rawInput);
   if (!result.success) {
@@ -122,6 +146,31 @@ function prepare<Input extends z.ZodType, A extends Access>(
     error.validationContext = 'input';
     throw error;
   }
-  // assertAccess has just refused anonymous callers of every access but `public`.
-  return { actor: context.actor as ActorOf<A>, input: result.data };
+  const { access } = definition;
+  const project =
+    isProjectAccess(access) && context.actor
+      ? await projectOf(access, context, context.actor, result.data)
+      : undefined;
+  // assertAccess has just refused anonymous callers of every access but `public`, and `project`
+  // is set exactly when the access names one.
+  return {
+    actor: context.actor as ActorOf<A>,
+    input: result.data,
+    project: project as ProjectOf<A>,
+  };
+}
+
+async function projectOf<Input>(
+  access: ProjectAccessRule<Input>,
+  context: ExecutionContext,
+  actor: Actor,
+  input: Input,
+): Promise<ProjectContext> {
+  const value = Reflect.get(input as object, access.project);
+  const key = projectKeyIn(access.project, typeof value === 'string' ? value : undefined);
+  // The route has already checked this very project, with the same access, before the body.
+  if (context.project && context.project.key === key) {
+    return context.project;
+  }
+  return await resolveProject(context.db, actor, key, access.permission);
 }

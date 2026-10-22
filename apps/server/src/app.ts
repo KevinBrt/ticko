@@ -3,6 +3,7 @@ import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerAccountRoutes } from './features/account/account.routes.ts';
 import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
+import { registerProjectRoutes } from './features/projects/projects.routes.ts';
 import { registerRoleRoutes } from './features/roles/roles.routes.ts';
 import { registerSetupRoutes } from './features/setup/setup.routes.ts';
 import { registerUserRoutes } from './features/users/users.routes.ts';
@@ -97,6 +98,7 @@ export async function buildApp({
   registerUserRoutes(app);
   registerInvitationRoutes(app);
   registerRoleRoutes(app);
+  registerProjectRoutes(app);
 
   const servesWebApp = await registerWebApp(app, webRoot);
   if (!servesWebApp) {
