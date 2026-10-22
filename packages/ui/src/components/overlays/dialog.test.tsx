@@ -45,3 +45,19 @@ describe('Dialog', () => {
     await expect.element(trigger).toHaveFocus();
   });
 });
+
+describe('Dialog with its title hidden', () => {
+  it('is still named by its title, read but not shown', async () => {
+    const screen = await render(
+      <Dialog defaultOpen>
+        <DialogContent title="Search" closeLabel="Close" hideTitle>
+          <input aria-label="Search issues" />
+        </DialogContent>
+      </Dialog>,
+    );
+
+    await expect.element(screen.getByRole('dialog', { name: 'Search' })).toBeVisible();
+    // Visually hidden: the styles of the application keep it for screen readers only.
+    await expect.element(screen.getByText('Search', { exact: true })).toHaveClass('sr-only');
+  });
+});

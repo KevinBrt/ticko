@@ -14,6 +14,8 @@ export interface DialogContentProps extends ComponentProps<typeof RadixDialog.Co
   description?: string;
   /** Accessible label of the close button. */
   closeLabel: string;
+  /** For a dialog whose content says what it is, e.g. a search box: the title is read only. */
+  hideTitle?: boolean;
   children: ReactNode;
 }
 
@@ -25,6 +27,7 @@ export function DialogContent({
   title,
   description,
   closeLabel,
+  hideTitle = false,
   className,
   children,
   ...props
@@ -42,7 +45,9 @@ export function DialogContent({
         )}
         {...props}
       >
-        <RadixDialog.Title className="pr-10 text-lg font-semibold tracking-tight">
+        <RadixDialog.Title
+          className={hideTitle ? 'sr-only' : 'pr-10 text-lg font-semibold tracking-tight'}
+        >
           {title}
         </RadixDialog.Title>
         {description ? (
@@ -50,7 +55,7 @@ export function DialogContent({
             {description}
           </RadixDialog.Description>
         ) : null}
-        <div className="mt-5">{children}</div>
+        <div className={hideTitle ? undefined : 'mt-5'}>{children}</div>
         <RadixDialog.Close asChild>
           <Button
             variant="ghost"

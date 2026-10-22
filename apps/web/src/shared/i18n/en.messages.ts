@@ -160,6 +160,20 @@ export const en = {
     },
   },
 
+  palette: {
+    title: 'Search',
+    button: 'Search',
+    label: 'Search issues and pages',
+    placeholder: 'Search issues, or type a key like WEB-42',
+    results: 'Results',
+    issues: 'Issues',
+    actions: 'Actions',
+    openKey: 'Open {key}',
+    searching: 'Searching…',
+    noMatch: 'No issue matches.',
+    close: 'Close the search',
+  },
+
   projectSwitcher: {
     prefix: 'Project:',
     choose: 'Choose a project',

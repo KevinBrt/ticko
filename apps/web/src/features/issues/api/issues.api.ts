@@ -8,11 +8,13 @@ import {
   type IssueActivitiesResponse,
   type IssueFieldsResponse,
   type IssueResponse,
+  type IssueSearchResponse,
   type IssuesQuery,
   type IssuesResponse,
   issueActivitiesResponseSchema,
   issueFieldsResponseSchema,
   issueResponseSchema,
+  issueSearchResponseSchema,
   issuesResponseSchema,
   type ProjectIssuesQuery,
   type UpdateIssueRequest,
@@ -64,6 +66,13 @@ export const Issues = {
   async assigned({ page }: IssuesQuery): Promise<AssignedIssuesResponse> {
     return await apiRequest(`/api/v1/issues/assigned${pageQuery(page)}`, {
       schema: assignedIssuesResponseSchema,
+    });
+  },
+
+  /** The issues `text` finds in every project the caller reaches: the best ten. */
+  async search(text: string): Promise<IssueSearchResponse> {
+    return await apiRequest(`/api/v1/issues/search?${new URLSearchParams({ search: text })}`, {
+      schema: issueSearchResponseSchema,
     });
   },
 

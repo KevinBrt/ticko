@@ -30,6 +30,7 @@ import {
 import {
   type CurrentUser,
   categoriesRequestSchema,
+  ISSUE_SEARCH_LIMIT,
   ISSUE_SORT_ORDERS,
   ISSUES_PAGE_SIZE,
   type IssueActivity,
@@ -37,6 +38,7 @@ import {
   type IssueResponse,
   type IssueSort,
   type IssueSummary,
+  issueSearchQuerySchema,
   type Locale,
   MEMBERS_PAGE_SIZE,
   type MemberRow,
@@ -440,6 +442,8 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     'GET /api/v1/projects': (_body, search) => asSignedIn(state) ?? listProjects(state, search),
     'GET /api/v1/issues/assigned': (_body, search) =>
       asSignedIn(state) ?? listAssignedIssues(state, search),
+    'GET /api/v1/issues/search': (_body, search) =>
+      asSignedIn(state) ?? searchIssues(state, search),
     'POST /api/v1/projects': (body) =>
       asHolder(state, 'project.create') ?? createProject(state, body),
     'POST /api/v1/invitations/preview': (body) => {
@@ -1575,6 +1579,55 @@ function listAssignedIssues(state: FakeServerState, search: URLSearchParams): Re
     matching: visible.length,
     page,
     pageSize: ISSUES_PAGE_SIZE,
+  });
+}
+
+/**
+ * `GET /api/v1/issues/search`: the issues the signed-in user may read, out of archived projects,
+ * that a search finds: the one named by its key first, then those with the words in their title,
+ * then in their description.
+ */
+function searchIssues(state: FakeServerState, search: URLSearchParams): Response {
+  const parsed = issueSearchQuerySchema.safeParse(Object.fromEntries(search));
+  if (!parsed.success) {
+    return apiError(400, 'VALIDATION_FAILED');
+  }
+  const needle = fold(parsed.data.search);
+  const rankOf = (issue: FakeIssue): number | null => {
+    if (fold(keyOf(issue)) === needle) {
+      return 0;
+    }
+    if (fold(issue.title).includes(needle)) {
+      return 1;
+    }
+    return fold(issue.description).includes(needle) ? 2 : null;
+  };
+  const found = state.issues.flatMap((issue) => {
+    const project = state.projects.find((candidate) => candidate.key === issue.projectKey);
+    const permissions = project ? projectPermissionsFor(state, project) : null;
+    const reported = issue.reporterId === state.user?.id;
+    const rank = rankOf(issue);
+    return project &&
+      !project.archived &&
+      permissions &&
+      canSeeIssue(permissions, reported) &&
+      rank !== null
+      ? [
+          {
+            rank,
+            issue: {
+              ...summaryOf(state, issue),
+              project: { key: project.key, name: project.name, color: project.color },
+            },
+          },
+        ]
+      : [];
+  });
+  return json({
+    rows: found
+      .sort((left, right) => left.rank - right.rank)
+      .slice(0, ISSUE_SEARCH_LIMIT)
+      .map(({ issue }) => issue),
   });
 }
 

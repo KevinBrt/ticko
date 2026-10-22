@@ -60,7 +60,8 @@ function useCrumbs(): Crumb[] {
   });
 }
 
-export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
+/** The top bar: the menu button on small screens, the path to the page, then `end` on the right. */
+export function Topbar({ onOpenMenu, end }: { onOpenMenu: () => void; end?: ReactNode }) {
   const { t } = useI18n();
   const crumbs = useCrumbs();
 
@@ -91,6 +92,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
             </ol>
           </nav>
         ) : null}
+        {end ? <div className="ml-auto shrink-0">{end}</div> : null}
       </div>
     </header>
   );

@@ -22,6 +22,14 @@ export const IssuesQueries = {
       queryFn: () => Issues.assigned(query),
       placeholderData: keepPreviousData,
     }),
+  /** The issues a search finds in every project, nothing asked before anything is typed. */
+  search: (text: string) =>
+    queryOptions({
+      queryKey: ['issues', 'search', text],
+      queryFn: () => Issues.search(text),
+      enabled: text !== '',
+      placeholderData: keepPreviousData,
+    }),
   detail: (key: string) =>
     queryOptions({
       queryKey: ['issues', 'detail', key],

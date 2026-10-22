@@ -100,7 +100,7 @@ _Done when an issue is found in under 3 seconds._
 - [x] Issue list: open issues first, sort, group (status, priority, assignee), pagination, state kept in the URL.
 - [x] Filters as a row of menus (state, status, priority, category, assignee, requester); sorting from the column headers; saved in the URL.
 - [x] Full-text search (`tsvector`) and fuzzy search (`pg_trgm`); `WEB-42` finds the issue.
-- [ ] Command palette (`Ctrl/Cmd + K`), where typing `WEB-42` opens the issue, and shortcuts: `C` create, `/` search, `E` edit.
+- [x] Search palette (`Ctrl/Cmd + K`, or the Search button), where typing `WEB-42` opens the issue; the one keyboard shortcut.
 - [x] Phone layout of the list (cards instead of a table).
 - [ ] Indexes checked with `EXPLAIN` on a seeded database of realistic size.
 

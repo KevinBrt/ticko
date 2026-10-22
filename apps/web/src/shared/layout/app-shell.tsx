@@ -15,11 +15,14 @@ import { Topbar } from './topbar.tsx';
 export function AppShell({
   audience,
   sidebarFooter,
+  topbarEnd,
 }: {
   /** The signed-in user: the navigation hides what they could not use. */
   audience: NavAudience;
   /** Drawn in the sidebar and in the drawer, whose links call `onNavigate` to close it. */
   sidebarFooter?: (options: { onNavigate?: () => void }) => ReactNode;
+  /** Drawn at the right of the top bar, e.g. the way to search. */
+  topbarEnd?: ReactNode;
 }) {
   const { t } = useI18n();
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -51,7 +54,7 @@ export function AppShell({
         </SheetContent>
       </Sheet>
 
-      <Topbar onOpenMenu={() => setMenuOpen(true)} />
+      <Topbar onOpenMenu={() => setMenuOpen(true)} end={topbarEnd} />
 
       <main
         id="main"

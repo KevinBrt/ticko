@@ -159,6 +159,20 @@ export const fr: Messages = {
     },
   },
 
+  palette: {
+    title: 'Rechercher',
+    button: 'Rechercher',
+    label: 'Rechercher des tickets et des pages',
+    placeholder: 'Rechercher des tickets, ou une clé comme WEB-42',
+    results: 'Résultats',
+    issues: 'Tickets',
+    actions: 'Actions',
+    openKey: 'Ouvrir {key}',
+    searching: 'Recherche…',
+    noMatch: 'Aucun ticket ne correspond.',
+    close: 'Fermer la recherche',
+  },
+
   projectSwitcher: {
     prefix: 'Projet :',
     choose: 'Choisir un projet',
