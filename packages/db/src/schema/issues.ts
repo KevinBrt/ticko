@@ -120,6 +120,8 @@ export const issues = pgTable(
     index('issues_priority_id_idx').on(table.priorityId),
     index('issues_assignee_id_idx').on(table.assigneeId),
     index('issues_reporter_id_idx').on(table.reporterId),
+    // Counts a project's open (or closed) issues from the index alone, on every list shown.
+    index('issues_project_closed_at_idx').on(table.projectId, table.closedAt),
     index('issues_search_vector_idx').using('gin', table.searchVector),
     // Finds any part of a title, even inside a word or a path, through containsText().
     index('issues_title_trigram_idx').using('gin', sql`fold_text(${table.title}) gin_trgm_ops`),

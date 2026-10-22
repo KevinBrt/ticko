@@ -36,7 +36,13 @@ function connect(url: string, maxConnections: number): postgres.Sql {
     max: maxConnections,
     connect_timeout: CONNECT_TIMEOUT_SECONDS,
     idle_timeout: IDLE_TIMEOUT_SECONDS,
-    connection: { application_name: 'toppo' },
+    connection: {
+      application_name: 'toppo',
+      // Statements stay prepared, but every run is planned with its own values. A plan made
+      // once for any value guesses how rare a searched word is, and a wrong guess reads a whole
+      // project row by row instead of using the search indexes (docs/performance.md).
+      plan_cache_mode: 'force_custom_plan',
+    },
     // Notices such as "schema already exists, skipping" are expected during migrations.
     onnotice: () => undefined,
   });

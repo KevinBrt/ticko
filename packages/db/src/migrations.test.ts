@@ -37,6 +37,12 @@ async function appliedMigrations(database: Database): Promise<number> {
   return Number(rows[0]?.count);
 }
 
+/**
+ * Every migration of the project, twice at once: a few seconds, more with each release, and
+ * more again while every package tests at once.
+ */
+const MIGRATING_TIMEOUT_MS = 30_000;
+
 describe('migrations on an empty database', () => {
   let empty: TestDatabase;
   const databases: Database[] = [];
@@ -49,27 +55,35 @@ describe('migrations on an empty database', () => {
     await Promise.all(databases.map((database) => database.close()));
   });
 
-  it('applies every migration once, even when servers start concurrently', async () => {
-    const first = createDatabase({ url: empty.url, maxConnections: 2 });
-    const second = createDatabase({ url: empty.url, maxConnections: 2 });
-    databases.push(first, second);
+  it(
+    'applies every migration once, even when servers start concurrently',
+    async () => {
+      const first = createDatabase({ url: empty.url, maxConnections: 2 });
+      const second = createDatabase({ url: empty.url, maxConnections: 2 });
+      databases.push(first, second);
 
-    await Promise.all([first.migrate(MIGRATIONS_FOLDER), second.migrate(MIGRATIONS_FOLDER)]);
+      await Promise.all([first.migrate(MIGRATIONS_FOLDER), second.migrate(MIGRATIONS_FOLDER)]);
 
-    expect(await appliedMigrations(first)).toBeGreaterThanOrEqual(2);
-  });
+      expect(await appliedMigrations(first)).toBeGreaterThanOrEqual(2);
+    },
+    MIGRATING_TIMEOUT_MS,
+  );
 
-  it('does nothing when run again', async () => {
-    const [database] = databases;
-    if (!database) {
-      throw new Error('previous test did not run');
-    }
-    const before = await appliedMigrations(database);
+  it(
+    'does nothing when run again',
+    async () => {
+      const [database] = databases;
+      if (!database) {
+        throw new Error('previous test did not run');
+      }
+      const before = await appliedMigrations(database);
 
-    await database.migrate(MIGRATIONS_FOLDER);
+      await database.migrate(MIGRATIONS_FOLDER);
 
-    expect(await appliedMigrations(database)).toBe(before);
-  });
+      expect(await appliedMigrations(database)).toBe(before);
+    },
+    MIGRATING_TIMEOUT_MS,
+  );
 });
 
 describe('initial data and constraints', () => {

@@ -1,4 +1,5 @@
 import { createTestDatabase } from '@toppo/testing';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from './database.ts';
 
@@ -15,6 +16,14 @@ describe('createDatabase (PostgreSQL)', () => {
 
   it('answers a ping', async () => {
     await expect(database.ping()).resolves.toBeUndefined();
+  });
+
+  it('plans every run of a statement with its own values', async () => {
+    const [setting] = await database.db.execute<{ mode: string }>(
+      sql`select current_setting('plan_cache_mode') as mode`,
+    );
+
+    expect(setting?.mode).toBe('force_custom_plan');
   });
 
   it('rejects a ping when the server is unreachable', async () => {

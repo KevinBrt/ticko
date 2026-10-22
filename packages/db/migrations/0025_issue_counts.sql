@@ -1,0 +1,1 @@
+CREATE INDEX "issues_project_closed_at_idx" ON "issues" USING btree ("project_id","closed_at");

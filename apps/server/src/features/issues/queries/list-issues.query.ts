@@ -49,12 +49,23 @@ const SORT_COLUMNS: Readonly<Record<IssueSort, SQLWrapper>> = {
 };
 
 /**
- * Issues in `order` of their `sort` column, those without a value (no assignee) last either way,
- * then the newest first, so that pages never overlap.
+ * Issues in `order` of their `sort` column, then the newest first, so that pages never overlap.
+ * Only an assignee may be missing: issues assigned to no one come last either way. The other
+ * columns keep PostgreSQL's own order, the one their indexes can be read in.
+ *
+ * Searched, the list is never read in the order of the numbers' index: PostgreSQL cannot tell
+ * how rare a word typed in part is, and reading the index until a page is full would go through
+ * a whole project for a word found a few times, or not at all. Sorting on `number + 0`, which
+ * no index holds, makes it gather the matches through the search indexes first
+ * (docs/performance.md).
  */
-function sortedBy(sort: IssueSort, order: SortOrder): SQL[] {
-  const direction = order === 'asc' ? sql`asc` : sql`desc`;
-  return [sql`${SORT_COLUMNS[sort]} ${direction} nulls last`, desc(issues.number)];
+function sortedBy(sort: IssueSort, order: SortOrder, searched: boolean): SQL[] {
+  const column = sort === 'key' && searched ? sql`${issues.number} + 0` : SORT_COLUMNS[sort];
+  const ordered = order === 'asc' ? asc(column) : desc(column);
+  if (sort === 'key') {
+    return [ordered];
+  }
+  return [sort === 'assignee' ? sql`${ordered} nulls last` : ordered, desc(issues.number)];
 }
 
 /** What groups issues, the order of the groups, and the columns that order needs. */
@@ -137,7 +148,11 @@ export const listIssues = defineQuery({
       .where(matching)
       .orderBy(
         ...(grouping?.order ?? []),
-        ...sortedBy(query.sort, query.order ?? ISSUE_SORT_ORDERS[query.sort]),
+        ...sortedBy(
+          query.sort,
+          query.order ?? ISSUE_SORT_ORDERS[query.sort],
+          Boolean(query.search),
+        ),
       )
       .limit(ISSUES_PAGE_SIZE)
       .offset((query.page - 1) * ISSUES_PAGE_SIZE);

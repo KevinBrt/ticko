@@ -27,6 +27,35 @@ export const searchIssues = defineQuery({
   input: issueSearchQuerySchema,
   async handler({ db, actor }, { search }): Promise<IssueSearchResponse> {
     const named = namedIn(search);
+    // The best few first, found and ranked from the issues and their projects alone; then their
+    // fields, for those few only. PostgreSQL cannot tell how many issues words typed in part
+    // match, and joining the fields before ranking them would do it for thousands.
+    const best = db
+      .select({
+        id: issues.id,
+        named: (named ?? sql<boolean>`false`).as('named'),
+        rank: textRank(search).as('rank'),
+      })
+      .from(issues)
+      .innerJoin(projects, eq(projects.id, issues.projectId))
+      .where(
+        and(
+          isNull(projects.archivedAt),
+          or(
+            grantedIn(actor.id, ['issue.read']),
+            and(eq(issues.reporterId, actor.id), grantedIn(actor.id, ['issue.read.own'])),
+          ),
+          or(textMatching(search), named),
+        ),
+      )
+      .orderBy(
+        ...(named ? [sql`${named} desc`] : []),
+        desc(textRank(search)),
+        desc(issues.updatedAt),
+        desc(issues.id),
+      )
+      .limit(ISSUE_SEARCH_LIMIT)
+      .as('best');
     const rows = await db
       .select({
         project: { key: projects.key, name: projects.name, color: projects.color },
@@ -49,30 +78,15 @@ export const searchIssues = defineQuery({
         createdAt: issues.createdAt,
         updatedAt: issues.updatedAt,
       })
-      .from(issues)
+      .from(best)
+      .innerJoin(issues, eq(issues.id, best.id))
       .innerJoin(projects, eq(projects.id, issues.projectId))
       .innerJoin(statuses, eq(statuses.id, issues.statusId))
       .innerJoin(issueCategories, eq(issueCategories.id, issues.categoryId))
       .innerJoin(priorities, eq(priorities.id, issues.priorityId))
       .innerJoin(reporters, eq(reporters.id, issues.reporterId))
       .leftJoin(assignees, eq(assignees.id, issues.assigneeId))
-      .where(
-        and(
-          isNull(projects.archivedAt),
-          or(
-            grantedIn(actor.id, ['issue.read']),
-            and(eq(issues.reporterId, actor.id), grantedIn(actor.id, ['issue.read.own'])),
-          ),
-          or(textMatching(search), named),
-        ),
-      )
-      .orderBy(
-        ...(named ? [sql`${named} desc`] : []),
-        desc(textRank(search)),
-        desc(issues.updatedAt),
-        desc(issues.id),
-      )
-      .limit(ISSUE_SEARCH_LIMIT);
+      .orderBy(desc(best.named), desc(best.rank), desc(issues.updatedAt), desc(issues.id));
 
     return {
       rows: rows.map(({ project, ...row }) => ({ ...toIssueSummary(project.key, row), project })),

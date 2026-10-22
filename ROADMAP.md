@@ -102,7 +102,7 @@ _Done when an issue is found in under 3 seconds._
 - [x] Full-text search (`tsvector`) and fuzzy search (`pg_trgm`); `WEB-42` finds the issue.
 - [x] Search palette (`Ctrl/Cmd + K`, or the Search button), where typing `WEB-42` opens the issue; the one keyboard shortcut.
 - [x] Phone layout of the list (cards instead of a table).
-- [ ] Indexes checked with `EXPLAIN` on a seeded database of realistic size.
+- [x] Indexes checked with `EXPLAIN` on a seeded database of realistic size: 100,000 issues, `npm run perf:issues` ([docs/performance.md](docs/performance.md)).
 
 ## Step 4: collaboration
 
