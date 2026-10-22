@@ -75,10 +75,10 @@ Nine tasks, each committed on its own. The first issue can be created and closed
    - [x] Whoever manages a project's members cannot give a role stronger than their own; a role given in a project cannot be deleted.
    - [x] The projects screen manages projects (after the mockups): those one manages, each opening on its general settings (name, key, color, description, archive, delete for good with `project.delete`) and its access (automatic access, members, invitations). Projects are set up by administrators by default.
 5. **Issues, server side**
-   - [ ] Create (number from the counter, initial status, default category and priority), read by key (`WEB-42`), change title, description, category and priority, change the status to one the workflow allows from the current one (closing and reopening included), assign to anyone who reaches the project.
-   - [ ] Delete for good after confirming: an activity keeps the key and who deleted it; the number is never reused.
-   - [ ] One page of a project's issues, newest first (sorting and filters come with step 3).
-   - [ ] Every issue change writes an `activities` row in the same transaction.
+   - [x] Create (number from the counter, initial status, default category and priority), read by key (`WEB-42`), change title, description, category and priority, change the status to one the workflow allows from the current one (closing and reopening included), assign to anyone who reaches the project.
+   - [x] Delete for good after confirming: an activity keeps the key and who deleted it; the number is never reused.
+   - [x] One page of a project's issues, newest first (sorting and filters come with step 3).
+   - [x] Every issue change writes an `activities` row in the same transaction; an issue's history is read page by page, and the forms get the project's statuses, categories, priorities and assignable people.
 6. **Issues, in the app** (after the mockups)
    - [ ] A project's issues on the Issues screen (chosen by project), the open issues and last activity columns of the projects screen, the creation form, the issue page at `/issues/WEB-42`: Markdown description (`react-markdown`, raw HTML ignored), fields edited in place with optimistic updates, the status menu offering only the allowed next statuses, activity history, delete after confirming. From 320 px, with the keyboard.
 7. **Categories and priorities in the settings** (`instance.settings.manage`)

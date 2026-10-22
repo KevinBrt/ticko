@@ -1,0 +1,46 @@
+import { formatIssueKey } from '@toppo/core';
+import {
+  type IssueSummary,
+  type PriorityLevel,
+  projectKeySchema,
+  type UserRef,
+} from '@toppo/shared';
+
+/** Someone as an issue names them: an erased account keeps its id, not its name. */
+export function userRefOf(user: { id: string; name: string; deletedAt: Date | null }): UserRef {
+  return { id: user.id, name: user.deletedAt ? null : user.name };
+}
+
+/** The columns of an issue row the list and the page share, before they are sent. */
+export interface IssueSummaryRow {
+  number: number;
+  title: string;
+  status: IssueSummary['status'];
+  category: IssueSummary['category'];
+  priority: { id: string; name: string; level: number };
+  assignee: { id: string; name: string; deletedAt: Date | null } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** An issue as lists show it, known by its key. */
+export function toIssueSummary(projectKey: string, row: IssueSummaryRow): IssueSummary {
+  return {
+    key: formatIssueKey({ projectKey: projectKeySchema.parse(projectKey), number: row.number }),
+    title: row.title,
+    status: row.status,
+    category: row.category,
+    priority: { ...row.priority, level: priorityLevelOf(row.priority.level) },
+    assignee: row.assignee ? userRefOf(row.assignee) : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/** The database keeps levels between 1 and 4 (a CHECK constraint): this only narrows the type. */
+export function priorityLevelOf(level: number): PriorityLevel {
+  if (level === 1 || level === 2 || level === 3 || level === 4) {
+    return level;
+  }
+  throw new Error(`Unknown priority level ${level}`);
+}

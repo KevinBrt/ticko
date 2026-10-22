@@ -1,5 +1,7 @@
 import {
   can,
+  canSeeIssue,
+  formatIssueKey,
   isProjectPermission,
   type Permission,
   type ProjectPermission,
@@ -12,7 +14,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { HttpError } from '../http/http-error.ts';
 import type { Actor } from './actor.ts';
 
-const { projectMembers, projects, roles, users } = schema;
+const { issues, projectMembers, projects, roles, users } = schema;
 const ownRoles = alias(roles, 'own_roles');
 const projectRoles = alias(roles, 'project_roles');
 
@@ -23,6 +25,21 @@ export interface ProjectContext {
   /** Read-only while archived. */
   archived: boolean;
   permissions: readonly ProjectPermission[];
+}
+
+/** The issue an operation is about, one the actor sees. */
+export interface IssueContext {
+  id: string;
+  /** `WEB-42`. */
+  key: string;
+  number: number;
+  /** Whoever reported an issue may fix its title and description. */
+  reportedByActor: boolean;
+}
+
+/** The project an issue key names, with that issue. */
+export interface IssueProjectContext extends ProjectContext {
+  issue: IssueContext;
 }
 
 /** The project key in a field of an input: the key itself, or the project part of an issue key. */
@@ -133,4 +150,33 @@ export async function resolveProject(
     throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to do this');
   }
   return { id: row.id, key: row.key, archived: row.archivedAt !== null, permissions };
+}
+
+/**
+ * The issue with `issueKey` and its project, as `actor` may use them: the project first, as
+ * `resolveProject` does, then the issue. An issue the actor does not see (someone else's, when
+ * they see only their own) answers like one that does not exist.
+ */
+export async function resolveIssue(
+  db: Db,
+  actor: Actor,
+  issueKey: string | undefined,
+  permission?: Permission,
+): Promise<IssueProjectContext> {
+  const parts = issueKey === undefined ? null : parseIssueKey(issueKey);
+  const project = await resolveProject(db, actor, parts?.projectKey ?? null, permission);
+  const [issue] = parts
+    ? await db
+        .select({ id: issues.id, reporterId: issues.reporterId })
+        .from(issues)
+        .where(and(eq(issues.projectId, project.id), eq(issues.number, parts.number)))
+    : [];
+  const reportedByActor = issue?.reporterId === actor.id;
+  if (!(parts && issue && canSeeIssue(project.permissions, reportedByActor))) {
+    throw new HttpError(404, 'ISSUE_NOT_FOUND', 'This issue does not exist');
+  }
+  return {
+    ...project,
+    issue: { id: issue.id, key: formatIssueKey(parts), number: parts.number, reportedByActor },
+  };
 }

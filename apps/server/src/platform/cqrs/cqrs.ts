@@ -8,7 +8,13 @@ import {
   type ProjectAccessRule,
 } from '../auth/access-control.ts';
 import type { Actor } from '../auth/actor.ts';
-import { type ProjectContext, projectKeyIn, resolveProject } from '../auth/project-access.ts';
+import {
+  type IssueProjectContext,
+  type ProjectContext,
+  projectKeyIn,
+  resolveIssue,
+  resolveProject,
+} from '../auth/project-access.ts';
 import { HttpError } from '../http/http-error.ts';
 import { RequestValidationError } from '../http/zod.ts';
 
@@ -31,15 +37,22 @@ export interface ExecutionContext {
   actor: Actor | null;
   log: FastifyBaseLogger;
   services: Services;
-  /** The project an HTTP route already checked the actor's access to, before reading the body. */
-  project?: ProjectContext | null;
+  /**
+   * The project (and issue) an HTTP route already checked the actor's access to, before reading
+   * the body.
+   */
+  project?: ProjectContext | IssueProjectContext | null;
 }
 
 /** Who runs an operation: possibly nobody when it is public, a signed-in user otherwise. */
 export type ActorOf<A> = A extends 'public' ? Actor | null : Actor;
 
-/** The project an operation is about, when its access names one. */
-export type ProjectOf<A> = A extends { project: string } ? ProjectContext : undefined;
+/** The project an operation is about when its access names one, with the issue it names, if any. */
+export type ProjectOf<A> = A extends { project: 'issueKey' }
+  ? IssueProjectContext
+  : A extends { project: string }
+    ? ProjectContext
+    : undefined;
 
 interface Scope<A> {
   actor: ActorOf<A>;
@@ -166,11 +179,18 @@ async function projectOf<Input>(
   actor: Actor,
   input: Input,
 ): Promise<ProjectContext> {
-  const value = Reflect.get(input as object, access.project);
-  const key = projectKeyIn(access.project, typeof value === 'string' ? value : undefined);
-  // The route has already checked this very project, with the same access, before the body.
-  if (context.project && context.project.key === key) {
-    return context.project;
+  const field = Reflect.get(input as object, access.project);
+  const value = typeof field === 'string' ? field : undefined;
+  // The route has already checked this very project or issue, with the same access, before the body.
+  const checked = context.project;
+  if (access.project === 'issueKey') {
+    return checked && 'issue' in checked && checked.issue.key === value
+      ? checked
+      : await resolveIssue(context.db, actor, value, access.permission);
+  }
+  const key = projectKeyIn(access.project, value);
+  if (checked && checked.key === key) {
+    return checked;
   }
   return await resolveProject(context.db, actor, key, access.permission);
 }

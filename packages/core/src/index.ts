@@ -20,6 +20,18 @@ export {
   type DefaultTransition,
 } from './issues/default-fields.ts';
 export {
+  canSeeIssue,
+  type IssueVisibility,
+  issueActionsOf,
+  issueVisibilityOf,
+} from './issues/issue-access.ts';
+export {
+  actionsFor,
+  type IssueChange,
+  type IssueFields,
+  issueChanges,
+} from './issues/issue-changes.ts';
+export {
   canMoveTo,
   closedAtFor,
   effectiveWorkflow,

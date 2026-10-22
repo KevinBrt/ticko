@@ -18,6 +18,16 @@ export { PALETTE_COLORS, type PaletteColor } from './colors.ts';
 export { CSP_NONCE_PLACEHOLDER } from './csp.ts';
 export { type HealthResponse, healthResponseSchema } from './health.ts';
 export {
+  ISSUE_ACTIVITY_PAYLOADS,
+  type IssueActivitiesResponse,
+  type IssueActivity,
+  type IssueActivityPayload,
+  type IssueActivityType,
+  issueActivitiesQuerySchema,
+  issueActivitiesResponseSchema,
+  issueActivitySchema,
+} from './issues/activities.ts';
+export {
   ISSUE_DESCRIPTION_MAX_LENGTH,
   ISSUE_TITLE_MAX_LENGTH,
   issueDescriptionSchema,
@@ -27,6 +37,40 @@ export {
   STATUS_CATEGORIES,
   type StatusCategory,
 } from './issues/fields.ts';
+export {
+  type AssigneesResponse,
+  assigneesResponseSchema,
+  assignIssueRequestSchema,
+  type CreateIssueRequest,
+  changeIssueStatusRequestSchema,
+  createIssueRequestSchema,
+  createIssueResponseSchema,
+  ISSUE_ACTIONS,
+  ISSUE_ACTIVITIES_PAGE_SIZE,
+  ISSUES_PAGE_SIZE,
+  type IssueAction,
+  type IssueFieldsResponse,
+  type IssueResponse,
+  type IssueSummary,
+  type IssuesQuery,
+  type IssuesResponse,
+  issueCategorySchema,
+  issueFieldsResponseSchema,
+  issueKeyParamsSchema,
+  issueKeySchema,
+  issuePrioritySchema,
+  issueResponseSchema,
+  issueStatusSchema,
+  issueSummarySchema,
+  issuesQuerySchema,
+  issuesResponseSchema,
+  projectIssuesParamsSchema,
+  type UpdateIssueRequest,
+  type UserRef,
+  updateIssueFieldsSchema,
+  updateIssueRequestSchema,
+  userRefSchema,
+} from './issues/issues.ts';
 export { DEFAULT_LOCALE, type Locale, localeSchema, SUPPORTED_LOCALES } from './locale.ts';
 export {
   type AcceptInvitationRequest,

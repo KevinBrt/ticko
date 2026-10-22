@@ -4,16 +4,21 @@ import type { FastifyInstance } from 'fastify';
 import { HttpError } from '../http/http-error.ts';
 import { type Actor, resolveActor } from './actor.ts';
 import type { Auth } from './auth.ts';
-import { type ProjectContext, projectKeyIn, resolveProject } from './project-access.ts';
+import {
+  type ProjectContext,
+  projectKeyIn,
+  resolveIssue,
+  resolveProject,
+} from './project-access.ts';
 
 /** Input fields that name a project: its key (`WEB`), or the key of one of its issues (`WEB-42`). */
 export type ProjectField = 'projectKey' | 'issueKey';
 
 /**
- * Access to the project an input names: a member who reaches it and, when `permission` is given,
- * holds it: a project permission in that project, an instance one through their own role (to
- * delete the project). The field is part of the route's path, so a route checks it before
- * reading the body.
+ * Access to the project an input names, and to the issue when it is an issue key: a member who
+ * reaches the project, sees the issue and, when `permission` is given, holds it: a project
+ * permission in that project, an instance one through their own role (to delete the project).
+ * The field is part of the route's path, so a route checks it before reading the body.
  */
 export interface ProjectAccessRule<Input = never> {
   project: ProjectField & keyof Input;
@@ -87,12 +92,16 @@ export function registerAccessControl(
     assertAccess(access, request.actor);
     if (request.actor && isProjectAccess(access)) {
       const params = request.params as Readonly<Record<string, string | undefined>>;
-      request.project = await resolveProject(
-        db,
-        request.actor,
-        projectKeyIn(access.project, params[access.project]),
-        access.permission,
-      );
+      const value = params[access.project];
+      request.project =
+        access.project === 'issueKey'
+          ? await resolveIssue(db, request.actor, value, access.permission)
+          : await resolveProject(
+              db,
+              request.actor,
+              projectKeyIn(access.project, value),
+              access.permission,
+            );
     }
   });
 }

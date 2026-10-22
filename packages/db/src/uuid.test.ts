@@ -23,6 +23,13 @@ describe('uuidv7', () => {
     expect([...ids].sort()).toStrictEqual(ids);
   });
 
+  it('sorts in the order they were made within one millisecond', () => {
+    const now = Date.now();
+    const ids = Array.from({ length: 1_000 }, () => uuidv7(now));
+
+    expect([...ids].sort()).toStrictEqual(ids);
+  });
+
   it('does not repeat', () => {
     const now = Date.now();
     const ids = new Set(Array.from({ length: 10_000 }, () => uuidv7(now)));

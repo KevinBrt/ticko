@@ -34,10 +34,12 @@ describe('route contracts', () => {
       schema: { response: { 200: z.object({}) } },
     };
 
-    expect(() => app?.post('/api/v1/issues', route, () => ({}))).toThrow(
-      'Route POST /api/v1/issues must name its project in the path (:projectKey)',
+    expect(() => app?.post('/api/v1/examples', route, () => ({}))).toThrow(
+      'Route POST /api/v1/examples must name its project in the path (:projectKey)',
     );
-    expect(() => app?.post('/api/v1/projects/:projectKey/issues', route, () => ({}))).not.toThrow();
+    expect(() =>
+      app?.post('/api/v1/projects/:projectKey/examples', route, () => ({})),
+    ).not.toThrow();
   });
 });
 

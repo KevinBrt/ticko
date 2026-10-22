@@ -52,13 +52,22 @@ async function becomesReachable(timeoutMs: number): Promise<boolean> {
   return false;
 }
 
+/**
+ * Seconds to connect when creating or dropping a database: test files start side by side, and
+ * a server busy with them can take a while to answer.
+ */
+const MAINTENANCE_CONNECT_TIMEOUT = 10;
+/** Seconds to tell whether the server is up at all, before trying to start it. */
+const PROBE_CONNECT_TIMEOUT = 2;
+
 /** Runs `task` on the always-present `postgres` database, to create or drop other databases. */
 export async function withMaintenanceConnection<T>(
   task: (sql: postgres.Sql) => Promise<T>,
+  connectTimeout = MAINTENANCE_CONNECT_TIMEOUT,
 ): Promise<T> {
   const sql = postgres(testDatabaseUrl('postgres'), {
     max: 1,
-    connect_timeout: 2,
+    connect_timeout: connectTimeout,
     onnotice: () => undefined,
   });
   try {
@@ -96,7 +105,7 @@ export async function recreateDatabase(name: string): Promise<void> {
 
 async function isReachable(): Promise<boolean> {
   try {
-    await withMaintenanceConnection((sql) => sql`select 1`);
+    await withMaintenanceConnection((sql) => sql`select 1`, PROBE_CONNECT_TIMEOUT);
     return true;
   } catch {
     return false;

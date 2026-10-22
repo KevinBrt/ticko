@@ -1,4 +1,10 @@
-import { DEFAULT_ROLE_IDS, type Permission } from '@toppo/core';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_PRIORITIES,
+  DEFAULT_ROLE_IDS,
+  DEFAULT_STATUSES,
+  type Permission,
+} from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
 import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
@@ -166,6 +172,23 @@ describe('operations about a project', () => {
     await db().insert(schema.projectMembers).values({ projectId, userId, roleId });
   }
 
+  async function insertIssue(projectId: string, number: number, reporterId: string) {
+    const [status] = DEFAULT_STATUSES;
+    const [category] = DEFAULT_CATEGORIES;
+    const [priority] = DEFAULT_PRIORITIES;
+    await db()
+      .insert(schema.issues)
+      .values({
+        projectId,
+        number,
+        title: 'An issue',
+        statusId: status?.id ?? '',
+        categoryId: category?.id ?? '',
+        priorityId: priority?.id ?? '',
+        reporterId,
+      });
+  }
+
   const createIssue = defineCommand({
     name: 'issue.create',
     access: { project: 'projectKey', permission: 'issue.create' },
@@ -176,7 +199,7 @@ describe('operations about a project', () => {
     name: 'issue.get',
     access: { project: 'issueKey' },
     input: z.object({ issueKey: z.string() }),
-    handler: ({ project }) => Promise.resolve(project.key),
+    handler: ({ project }) => Promise.resolve(project.issue.key),
   });
   const unarchive = defineCommand({
     name: 'project.unarchive',
@@ -230,23 +253,50 @@ describe('operations about a project', () => {
     ).resolves.toMatchObject({ key: 'ADMIN' });
   });
 
-  it('find the project of an issue key', async () => {
+  it('find the project and the issue of an issue key', async () => {
     const projectId = await insertProject('KEYS');
-    const member = await insertActor(await insertRole([]));
+    const member = await insertActor(await insertRole(['issue.read']));
     await join(projectId, member.id);
+    await insertIssue(projectId, 12, member.id);
 
-    expect(await readIssue.execute(executionContext(member), { issueKey: 'KEYS-12' })).toBe('KEYS');
+    expect(await readIssue.execute(executionContext(member), { issueKey: 'KEYS-12' })).toBe(
+      'KEYS-12',
+    );
     await expect(
       readIssue.execute(executionContext(member), { issueKey: 'not a key' }),
     ).rejects.toMatchObject({ statusCode: 404, code: 'PROJECT_NOT_FOUND' });
+    await expect(
+      readIssue.execute(executionContext(member), { issueKey: 'KEYS-13' }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'ISSUE_NOT_FOUND' });
+  });
+
+  it('hide the issues of others from who sees only their own, as if they did not exist', async () => {
+    const projectId = await insertProject('OWN');
+    const reporter = await insertActor(await insertRole(['issue.read.own']));
+    const other = await insertActor(await insertRole(['issue.read.own']));
+    await join(projectId, reporter.id);
+    await join(projectId, other.id);
+    await insertIssue(projectId, 1, reporter.id);
+
+    expect(await readIssue.execute(executionContext(reporter), { issueKey: 'OWN-1' })).toBe(
+      'OWN-1',
+    );
+    await expect(
+      readIssue.execute(executionContext(other), { issueKey: 'OWN-1' }),
+    ).rejects.toMatchObject({ statusCode: 404, code: 'ISSUE_NOT_FOUND' });
   });
 
   it('keep an archived project read-only, unless the command says otherwise', async () => {
     const projectId = await insertProject('OLD', true);
     const member = await insertActor(await insertRole([]));
-    await join(projectId, member.id, await insertRole(['issue.create', 'project.settings.manage']));
+    await join(
+      projectId,
+      member.id,
+      await insertRole(['issue.read', 'issue.create', 'project.settings.manage']),
+    );
+    await insertIssue(projectId, 1, member.id);
 
-    expect(await readIssue.execute(executionContext(member), { issueKey: 'OLD-1' })).toBe('OLD');
+    expect(await readIssue.execute(executionContext(member), { issueKey: 'OLD-1' })).toBe('OLD-1');
     await expect(
       createIssue.execute(executionContext(member), { projectKey: 'OLD' }),
     ).rejects.toMatchObject({ statusCode: 409, code: 'PROJECT_ARCHIVED' });
