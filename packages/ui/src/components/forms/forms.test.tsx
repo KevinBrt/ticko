@@ -31,11 +31,26 @@ describe('Field', () => {
     await expect.element(input).toHaveAccessibleDescription('Prefix of the issue numbers Too long');
   });
 
-  it('is valid and undescribed by default', async () => {
+  it('marks a required field with a star, seen but not read: the control says it is required', async () => {
+    const screen = await render(
+      <Field label="Name" required>
+        {(control) => <Input {...control} />}
+      </Field>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Name' });
+
+    await expect.element(input).toBeRequired();
+    await expect.element(screen.getByText('*')).toBeVisible();
+    await expect.element(screen.getByText('*')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('is valid, optional and undescribed by default', async () => {
     const screen = await render(<Field label="Name">{(control) => <Input {...control} />}</Field>);
     const input = screen.getByRole('textbox', { name: 'Name' });
 
     await expect.element(input).toHaveAttribute('aria-invalid', 'false');
+    await expect.element(input).not.toBeRequired();
+    await expect.element(screen.getByText('*')).not.toBeInTheDocument();
     await expect.element(input).not.toHaveAttribute('aria-describedby');
   });
 });

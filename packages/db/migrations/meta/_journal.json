@@ -127,6 +127,41 @@
       "when": 1792664540800,
       "tag": "0017_team_without_project_create",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792680006287,
+      "tag": "0018_priority_names_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792683528250,
+      "tag": "0019_workflow_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792688107944,
+      "tag": "0020_status_closes",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792688114593,
+      "tag": "0021_status_closes_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792688130696,
+      "tag": "0022_drop_status_category",
+      "breakpoints": true
     }
   ]
 }

@@ -1,12 +1,7 @@
 import { z } from 'zod';
 import { PALETTE_COLORS } from '../colors.ts';
 import { projectKeySchema } from '../project-key.ts';
-import {
-  issueDescriptionSchema,
-  issueTitleSchema,
-  PRIORITY_LEVELS,
-  STATUS_CATEGORIES,
-} from './fields.ts';
+import { issueDescriptionSchema, issueTitleSchema, PRIORITY_LEVELS } from './fields.ts';
 
 /** Rows per page of a project's issues. */
 export const ISSUES_PAGE_SIZE = 50;
@@ -30,7 +25,8 @@ export const issueStatusSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   color: z.enum(PALETTE_COLORS),
-  category: z.enum(STATUS_CATEGORIES),
+  /** Issues on it are closed. */
+  closes: z.boolean(),
 });
 
 export const issueCategorySchema = z.object({

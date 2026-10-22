@@ -165,13 +165,15 @@ describe('a new issue', () => {
       .element(screen.getByText('It will be added to the project Website.'))
       .toBeVisible();
     await screen.getByLabelText('Subject').fill('Invoices fail to download');
-    // Written as it reads: the selection turns bold, no Markdown mark shows.
+    // Written as it reads: what follows the Bold button is bold, no Markdown mark shows.
     await screen.getByRole('textbox', { name: 'Description' }).click();
-    await userEvent.keyboard('Error 500{Shift>}{ArrowLeft}{ArrowLeft}{ArrowLeft}{/Shift}');
+    await userEvent.keyboard('Error ');
     await screen.getByRole('button', { name: 'Bold' }).click();
     await expect
       .element(screen.getByRole('button', { name: 'Bold' }))
       .toHaveAttribute('aria-pressed', 'true');
+    await userEvent.keyboard('500');
+    await expect.element(screen.getByText('500', { exact: true })).toBeVisible();
     await expect.element(screen.getByText('**')).not.toBeInTheDocument();
     await screen.getByLabelText('Priority').selectOptions('High');
     await screen.getByRole('radio', { name: 'Bug' }).click();

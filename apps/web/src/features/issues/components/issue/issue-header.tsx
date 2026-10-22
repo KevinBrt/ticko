@@ -132,8 +132,8 @@ export function StatusMenu({
       onValueChange={(statusId) => {
         const status = statuses.find(({ id }) => id === statusId);
         if (status) {
-          const { id, name, color, category } = status;
-          onEdit({ field: 'status', status: { id, name, color, category } });
+          const { id, name, color, closes } = status;
+          onEdit({ field: 'status', status: { id, name, color, closes } });
         }
       }}
     />

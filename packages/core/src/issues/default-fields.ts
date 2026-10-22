@@ -1,4 +1,4 @@
-import type { Locale, PaletteColor, PriorityLevel, StatusCategory } from '@toppo/shared';
+import type { Locale, PaletteColor, PriorityLevel } from '@toppo/shared';
 
 /**
  * What a fresh instance starts with: one workflow and its transitions, four priorities and three
@@ -19,7 +19,8 @@ export interface DefaultStatus {
   kind: DefaultStatusKind;
   /** English name, as seeded by the migrations. */
   name: string;
-  category: StatusCategory;
+  /** Issues on it are closed. */
+  closes: boolean;
   color: PaletteColor;
   /** Where new issues start. */
   initial: boolean;
@@ -88,7 +89,7 @@ export const DEFAULT_STATUSES: readonly DefaultStatus[] = [
     workflowStatusId: '01a16286-f097-728e-8429-a636fe6a8ba0',
     kind: 'new',
     name: statuses.new,
-    category: 'todo',
+    closes: false,
     color: 'cyan',
     initial: true,
   },
@@ -97,7 +98,7 @@ export const DEFAULT_STATUSES: readonly DefaultStatus[] = [
     workflowStatusId: '01a16286-f097-7b84-b497-9e484c1b6b09',
     kind: 'toDo',
     name: statuses.toDo,
-    category: 'todo',
+    closes: false,
     color: 'blue',
     initial: false,
   },
@@ -106,7 +107,7 @@ export const DEFAULT_STATUSES: readonly DefaultStatus[] = [
     workflowStatusId: '01a16286-f097-7ce6-80c3-8b1f10af70f4',
     kind: 'inProgress',
     name: statuses.inProgress,
-    category: 'in_progress',
+    closes: false,
     color: 'violet',
     initial: false,
   },
@@ -115,7 +116,7 @@ export const DEFAULT_STATUSES: readonly DefaultStatus[] = [
     workflowStatusId: '01a16286-f097-76fd-a12f-c4e528008154',
     kind: 'waiting',
     name: statuses.waiting,
-    category: 'in_progress',
+    closes: false,
     color: 'amber',
     initial: false,
   },
@@ -124,7 +125,7 @@ export const DEFAULT_STATUSES: readonly DefaultStatus[] = [
     workflowStatusId: '01a16286-f097-7896-93d3-94335035dec0',
     kind: 'resolved',
     name: statuses.resolved,
-    category: 'done',
+    closes: true,
     color: 'green',
     initial: false,
   },

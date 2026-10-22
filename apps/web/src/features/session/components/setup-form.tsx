@@ -54,6 +54,7 @@ export function SetupForm({ onCompleted }: { onCompleted: () => Promise<void> | 
       ) : null}
       <Field
         label={t('setup.setupCode')}
+        required
         description={t('setup.setupCodeHelp')}
         error={errors['setupCode']}
       >
@@ -69,12 +70,12 @@ export function SetupForm({ onCompleted }: { onCompleted: () => Promise<void> | 
           />
         )}
       </Field>
-      <Field label={t('setup.adminName')} error={errors['admin.name']}>
+      <Field label={t('setup.adminName')} required error={errors['admin.name']}>
         {(control) => (
           <Input {...control} autoComplete="name" value={values.name} onChange={update('name')} />
         )}
       </Field>
-      <Field label={t('setup.email')} error={errors['admin.email']}>
+      <Field label={t('setup.email')} required error={errors['admin.email']}>
         {(control) => (
           <Input
             {...control}
@@ -87,6 +88,7 @@ export function SetupForm({ onCompleted }: { onCompleted: () => Promise<void> | 
       </Field>
       <Field
         label={t('setup.password')}
+        required
         description={t('setup.passwordHelp', { min: PASSWORD_MIN_LENGTH })}
         error={errors['admin.password']}
       >

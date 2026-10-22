@@ -18,14 +18,18 @@ import {
   issueActionsOf,
   issueChanges,
   issueVisibilityOf,
+  nextStatusesOf,
   type ProjectPermission,
   permissionsOfRole,
+  planCategories,
+  planWorkflow,
   projectColorFor,
   projectPermissionsOf,
   rolePermissionsFrom,
 } from '@toppo/core';
 import {
   type CurrentUser,
+  categoriesRequestSchema,
   ISSUES_PAGE_SIZE,
   type IssueActivity,
   type IssueResponse,
@@ -38,11 +42,15 @@ import {
   PROJECT_ACCESS_PAGE_SIZE,
   PROJECT_MEMBERS_PREVIEW,
   PROJECTS_PAGE_SIZE,
+  type PriorityLevel,
   type ProjectAccessRow,
+  prioritiesRequestSchema,
   ROLES_MAX,
   type RoleBadge,
   type RoleDetails,
   type UserSummary,
+  type WorkflowMode,
+  workflowRequestSchema,
 } from '@toppo/shared';
 import { vi } from 'vitest';
 import { render } from 'vitest-browser-react';
@@ -126,6 +134,57 @@ export interface FakeServerState {
   issues: FakeIssue[];
   /** Each issue's history, by issue key, oldest first. */
   activities: Map<string, IssueActivity[]>;
+  /** The instance's defaults unless a test sets others, in their order. */
+  categories: { id: string; name: string; color: PaletteColor; isDefault: boolean }[];
+  /** The instance's defaults, lowest first. */
+  priorities: { id: string; name: string; level: PriorityLevel; isDefault: boolean }[];
+  /** The instance's workflow, the default one unless a test sets another. */
+  workflow: FakeWorkflow;
+  /** The projects' own workflows, by project key: none unless customized. */
+  projectWorkflows: Map<string, FakeWorkflow>;
+}
+
+/** The instance's workflow as the fake server keeps it: its statuses in order, and its moves. */
+export interface FakeWorkflow {
+  mode: WorkflowMode;
+  statuses: {
+    id: string;
+    name: string;
+    color: PaletteColor;
+    closes: boolean;
+    isInitial: boolean;
+  }[];
+  transitions: { from: string; to: string }[];
+}
+
+/** The workflow a new instance starts with. */
+export function defaultWorkflow(): FakeWorkflow {
+  const idOf = (kind: string) => DEFAULT_STATUSES.find((status) => status.kind === kind)?.id ?? '';
+  return {
+    mode: 'defined',
+    statuses: DEFAULT_STATUSES.map(({ id, name, color, closes, initial }) => ({
+      id,
+      name,
+      color,
+      closes,
+      isInitial: initial,
+    })),
+    transitions: DEFAULT_TRANSITIONS.map(({ from, to }) => ({ from: idOf(from), to: idOf(to) })),
+  };
+}
+
+/** The workflow a project's issues follow: its own, else the instance's. */
+function workflowOf(state: FakeServerState, projectKey: string): FakeWorkflow {
+  return state.projectWorkflows.get(projectKey) ?? state.workflow;
+}
+
+/** What the workflow lets issues do, as the server's rules read it. */
+function movesOf({ mode, statuses, transitions }: FakeWorkflow) {
+  return {
+    mode,
+    statusIds: statuses.map(({ id }) => id),
+    transitions: transitions.map(({ from, to }) => ({ fromStatusId: from, toStatusId: to })),
+  };
 }
 
 /** An issue as the fake server keeps it, in the instance's default workflow and fields. */
@@ -251,6 +310,20 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       invitationProjects: new Map(),
       issues: [],
       activities: new Map(),
+      categories: DEFAULT_CATEGORIES.map(({ id, name, color, isDefault }) => ({
+        id,
+        name,
+        color,
+        isDefault,
+      })),
+      priorities: DEFAULT_PRIORITIES.map(({ id, name, level, isDefault }) => ({
+        id,
+        name,
+        level,
+        isDefault,
+      })),
+      workflow: defaultWorkflow(),
+      projectWorkflows: new Map(),
       ...initial,
     },
     requests: [],
@@ -316,6 +389,42 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     },
     'GET /api/v1/members': (_body, search) => asUserManager(state) ?? members(state, search),
     'GET /api/v1/users/roles': () => asUserManager(state) ?? json({ roles: badgesOf(state) }),
+    'GET /api/v1/categories': () =>
+      asHolder(state, 'instance.settings.manage') ??
+      json({
+        categories: state.categories.map((category) => ({
+          ...category,
+          issueCount: state.issues.filter(({ categoryId }) => categoryId === category.id).length,
+        })),
+      }),
+    'PUT /api/v1/categories': (body) =>
+      asHolder(state, 'instance.settings.manage') ?? saveCategories(state, body),
+    'GET /api/v1/priorities': () =>
+      asHolder(state, 'instance.settings.manage') ?? json({ priorities: state.priorities }),
+    'PUT /api/v1/priorities': (body) =>
+      asHolder(state, 'instance.settings.manage') ?? savePriorities(state, body),
+    'GET /api/v1/workflow': () =>
+      asHolder(state, 'instance.settings.manage') ??
+      json({
+        ...state.workflow,
+        statuses: state.workflow.statuses.map((status) => ({
+          ...status,
+          issueCount: state.issues.filter(
+            ({ projectKey, statusId }) =>
+              statusId === status.id && !state.projectWorkflows.has(projectKey),
+          ).length,
+        })),
+      }),
+    'PUT /api/v1/workflow': (body) =>
+      asHolder(state, 'instance.settings.manage') ??
+      saved(
+        changeWorkflow(state, state.workflow, body, ({ projectKey }) => {
+          return !state.projectWorkflows.has(projectKey);
+        }),
+        (workflow) => {
+          state.workflow = workflow;
+        },
+      ),
     'GET /api/v1/roles': () => asHolder(state, 'instance.roles.manage') ?? listRoles(state),
     'POST /api/v1/roles': (body) =>
       asHolder(state, 'instance.roles.manage') ?? createRole(state, body),
@@ -773,7 +882,7 @@ function createProject(state: FakeServerState, body: Record<string, unknown>): R
 }
 
 const PROJECT_PATH =
-  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|access|members|invitations|candidates|roles|issues|issue-fields|assignees))?(?:\/([^/]+))?$/;
+  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|access|members|invitations|candidates|roles|issues|issue-fields|assignees|workflow))?(?:\/([^/]+))?$/;
 
 /** `/api/v1/projects/:key` and what hangs off it, with the server's rules. */
 function projectRequest(
@@ -856,7 +965,14 @@ function projectRequest(
     case 'POST issues':
       return unless('issue.create', () => createIssue(state, project, fields));
     case 'GET issue-fields':
-      return json(issueFields());
+      return json(issueFields(state, project.key));
+    case 'GET workflow':
+      return unless('project.settings.manage', () => json(projectWorkflowOf(state, project)));
+    case 'POST workflow':
+    case 'PUT workflow':
+      return unless('project.settings.manage', () =>
+        changeProjectWorkflow(state, project, method, target, fields),
+      );
     case 'GET assignees':
       return unless('issue.assign', () => {
         const needle = fold(search.get('search') ?? '');
@@ -1098,37 +1214,186 @@ function userRef(state: FakeServerState, id: string) {
   return { id, name: user?.name ?? null };
 }
 
-/** The response's shape of an issue's fields, from the instance's defaults. */
-function issueFields() {
-  const idOf = (kind: string) => DEFAULT_STATUSES.find((status) => status.kind === kind)?.id ?? '';
+/** `PUT /api/v1/categories`: the whole list at once, as the server checks and applies it. */
+function saveCategories(state: FakeServerState, body: Record<string, unknown>): Response {
+  const request = categoriesRequestSchema.safeParse(body);
+  if (!request.success) {
+    return apiError(400, 'VALIDATION_ERROR');
+  }
+  const plan = planCategories(
+    state.categories.map(({ id }) => id),
+    request.data.categories,
+    request.data.removed,
+  );
+  if (!plan) {
+    return apiError(409, 'CATEGORIES_CHANGED');
+  }
+  if (state.issues.some(({ categoryId }) => plan.removed.includes(categoryId))) {
+    return apiError(409, 'CATEGORY_IN_USE');
+  }
+  const added = plan.added.map((category) => ({
+    ...category,
+    id: `01a1569b-9900-7000-8000-0000000007${String(category.position).padStart(2, '0')}`,
+  }));
+  state.categories = [...plan.kept, ...added]
+    .toSorted((left, right) => left.position - right.position)
+    .map(({ id, name, color, isDefault }) => ({ id, name, color, isDefault }));
+  return NO_CONTENT();
+}
+
+/** Keeps a workflow `changeWorkflow` answered, or passes its refusal on. */
+function saved(result: FakeWorkflow | Response, keep: (workflow: FakeWorkflow) => void): Response {
+  if (result instanceof Response) {
+    return result;
+  }
+  keep(result);
+  return NO_CONTENT();
+}
+
+/**
+ * A whole workflow saved at once, as the server checks and applies it: the issues `governs`
+ * selects move off the statuses taken out. Answers the new workflow, or the refusal.
+ */
+function changeWorkflow(
+  state: FakeServerState,
+  current: FakeWorkflow,
+  body: Record<string, unknown>,
+  governs: (issue: FakeIssue) => boolean,
+): FakeWorkflow | Response {
+  const request = workflowRequestSchema.safeParse(body);
+  if (!request.success) {
+    return apiError(400, 'VALIDATION_ERROR');
+  }
+  const plan = planWorkflow(
+    current.statuses.map(({ id }) => id),
+    request.data,
+  );
+  if (!plan) {
+    return apiError(409, 'WORKFLOW_CHANGED');
+  }
+  const ids = new Map(plan.kept.map(({ id }) => [id, id]));
+  for (const { ref, position } of plan.added) {
+    ids.set(ref, `01a1569b-9900-7000-8000-0000000006${String(position).padStart(2, '0')}`);
+  }
+  for (const { statusId, moveTo } of plan.removed) {
+    for (const issue of state.issues.filter(
+      (candidate) => candidate.statusId === statusId && governs(candidate),
+    )) {
+      issue.statusId = ids.get(moveTo) ?? moveTo;
+    }
+  }
   return {
-    statuses: DEFAULT_STATUSES.map(({ id, name, color, category, initial, kind }) => ({
-      id,
-      name,
-      color,
-      category,
-      isInitial: initial,
-      next: DEFAULT_TRANSITIONS.filter(({ from }) => from === kind).map(({ to }) => idOf(to)),
+    mode: request.data.mode,
+    statuses: [...plan.kept, ...plan.added]
+      .toSorted((left, right) => left.position - right.position)
+      .map(({ position, ...status }) => ({
+        id: 'id' in status ? status.id : (ids.get(status.ref) ?? status.ref),
+        name: status.name,
+        color: status.color,
+        closes: status.closes,
+        isInitial: status.isInitial,
+      })),
+    transitions: request.data.transitions.map(({ from, to }) => ({
+      from: ids.get(from) ?? from,
+      to: ids.get(to) ?? to,
     })),
-    categories: DEFAULT_CATEGORIES.map(({ id, name, color, isDefault }) => ({
-      id,
-      name,
-      color,
-      isDefault,
+  };
+}
+
+/** `GET /api/v1/projects/:key/workflow`: the project's own workflow, or the instance's. */
+function projectWorkflowOf(state: FakeServerState, project: FakeProject) {
+  const copy = state.projectWorkflows.get(project.key);
+  const followed = copy ?? state.workflow;
+  return {
+    customized: copy !== undefined,
+    mode: followed.mode,
+    statuses: followed.statuses.map((status) => ({
+      ...status,
+      issueCount: state.issues.filter(
+        ({ projectKey, statusId }) => projectKey === project.key && statusId === status.id,
+      ).length,
+      shared: state.workflow.statuses.some(({ id }) => id === status.id),
     })),
-    priorities: DEFAULT_PRIORITIES.map(({ id, name, level, isDefault }) => ({
-      id,
-      name,
-      level,
-      isDefault,
+    transitions: followed.transitions,
+    organization: state.workflow.statuses,
+  };
+}
+
+/** `/api/v1/projects/:key/workflow` and its `customize` and `revert`, as the server applies them. */
+function changeProjectWorkflow(
+  state: FakeServerState,
+  project: FakeProject,
+  method: string,
+  target: string,
+  body: Record<string, unknown>,
+): Response {
+  const copy = state.projectWorkflows.get(project.key);
+  if (method === 'POST' && target === 'customize') {
+    if (copy) {
+      return apiError(409, 'ALREADY_CUSTOMIZED');
+    }
+    state.projectWorkflows.set(project.key, structuredClone(state.workflow));
+    return NO_CONTENT();
+  }
+  if (!copy) {
+    return apiError(409, 'NOT_CUSTOMIZED');
+  }
+  if (method === 'PUT') {
+    return saved(
+      changeWorkflow(state, copy, body, ({ projectKey }) => projectKey === project.key),
+      (workflow) => state.projectWorkflows.set(project.key, workflow),
+    );
+  }
+  const moves = (body['moves'] ?? []) as { statusId: string; moveTo: string }[];
+  for (const issue of state.issues.filter(({ projectKey }) => projectKey === project.key)) {
+    if (!state.workflow.statuses.some(({ id }) => id === issue.statusId)) {
+      const move = moves.find(({ statusId }) => statusId === issue.statusId);
+      if (!move) {
+        return apiError(409, 'MOVE_REQUIRED');
+      }
+      issue.statusId = move.moveTo;
+    }
+  }
+  state.projectWorkflows.delete(project.key);
+  return NO_CONTENT();
+}
+
+/** `PUT /api/v1/priorities`: the four levels' names and the default at once. */
+function savePriorities(state: FakeServerState, body: Record<string, unknown>): Response {
+  const request = prioritiesRequestSchema.safeParse(body);
+  if (!request.success) {
+    return apiError(400, 'VALIDATION_ERROR');
+  }
+  const named = new Map(request.data.priorities.map((level) => [level.id, level]));
+  if (state.priorities.some(({ id }) => !named.has(id))) {
+    return apiError(404, 'PRIORITY_NOT_FOUND');
+  }
+  state.priorities = state.priorities.map((level) => ({
+    ...level,
+    name: named.get(level.id)?.name ?? level.name,
+    isDefault: named.get(level.id)?.isDefault ?? false,
+  }));
+  return NO_CONTENT();
+}
+
+/** The response's shape of an issue's fields: the default workflow, the instance's lists. */
+function issueFields(state: FakeServerState, projectKey: string) {
+  const workflow = workflowOf(state, projectKey);
+  const moves = movesOf(workflow);
+  return {
+    statuses: workflow.statuses.map((status) => ({
+      ...status,
+      next: nextStatusesOf(moves, status.id),
     })),
+    categories: state.categories,
+    priorities: state.priorities,
   };
 }
 
 const keyOf = (issue: FakeIssue) => `${issue.projectKey}-${issue.number}`;
 
 function summaryOf(state: FakeServerState, issue: FakeIssue): IssueSummary {
-  const fields = issueFields();
+  const fields = issueFields(state, issue.projectKey);
   const status = fields.statuses.find(({ id }) => id === issue.statusId);
   const category = fields.categories.find(({ id }) => id === issue.categoryId);
   const priority = fields.priorities.find(({ id }) => id === issue.priorityId);
@@ -1138,7 +1403,7 @@ function summaryOf(state: FakeServerState, issue: FakeIssue): IssueSummary {
   return {
     key: keyOf(issue),
     title: issue.title,
-    status: { id: status.id, name: status.name, color: status.color, category: status.category },
+    status: { id: status.id, name: status.name, color: status.color, closes: status.closes },
     category: { id: category.id, name: category.name, color: category.color },
     priority: { id: priority.id, name: priority.name, level: priority.level },
     assignee: issue.assigneeId ? userRef(state, issue.assigneeId) : null,
@@ -1365,7 +1630,7 @@ function updateIssue(
   if (actionsFor(changes).some((action) => !actions.includes(action))) {
     return apiError(403, 'FORBIDDEN');
   }
-  const named = issueFields();
+  const named = issueFields(state, issue.projectKey);
   for (const { field, from, to } of changes) {
     issue[field] = to;
     const key = keyOf(issue);
@@ -1401,11 +1666,8 @@ function updateIssue(
 
 /** `PUT /api/v1/issues/:key/status`: only where the workflow goes from the current status. */
 function moveIssue(state: FakeServerState, issue: FakeIssue, statusId: string): Response {
-  const statuses = issueFields().statuses;
-  const transitions = statuses.flatMap(({ id, next }) =>
-    next.map((to) => ({ fromStatusId: id, toStatusId: to })),
-  );
-  if (!canMoveTo(transitions, issue.statusId, statusId)) {
+  const statuses = issueFields(state, issue.projectKey).statuses;
+  if (!canMoveTo(movesOf(workflowOf(state, issue.projectKey)), issue.statusId, statusId)) {
     return apiError(409, 'STATUS_NOT_ALLOWED');
   }
   const from = statuses.find(({ id }) => id === issue.statusId);
@@ -1418,6 +1680,6 @@ function moveIssue(state: FakeServerState, issue: FakeIssue, statusId: string): 
     },
   });
   issue.statusId = statusId;
-  issue.closedAt = to?.category === 'done' ? (issue.closedAt ?? new Date().toISOString()) : null;
+  issue.closedAt = to?.closes ? (issue.closedAt ?? new Date().toISOString()) : null;
   return NO_CONTENT();
 }

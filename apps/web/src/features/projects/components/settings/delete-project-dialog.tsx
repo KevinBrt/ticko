@@ -77,7 +77,7 @@ export function DeleteProjectDialog({
           {remove.isError ? (
             <Alert tone="danger">{requestErrorMessage(remove.error, t)}</Alert>
           ) : null}
-          <Field label={t('projectSettings.deleteKey', { key: project.key })}>
+          <Field label={t('projectSettings.deleteKey', { key: project.key })} required>
             {(control) => (
               <Input
                 {...control}

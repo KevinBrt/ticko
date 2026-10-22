@@ -105,6 +105,7 @@ export function InviteForm({
       ) : null}
       <Field
         label={t('invitations.emails')}
+        required
         description={t('invitations.emailsHelp', { max: INVITATIONS_PER_REQUEST_MAX })}
         error={errors.emails}
       >
@@ -119,7 +120,7 @@ export function InviteForm({
           />
         )}
       </Field>
-      <Field label={t('invitations.role')} error={errors.role}>
+      <Field label={t('invitations.role')} required error={errors.role}>
         {(control) => (
           <Select {...control} value={roleId} onChange={(event) => setRoleId(event.target.value)}>
             <option value="" disabled>

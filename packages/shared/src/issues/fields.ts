@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
-/** What a status means: still to do, under way, or done, which closes the issue. */
-export const STATUS_CATEGORIES = ['todo', 'in_progress', 'done'] as const;
+/**
+ * How a workflow lets issues move: only along the transitions it lists (`defined`), or from any
+ * of its statuses to any other (`free`), its transitions kept for when it is defined again.
+ */
+export const WORKFLOW_MODES = ['defined', 'free'] as const;
 
-export type StatusCategory = (typeof STATUS_CATEGORIES)[number];
+export type WorkflowMode = (typeof WORKFLOW_MODES)[number];
 
 /** The four priority levels, lowest first: each has its own icon and color. */
 export const PRIORITY_LEVELS = [1, 2, 3, 4] as const;

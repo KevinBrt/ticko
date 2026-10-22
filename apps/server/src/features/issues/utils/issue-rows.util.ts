@@ -1,10 +1,5 @@
-import { formatIssueKey } from '@toppo/core';
-import {
-  type IssueSummary,
-  type PriorityLevel,
-  projectKeySchema,
-  type UserRef,
-} from '@toppo/shared';
+import { formatIssueKey, priorityLevelOf } from '@toppo/core';
+import { type IssueSummary, projectKeySchema, type UserRef } from '@toppo/shared';
 
 /** Someone as an issue names them: an erased account keeps its id, not its name. */
 export function userRefOf(user: { id: string; name: string; deletedAt: Date | null }): UserRef {
@@ -37,12 +32,4 @@ export function toIssueSummary(projectKey: string, row: IssueSummaryRow): IssueS
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
-}
-
-/** The database keeps levels between 1 and 4 (a CHECK constraint): this only narrows the type. */
-export function priorityLevelOf(level: number): PriorityLevel {
-  if (level === 1 || level === 2 || level === 3 || level === 4) {
-    return level;
-  }
-  throw new Error(`Unknown priority level ${level}`);
 }

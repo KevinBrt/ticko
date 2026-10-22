@@ -382,7 +382,7 @@ describe('projects and issues', () => {
         statusId: workflowStatuses.statusId,
         isInitial: workflowStatuses.isInitial,
         name: statuses.name,
-        category: statuses.category,
+        closes: statuses.closes,
         color: statuses.color,
         projectId: statuses.projectId,
       })
@@ -416,7 +416,7 @@ describe('projects and issues', () => {
         statusId: status.id,
         isInitial: status.initial,
         name: status.name,
-        category: status.category,
+        closes: status.closes,
         color: status.color,
         projectId: null,
       })),
@@ -454,7 +454,7 @@ describe('projects and issues', () => {
   it('keeps transitions between statuses of their workflow, once each, never to the same one', async () => {
     const [outside] = await database.db
       .insert(statuses)
-      .values({ name: 'Outside', category: 'todo' })
+      .values({ name: 'Outside' })
       .returning({ id: statuses.id });
     const [first, second] = DEFAULT_STATUSES;
     const transition = (fromStatusId: string, toStatusId: string) =>
@@ -470,7 +470,7 @@ describe('projects and issues', () => {
   it('takes a status’s transitions out of the workflow with it', async () => {
     const [triage] = await database.db
       .insert(statuses)
-      .values({ name: 'Sorting', category: 'todo' })
+      .values({ name: 'Sorting' })
       .returning({ id: statuses.id });
     const triageId = triage?.id ?? '';
     const newId = DEFAULT_STATUSES[0]?.id ?? '';
@@ -531,7 +531,7 @@ describe('projects and issues', () => {
   it('starts a workflow on a single status', async () => {
     const [triage] = await database.db
       .insert(statuses)
-      .values({ name: 'Triage', category: 'todo' })
+      .values({ name: 'Triage' })
       .returning({ id: statuses.id });
 
     await expect(
@@ -547,19 +547,15 @@ describe('projects and issues', () => {
   it('names statuses once per scope, ignoring case', async () => {
     const projectId = await createProject();
 
-    await expect(
-      database.db.insert(statuses).values({ name: 'new', category: 'todo' }),
-    ).rejects.toThrow();
-    await database.db.insert(statuses).values({ name: 'New', category: 'todo', projectId });
-    await expect(
-      database.db.insert(statuses).values({ name: 'NEW', category: 'todo', projectId }),
-    ).rejects.toThrow();
+    await expect(database.db.insert(statuses).values({ name: 'new' })).rejects.toThrow();
+    await database.db.insert(statuses).values({ name: 'New', projectId });
+    await expect(database.db.insert(statuses).values({ name: 'NEW', projectId })).rejects.toThrow();
   });
 
-  it('refuses a status category or a color it does not know', async () => {
+  it('refuses a status or category color it does not know', async () => {
     await expect(
       database.db.execute(
-        sql`insert into statuses (id, name, category) values (${uuidv7()}, 'Blocked', 'blocked')`,
+        sql`insert into statuses (id, name, color) values (${uuidv7()}, 'Blocked', 'blocked')`,
       ),
     ).rejects.toThrow();
     await expect(

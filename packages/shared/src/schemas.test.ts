@@ -7,7 +7,6 @@ import {
   issueDescriptionSchema,
   issueTitleSchema,
   PRIORITY_LEVELS,
-  STATUS_CATEGORIES,
 } from './issues/fields.ts';
 import { invitationTokenSchema } from './members/invitations.ts';
 import { memberRowSchema, membersQuerySchema } from './members/members.ts';
@@ -165,10 +164,6 @@ describe('memberRowSchema', () => {
 describe('issue fields', () => {
   it('rank priorities from 1, the lowest, to 4', () => {
     expect(PRIORITY_LEVELS).toStrictEqual([1, 2, 3, 4]);
-  });
-
-  it('end the status categories with done, which closes an issue', () => {
-    expect(STATUS_CATEGORIES.at(-1)).toBe('done');
   });
 
   it('trim a title, and refuse a blank or too long one', () => {

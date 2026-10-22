@@ -25,7 +25,9 @@ describe('default fields', () => {
     expect(DEFAULT_STATUSES.filter(({ initial }) => initial).map(({ kind }) => kind)).toStrictEqual(
       ['new'],
     );
-    expect(DEFAULT_STATUSES.map(({ category }) => category)).toContain('done');
+    expect(DEFAULT_STATUSES.filter(({ closes }) => closes).map(({ kind }) => kind)).toStrictEqual([
+      'resolved',
+    ]);
   });
 
   it('let issues go from the initial status to every other, and out of each one', () => {

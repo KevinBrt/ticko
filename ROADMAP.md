@@ -62,7 +62,7 @@ Nine tasks, each committed on its own. The first issue can be created and closed
    - [x] Defaults, renamed in the administrator’s language at setup: the workflow New, To do, In progress, Waiting, Resolved; the priorities Low, Normal, High, Urgent; the categories Bug, Request, Question.
    - [x] `workflow_transitions` (migrations 0014 and 0015): which status may follow which, by default New → To do, In progress, Resolved; To do → In progress, Resolved; In progress → To do, Waiting, Resolved; Waiting → In progress, Resolved; Resolved → To do.
 2. **Domain rules in `core`**
-   - [x] Effective workflow (the project's or the instance's) and initial status; an issue is closed while its status is in the done category, `closed_at` follows.
+   - [x] Effective workflow (the project's or the instance's) and initial status; an issue is closed while its status closes issues, `closed_at` follows.
    - [x] Transitions (`nextStatusesOf`, `canMoveTo`): people change an issue’s status, never the system, and only to a status the workflow allows from the current one, administrators included.
    - [x] Effective permissions in a project: the role the project gives the member, or else their own role; the system role has everything.
    - [x] Issue validation rules shared by the server and the forms.
@@ -83,11 +83,12 @@ Nine tasks, each committed on its own. The first issue can be created and closed
    - [x] A project's issues on the Issues screen (chosen by project), the open issues and last activity columns of the projects screen, the creation form, the issue page at `/issues/WEB-42`: Markdown description (`react-markdown`, raw HTML ignored), fields edited in place with optimistic updates, the status menu offering only the allowed next statuses, activity history, delete after confirming. From 320 px, with the keyboard.
    - [x] My issues: those assigned to oneself, open or closed, in every project one may still read them, the most urgent first; archived projects left out. An issue's activity reads newest first.
 7. **Categories and priorities in the settings** (`instance.settings.manage`)
-   - [ ] Categories: add, rename, recolor, reorder (keyboard buttons, not only drag and drop), choose the default, delete once unused.
-   - [ ] Priorities: rename the four levels, choose the default.
+   - [x] Settings › Issues › Issue properties (after the mockups): Priority and Category as the two global lists of options, each edited in a side panel and saved whole, in one transaction.
+   - [x] Categories: add, rename, recolor, reorder (drag and drop, with the keyboard and announced to screen readers), choose the default, delete once unused; a category added meanwhile by someone else is never deleted.
+   - [x] Priorities: rename the four levels, choose the default; names unique whatever the case (migration 0018).
 8. **Workflows**
-   - [ ] Global workflow editor: statuses, category, color, order, initial status, and which status may follow which.
-   - [ ] "Customize for this project" (a copy of its own, transitions included); "revert to the global workflow" with the status mapping step, in one transaction, one activity per moved issue.
+   - [x] Global workflow editor (Settings › Issues › Statuses, after the mockups): statuses, whether they close issues (migrations 0020 to 0022), color, order, initial status, which status may follow which or free moves (migration 0019), saved whole; a status taken out moves its issues where chosen, one activity each.
+   - [x] "Customize for this project" (a copy of its own, transitions and mode included, the instance’s statuses shared and edited in the settings only); "revert to the global workflow" with the status mapping step, in one transaction, one activity per moved issue.
 9. **End-to-end and docs**
    - [x] Create a project, report its first issue, move it through the workflow, close it, on desktop and phone (`e2e/tests/issues.spec.ts`).
    - [ ] `ARCHITECTURE.md` and this roadmap reviewed once tasks 7 and 8 are done.
@@ -108,7 +109,7 @@ _Done when an issue is found in under 3 seconds._
 - [ ] Comments in Markdown, sanitized (no raw HTML); edit and delete one's own; moderation permission.
 - [ ] Attachments: size limits, type sniffed server-side, stored under `/data/uploads` with random keys, downloads authorized and served as attachments.
 - [ ] Labels: one list for the instance, edited in the settings; no project labels.
-- [ ] Properties (Version, Team…), replacing custom fields: defined for the instance; a project adds its own, hides one or replaces its options; each shown in the issue list or not, asked at creation or not, then required or not. List type first, then multi-select, text, number, date, user, checkbox; visibility to requesters.
+- [ ] Properties (Version, Team…), replacing custom fields: defined for the instance; a project adds its own, hides one or replaces its options; each shown in the issue list or not, asked at creation or not, then required or not. List type first, then multi-select, text, number, date, user, checkbox; visibility to requesters. Priority and Category join the same page as global properties: a project may hide them or require them at creation, their options staying one list for the instance (after the mockups).
 - [ ] Background job queue in PostgreSQL (`FOR UPDATE SKIP LOCKED`), retried with backoff.
 - [ ] In-app notifications (bell, unread count, mark as read), fed by `activities`; mentions with `@`.
 - [ ] Email: SMTP settings in the admin (password encrypted with the instance key), test email, invitations and notifications by email, password reset (Better Auth endpoint added to the allowlist).

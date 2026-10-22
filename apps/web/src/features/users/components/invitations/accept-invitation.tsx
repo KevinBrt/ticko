@@ -96,13 +96,14 @@ function AcceptInvitationForm({
           <Input {...control} type="email" autoComplete="username" value={preview.email} readOnly />
         )}
       </Field>
-      <Field label={t('invitation.name')} error={errors['name']}>
+      <Field label={t('invitation.name')} required error={errors['name']}>
         {(control) => (
           <Input {...control} autoComplete="name" value={values.name} onChange={update('name')} />
         )}
       </Field>
       <Field
         label={t('invitation.password')}
+        required
         description={t('invitation.passwordHelp', { min: PASSWORD_MIN_LENGTH })}
         error={errors['password']}
       >

@@ -53,6 +53,7 @@ export function LinkDialog({
         <form noValidate onSubmit={submit} className="flex flex-col gap-4">
           <Field
             label={t('issues.link.address')}
+            required
             error={invalid ? t('issues.link.invalid') : undefined}
           >
             {(control) => (

@@ -1,4 +1,4 @@
-import { canMoveTo, closedAtFor, effectiveWorkflow } from '@toppo/core';
+import { canMoveTo, closedAtFor, effectiveWorkflow, type WorkflowMoves } from '@toppo/core';
 import { schema } from '@toppo/db';
 import { changeIssueStatusRequestSchema, issueKeyParamsSchema } from '@toppo/shared';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
@@ -6,7 +6,7 @@ import { defineCommand, type Transaction } from '../../../platform/cqrs/cqrs.ts'
 import { HttpError } from '../../../platform/http/http-error.ts';
 import { activity } from '../utils/activities.util.ts';
 
-const { activities, issues, statuses, workflowTransitions, workflows } = schema;
+const { activities, issues, statuses, workflowStatuses, workflowTransitions, workflows } = schema;
 
 /**
  * Moves an issue to another status, one its project's workflow allows from the current one, for
@@ -30,8 +30,8 @@ export const changeIssueStatus = defineCommand({
     if (current.statusId === statusId) {
       return;
     }
-    const transitions = await transitionsFrom(tx, project.id, current.statusId);
-    if (!canMoveTo(transitions, current.statusId, statusId)) {
+    const moves = await movesOf(tx, project.id, current.statusId);
+    if (!canMoveTo(moves, current.statusId, statusId)) {
       throw new HttpError(
         409,
         'STATUS_NOT_ALLOWED',
@@ -39,7 +39,7 @@ export const changeIssueStatus = defineCommand({
       );
     }
     const named = await tx
-      .select({ id: statuses.id, name: statuses.name, category: statuses.category })
+      .select({ id: statuses.id, name: statuses.name, closes: statuses.closes })
       .from(statuses)
       .where(inArray(statuses.id, [current.statusId, statusId]));
     const from = named.find(({ id }) => id === current.statusId);
@@ -50,7 +50,7 @@ export const changeIssueStatus = defineCommand({
 
     await tx
       .update(issues)
-      .set({ statusId, closedAt: closedAtFor(to.category, current.closedAt, new Date()) })
+      .set({ statusId, closedAt: closedAtFor(to.closes, current.closedAt, new Date()) })
       .where(eq(issues.id, project.issue.id));
     await tx.insert(activities).values({
       projectId: project.id,
@@ -65,23 +65,38 @@ export const changeIssueStatus = defineCommand({
   },
 });
 
-/** The moves the project's workflow allows from `statusId`. */
-async function transitionsFrom(tx: Transaction, projectId: string, statusId: string) {
+/**
+ * The moves the project's workflow allows from `statusId`: its own copy, else the instance's.
+ * Shared lock: a workflow being saved meanwhile is read once saved, never half-way.
+ */
+async function movesOf(
+  tx: Transaction,
+  projectId: string,
+  statusId: string,
+): Promise<WorkflowMoves> {
   const candidates = await tx
-    .select({ id: workflows.id, projectId: workflows.projectId })
+    .select({ id: workflows.id, projectId: workflows.projectId, mode: workflows.mode })
     .from(workflows)
-    .where(or(isNull(workflows.projectId), eq(workflows.projectId, projectId)));
+    .where(or(isNull(workflows.projectId), eq(workflows.projectId, projectId)))
+    .for('share');
   const workflow = effectiveWorkflow(candidates, projectId);
-  return await tx
-    .select({
-      fromStatusId: workflowTransitions.fromStatusId,
-      toStatusId: workflowTransitions.toStatusId,
-    })
-    .from(workflowTransitions)
-    .where(
-      and(
-        eq(workflowTransitions.workflowId, workflow.id),
-        eq(workflowTransitions.fromStatusId, statusId),
+  const [steps, transitions] = await Promise.all([
+    tx
+      .select({ statusId: workflowStatuses.statusId })
+      .from(workflowStatuses)
+      .where(eq(workflowStatuses.workflowId, workflow.id)),
+    tx
+      .select({
+        fromStatusId: workflowTransitions.fromStatusId,
+        toStatusId: workflowTransitions.toStatusId,
+      })
+      .from(workflowTransitions)
+      .where(
+        and(
+          eq(workflowTransitions.workflowId, workflow.id),
+          eq(workflowTransitions.fromStatusId, statusId),
+        ),
       ),
-    );
+  ]);
+  return { mode: workflow.mode, statusIds: steps.map((step) => step.statusId), transitions };
 }

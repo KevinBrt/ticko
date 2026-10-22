@@ -5,13 +5,13 @@ import { Alert } from '@toppo/ui';
 import { useEffect, useState } from 'react';
 import { ApiRequestError } from '../../../shared/api/http.client.ts';
 import { requestErrorMessage } from '../../../shared/forms/form-errors.util.ts';
+import { UnsavedChangesBar } from '../../../shared/forms/unsaved-changes-bar.tsx';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
 import { Roles } from '../api/roles.api.ts';
 import { RolesQueries } from '../queries/roles.queries.ts';
 import { changesToSave, countChanges, type RoleDraft } from '../utils/permission-matrix.util.ts';
 import { RolePermissions } from './matrix/role-permissions.tsx';
 import { RolesMatrix } from './matrix/roles-matrix.tsx';
-import { UnsavedChangesBar } from './unsaved-changes-bar.tsx';
 
 const KNOWN_ERRORS = {
   ROLES_CHANGED: 'roles.rolesChanged',

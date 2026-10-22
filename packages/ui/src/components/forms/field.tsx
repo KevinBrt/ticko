@@ -6,6 +6,7 @@ export interface FieldControlProps {
   id: string;
   'aria-invalid': boolean;
   'aria-describedby'?: string;
+  'aria-required'?: boolean;
 }
 
 export interface FieldProps {
@@ -14,6 +15,8 @@ export interface FieldProps {
   description?: string | undefined;
   /** Validation message; marks the control invalid. */
   error?: string | undefined;
+  /** It must be filled in: a red star after the label, and the control announced as required. */
+  required?: boolean;
   /**
    * `stacked` (default): label, control and help one under the other. `row`: label and help on
    * the left, the control on the right, from `sm` up, for settings shown as rows.
@@ -31,6 +34,7 @@ export function Field({
   label,
   description,
   error,
+  required = false,
   layout = 'stacked',
   className,
   children,
@@ -45,7 +49,22 @@ export function Field({
     id,
     'aria-invalid': Boolean(error),
     ...(describedBy ? { 'aria-describedby': describedBy } : {}),
+    ...(required ? { 'aria-required': true } : {}),
   });
+  // The star sits beside the label, not in it: the label keeps its exact words, and screen
+  // readers, which skip the star, announce the control as required instead.
+  const labelElement = (
+    <span className="flex items-baseline gap-0.5 text-sm font-medium">
+      <label htmlFor={id} className="text-foreground">
+        {label}
+      </label>
+      {required ? (
+        <span aria-hidden="true" className="text-danger">
+          *
+        </span>
+      ) : null}
+    </span>
+  );
 
   if (layout === 'row') {
     return (
@@ -56,9 +75,7 @@ export function Field({
         )}
       >
         <div className="flex flex-col gap-0.5 sm:pt-2">
-          <label htmlFor={id} className="text-sm font-medium text-foreground">
-            {label}
-          </label>
+          {labelElement}
           {description ? (
             <p id={descriptionId} className="text-xs text-muted-foreground">
               {description}
@@ -78,9 +95,7 @@ export function Field({
   }
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-sm font-medium text-foreground">
-        {label}
-      </label>
+      {labelElement}
       {control}
       {description ? (
         <p id={descriptionId} className="text-xs text-muted-foreground">

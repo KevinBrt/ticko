@@ -50,7 +50,7 @@ export function RoleForm({
   return (
     <form noValidate onSubmit={submit} aria-busy={pending} className="flex flex-col gap-5">
       {error ? <Alert tone="danger">{requestErrorMessage(error, t, KNOWN_ERRORS)}</Alert> : null}
-      <Field label={t('roles.name')} error={nameError}>
+      <Field label={t('roles.name')} required error={nameError}>
         {(control) => (
           <Input
             {...control}

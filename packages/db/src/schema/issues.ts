@@ -34,6 +34,7 @@ export const priorities = pgTable(
     uniqueIndex('priorities_level_unique').on(table.level),
     check('priorities_level_check', sql`${table.level} between 1 and 4`),
     check('priorities_name_not_blank', sql`btrim(${table.name}) <> ''`),
+    uniqueIndex('priorities_name_unique').on(sql`lower(${table.name})`),
     uniqueIndex('priorities_single_default').on(table.isDefault).where(sql`${table.isDefault}`),
   ],
 );

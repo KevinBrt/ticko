@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { createRoute, useBlocker } from '@tanstack/react-router';
 import { can } from '@toppo/core';
 import { useState } from 'react';
-import { LeaveDialog } from '../../../features/roles/components/dialogs/leave-dialog.tsx';
 import { NewRole } from '../../../features/roles/components/dialogs/new-role.tsx';
 import { RolesEditor } from '../../../features/roles/components/roles-editor.tsx';
 import { SessionQueries } from '../../../features/session/queries/session.queries.ts';
+import { LeaveDialog } from '../../../shared/forms/leave-dialog.tsx';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
 import { AccessDenied } from '../../../shared/layout/access-denied.tsx';
 import { Page } from '../../../shared/layout/page.tsx';
@@ -41,6 +41,7 @@ function RolesScreen() {
       <RolesEditor onPendingChange={setPending} />
       <LeaveDialog
         open={leaving.status === 'blocked'}
+        description={t('roles.leaveDescription')}
         onStay={() => leaving.reset?.()}
         onLeave={() => leaving.proceed?.()}
       />

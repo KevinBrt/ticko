@@ -43,7 +43,7 @@ export function ProjectForm({
   return (
     <form noValidate onSubmit={submit} aria-busy={pending} className="flex flex-col gap-5">
       {error ? <Alert tone="danger">{requestErrorMessage(error, t, KNOWN_ERRORS)}</Alert> : null}
-      <Field label={t('projects.name')} error={errors['name']}>
+      <Field label={t('projects.name')} required error={errors['name']}>
         {(control) => (
           <Input
             {...control}
@@ -59,7 +59,12 @@ export function ProjectForm({
           />
         )}
       </Field>
-      <Field label={t('projects.key')} description={t('projects.keyHelp')} error={errors['key']}>
+      <Field
+        label={t('projects.key')}
+        required
+        description={t('projects.keyHelp')}
+        error={errors['key']}
+      >
         {(control) => (
           <Input
             {...control}

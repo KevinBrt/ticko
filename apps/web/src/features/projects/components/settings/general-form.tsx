@@ -8,7 +8,7 @@ import {
   type UpdateProjectRequest,
   updateProjectRequestSchema,
 } from '@toppo/shared';
-import { Alert, Button, cn, Field, Input, swatchClassName, Textarea } from '@toppo/ui';
+import { Alert, Button, ColorPicker, Field, Input, Textarea } from '@toppo/ui';
 import { type FormEvent, useId, useState } from 'react';
 import { fieldErrors, requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
@@ -80,6 +80,7 @@ export function GeneralForm({
         <Field
           layout="row"
           label={t('projectSettings.name')}
+          required
           error={errors['name']}
           className="px-5 py-4"
         >
@@ -96,6 +97,7 @@ export function GeneralForm({
         <Field
           layout="row"
           label={t('projects.key')}
+          required={project.keyEditable}
           description={project.keyEditable ? t('projectSettings.keyHelp') : t('projects.keyFixed')}
           error={errors['key']}
           className="px-5 py-4"
@@ -152,7 +154,7 @@ export function GeneralForm({
   );
 }
 
-/** The palette as round swatches: radio buttons, named for screen readers. */
+/** The project's color, chosen among the palette's swatches. */
 function ColorChoice({
   value,
   onChange,
@@ -168,32 +170,13 @@ function ColorChoice({
       <p id={`${id}-label`} className="text-sm font-medium text-foreground">
         {t('projectSettings.color')}
       </p>
-      <div role="radiogroup" aria-labelledby={`${id}-label`} className="flex flex-wrap gap-1">
-        {PROJECT_COLORS.map((color) => (
-          <label
-            key={color}
-            className="relative flex size-9 cursor-pointer items-center justify-center pointer-coarse:size-11"
-          >
-            <input
-              type="radio"
-              name={`${id}-color`}
-              value={color}
-              checked={value === color}
-              onChange={() => onChange(color)}
-              // Transparent over the swatch: clicked and focused where it is seen.
-              className="peer absolute inset-0 cursor-pointer appearance-none opacity-0"
-            />
-            <span
-              aria-hidden="true"
-              className={cn(
-                'size-5 rounded-full ring-offset-2 ring-offset-surface peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-ring',
-                swatchClassName(color),
-              )}
-            />
-            <span className="sr-only">{t(`colors.${color}`)}</span>
-          </label>
-        ))}
-      </div>
+      <ColorPicker
+        labelledBy={`${id}-label`}
+        colors={PROJECT_COLORS}
+        value={value}
+        nameOf={(color) => t(`colors.${color}`)}
+        onChange={onChange}
+      />
     </div>
   );
 }

@@ -2,12 +2,15 @@ import { randomUUID } from 'node:crypto';
 import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerAccountRoutes } from './features/account/account.routes.ts';
+import { registerCategoryRoutes } from './features/categories/categories.routes.ts';
 import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
 import { registerIssueRoutes } from './features/issues/issues.routes.ts';
+import { registerPriorityRoutes } from './features/priorities/priorities.routes.ts';
 import { registerProjectRoutes } from './features/projects/projects.routes.ts';
 import { registerRoleRoutes } from './features/roles/roles.routes.ts';
 import { registerSetupRoutes } from './features/setup/setup.routes.ts';
 import { registerUserRoutes } from './features/users/users.routes.ts';
+import { registerWorkflowRoutes } from './features/workflows/workflows.routes.ts';
 import { registerAccessControl } from './platform/auth/access-control.ts';
 import type { Auth } from './platform/auth/auth.ts';
 import { registerAuthRoutes } from './platform/auth/auth-routes.ts';
@@ -101,6 +104,9 @@ export async function buildApp({
   registerRoleRoutes(app);
   registerProjectRoutes(app);
   registerIssueRoutes(app);
+  registerCategoryRoutes(app);
+  registerPriorityRoutes(app);
+  registerWorkflowRoutes(app);
 
   const servesWebApp = await registerWebApp(app, webRoot);
   if (!servesWebApp) {

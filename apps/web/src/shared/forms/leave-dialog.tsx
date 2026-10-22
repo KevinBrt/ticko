@@ -1,13 +1,15 @@
 import { Button, Dialog, DialogContent } from '@toppo/ui';
-import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
+import { useI18n } from '../i18n/i18n-provider.tsx';
 
-/** Asks before leaving the matrix with unsaved changes. */
+/** Asks before leaving a page with unsaved changes; `description` says what would be lost. */
 export function LeaveDialog({
   open,
+  description,
   onStay,
   onLeave,
 }: {
   open: boolean;
+  description: string;
   onStay: () => void;
   onLeave: () => void;
 }) {
@@ -16,16 +18,16 @@ export function LeaveDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onStay())}>
       <DialogContent
-        title={t('roles.leaveTitle')}
-        description={t('roles.leaveDescription')}
-        closeLabel={t('roles.close')}
+        title={t('unsaved.leaveTitle')}
+        description={description}
+        closeLabel={t('unsaved.close')}
       >
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={onStay}>
-            {t('roles.stay')}
+            {t('unsaved.stay')}
           </Button>
           <Button variant="danger" onClick={onLeave}>
-            {t('roles.leave')}
+            {t('unsaved.leave')}
           </Button>
         </div>
       </DialogContent>

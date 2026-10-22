@@ -13,12 +13,15 @@ import { projectsIndexRoute } from './routes/protected/projects/index.route.tsx'
 import { projectRoute } from './routes/protected/projects/project.route.tsx';
 import { projectAccessRoute } from './routes/protected/projects/project-access.route.tsx';
 import { projectGeneralRoute } from './routes/protected/projects/project-general.route.tsx';
+import { projectStatusesRoute } from './routes/protected/projects/project-statuses.route.tsx';
 import { projectsRoute } from './routes/protected/projects/projects.route.tsx';
 import { protectedRoute } from './routes/protected/protected.route.tsx';
 import { settingsIndexRoute } from './routes/protected/settings/index.route.tsx';
 import { membersRoute } from './routes/protected/settings/members.route.tsx';
+import { propertiesRoute } from './routes/protected/settings/properties.route.tsx';
 import { rolesRoute } from './routes/protected/settings/roles.route.tsx';
 import { settingsRoute } from './routes/protected/settings/settings.route.tsx';
+import { statusesRoute } from './routes/protected/settings/statuses.route.tsx';
 import { invitationRoute } from './routes/public/invitation.route.tsx';
 import { loginRoute } from './routes/public/login.route.tsx';
 import { setupRoute } from './routes/public/setup.route.tsx';
@@ -38,9 +41,15 @@ const routeTree = rootRoute.addChildren([
     myIssuesRoute,
     projectsRoute.addChildren([
       projectsIndexRoute,
-      projectRoute.addChildren([projectGeneralRoute, projectAccessRoute]),
+      projectRoute.addChildren([projectGeneralRoute, projectAccessRoute, projectStatusesRoute]),
     ]),
-    settingsRoute.addChildren([settingsIndexRoute, membersRoute, rolesRoute]),
+    settingsRoute.addChildren([
+      settingsIndexRoute,
+      membersRoute,
+      rolesRoute,
+      statusesRoute,
+      propertiesRoute,
+    ]),
     accountRoute,
     notFoundRoute,
   ]),

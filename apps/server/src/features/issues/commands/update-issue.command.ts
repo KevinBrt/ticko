@@ -4,6 +4,7 @@ import {
   type IssueFields,
   issueActionsOf,
   issueChanges,
+  priorityLevelOf,
 } from '@toppo/core';
 import { schema } from '@toppo/db';
 import { issueKeyParamsSchema, updateIssueFieldsSchema } from '@toppo/shared';
@@ -11,7 +12,6 @@ import { eq, inArray } from 'drizzle-orm';
 import { defineCommand, type Transaction } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
 import { activity } from '../utils/activities.util.ts';
-import { priorityLevelOf } from '../utils/issue-rows.util.ts';
 
 const { activities, issueCategories, issues, priorities } = schema;
 

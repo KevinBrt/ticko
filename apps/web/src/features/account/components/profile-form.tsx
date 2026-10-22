@@ -36,7 +36,7 @@ export function ProfileForm({
     <form noValidate onSubmit={submit} aria-busy={save.isPending} className="flex flex-col gap-5">
       {save.isError ? <Alert tone="danger">{requestErrorMessage(save.error, t)}</Alert> : null}
       {save.isSuccess ? <Alert>{t('account.nameSaved')}</Alert> : null}
-      <Field label={t('account.name')} error={nameError}>
+      <Field label={t('account.name')} required error={nameError}>
         {(control) => (
           <Input
             {...control}

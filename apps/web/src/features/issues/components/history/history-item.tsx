@@ -1,5 +1,5 @@
 import type { IssueActivity, PaletteColor } from '@toppo/shared';
-import { cn } from '@toppo/ui';
+import { cn, StatusBadge } from '@toppo/ui';
 import {
   ArrowRightIcon,
   ChevronDownIcon,
@@ -19,7 +19,6 @@ import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { pluralForm } from '../../../../shared/i18n/plural.util.ts';
 import type { HistoryEntry } from '../../utils/issue-history.util.ts';
 import { PriorityLabel } from '../fields/priority-label.tsx';
-import { StatusBadge } from '../fields/status-label.tsx';
 
 type Translate = ReturnType<typeof useI18n>['t'];
 

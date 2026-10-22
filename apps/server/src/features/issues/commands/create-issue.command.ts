@@ -98,10 +98,12 @@ async function priorityOf(tx: Transaction, requested: string | undefined): Promi
 
 /** Where new issues start in the project's workflow: its own copy, else the instance's. */
 async function initialStatusIn(tx: Transaction, projectId: string): Promise<string> {
+  // Shared lock: a workflow being saved meanwhile is read once saved, never half-way.
   const candidates = await tx
     .select({ id: workflows.id, projectId: workflows.projectId })
     .from(workflows)
-    .where(or(isNull(workflows.projectId), eq(workflows.projectId, projectId)));
+    .where(or(isNull(workflows.projectId), eq(workflows.projectId, projectId)))
+    .for('share');
   const workflow = effectiveWorkflow(candidates, projectId);
   const steps = await tx
     .select({ statusId: workflowStatuses.statusId, isInitial: workflowStatuses.isInitial })

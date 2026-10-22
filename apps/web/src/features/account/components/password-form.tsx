@@ -56,7 +56,7 @@ export function PasswordForm({ email }: { email: string }) {
       {change.isSuccess ? <Alert>{t('account.passwordChanged')}</Alert> : null}
       {/* Tells password managers whose password this is. */}
       <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
-      <Field label={t('account.currentPassword')} error={errors['currentPassword']}>
+      <Field label={t('account.currentPassword')} required error={errors['currentPassword']}>
         {(control) => (
           <PasswordInput
             {...control}
@@ -71,6 +71,7 @@ export function PasswordForm({ email }: { email: string }) {
       </Field>
       <Field
         label={t('account.newPassword')}
+        required
         description={t('account.newPasswordHelp', { min: PASSWORD_MIN_LENGTH })}
         error={errors['newPassword']}
       >

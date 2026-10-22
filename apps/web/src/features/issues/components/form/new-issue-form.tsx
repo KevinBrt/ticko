@@ -80,7 +80,7 @@ export function NewIssueForm({
           {create.isError ? (
             <Alert tone="danger">{requestErrorMessage(create.error, t, KNOWN_ERRORS)}</Alert>
           ) : null}
-          <Field label={t('issues.subject')} error={errors['title']}>
+          <Field label={t('issues.subject')} required error={errors['title']}>
             {(control) => (
               <Input
                 {...control}

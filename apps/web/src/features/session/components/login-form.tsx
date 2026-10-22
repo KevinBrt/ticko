@@ -60,7 +60,7 @@ export function LoginForm({
           })}
         </Alert>
       ) : null}
-      <Field label={t('login.email')} error={errors['email']}>
+      <Field label={t('login.email')} required error={errors['email']}>
         {(control) => (
           <Input
             {...control}
@@ -71,7 +71,7 @@ export function LoginForm({
           />
         )}
       </Field>
-      <Field label={t('login.password')} error={errors['password']}>
+      <Field label={t('login.password')} required error={errors['password']}>
         {(control) => (
           <PasswordInput
             {...control}

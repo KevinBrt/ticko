@@ -1,4 +1,5 @@
 import type { IssueFieldsResponse, IssueResponse } from '@toppo/shared';
+import { StatusBadge } from '@toppo/ui';
 import { ChevronDownIcon } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { formatFullDateTime } from '../../../../shared/i18n/dates.util.ts';
@@ -8,7 +9,6 @@ import { AssigneeDialog } from '../fields/assignee-dialog.tsx';
 import { FIELD_TRIGGER_CLASS, FieldMenu } from '../fields/field-menu.tsx';
 import { PersonName } from '../fields/person-name.tsx';
 import { PriorityLabel } from '../fields/priority-label.tsx';
-import { StatusBadge } from '../fields/status-label.tsx';
 
 /**
  * The issue's fields beside it, one per row, their values aligned: status, priority, assignee and
@@ -52,8 +52,8 @@ export function IssueProperties({
             onChange={(statusId) => {
               const status = statuses.find(({ id }) => id === statusId);
               if (status) {
-                const { id, name, color, category } = status;
-                onEdit({ field: 'status', status: { id, name, color, category } });
+                const { id, name, color, closes } = status;
+                onEdit({ field: 'status', status: { id, name, color, closes } });
               }
             }}
           />

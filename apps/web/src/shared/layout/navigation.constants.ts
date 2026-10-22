@@ -1,8 +1,10 @@
 import type { LinkProps } from '@tanstack/react-router';
 import type { Permission } from '@toppo/core';
 import {
+  CircleDotIcon,
   FolderKanbanIcon,
   InboxIcon,
+  ListIcon,
   type LucideIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
@@ -84,6 +86,23 @@ export const SETTINGS_NAV: readonly NavSection[] = [
         labelKey: 'roles.title',
         icon: ShieldCheckIcon,
         requiresAnyOf: ['instance.roles.manage'],
+      },
+    ],
+  },
+  {
+    labelKey: 'settings.issuesSection',
+    items: [
+      {
+        to: '/settings/statuses',
+        labelKey: 'workflow.title',
+        icon: CircleDotIcon,
+        requiresAnyOf: ['instance.settings.manage'],
+      },
+      {
+        to: '/settings/properties',
+        labelKey: 'properties.title',
+        icon: ListIcon,
+        requiresAnyOf: ['instance.settings.manage'],
       },
     ],
   },

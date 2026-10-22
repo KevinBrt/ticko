@@ -10,7 +10,7 @@ const ISSUE: IssueResponse = {
   project: { key: 'WEB', name: 'Website' },
   title: 'Broken link',
   description: '',
-  status: { id: ID, name: 'New', color: 'cyan', category: 'todo' },
+  status: { id: ID, name: 'New', color: 'cyan', closes: false },
   category: { id: ID, name: 'Bug', color: 'gray' },
   priority: { id: ID, name: 'Normal', level: 2 },
   assignee: null,
@@ -36,7 +36,7 @@ describe('applyEdit', () => {
   });
 
   it('takes whole values for the fields chosen from a list', () => {
-    const status = { id: ID, name: 'Resolved', color: 'green', category: 'done' } as const;
+    const status = { id: ID, name: 'Resolved', color: 'green', closes: true } as const;
     const category = { id: ID, name: 'Question', color: 'violet' } as const;
     const priority = { id: ID, name: 'Urgent', level: 4 } as const;
 

@@ -1,4 +1,4 @@
-import type { StatusCategory } from '@toppo/shared';
+import type { WorkflowMode } from '@toppo/shared';
 
 /** A workflow, as far as choosing it goes: the instance's (`projectId` null) or a project's copy. */
 export interface WorkflowOwner {
@@ -39,32 +39,41 @@ export interface Transition {
   toStatusId: string;
 }
 
+/** What a workflow knows of the moves between its statuses. */
+export interface WorkflowMoves {
+  mode: WorkflowMode;
+  /** Its statuses, in order. */
+  statusIds: readonly string[];
+  /** Followed while the mode is `defined`, kept while it is `free`. */
+  transitions: readonly Transition[];
+}
+
 /**
- * The statuses an issue may move to from `statusId`. People choose an issue's status; the workflow
- * only says which moves are possible, for everyone, administrators included.
+ * The statuses an issue may move to from `statusId`: those the transitions list, or every other
+ * status of a free workflow. People choose an issue's status; the workflow only says which moves
+ * are possible, for everyone, administrators included.
  */
-export function nextStatusesOf(transitions: readonly Transition[], statusId: string): string[] {
-  return transitions
+export function nextStatusesOf(workflow: WorkflowMoves, statusId: string): string[] {
+  if (workflow.mode === 'free') {
+    return workflow.statusIds.includes(statusId)
+      ? workflow.statusIds.filter((id) => id !== statusId)
+      : [];
+  }
+  return workflow.transitions
     .filter((transition) => transition.fromStatusId === statusId)
     .map((transition) => transition.toStatusId);
 }
 
 /** Whether the workflow lets an issue move from one status to the other. */
-export function canMoveTo(transitions: readonly Transition[], from: string, to: string): boolean {
-  return nextStatusesOf(transitions, from).includes(to);
+export function canMoveTo(workflow: WorkflowMoves, from: string, to: string): boolean {
+  return nextStatusesOf(workflow, from).includes(to);
 }
 
 /**
- * When an issue was closed, once it moves to a status of `category`: when it first reached a done
- * status, kept while it moves between done statuses, and cleared when it is reopened.
+ * When an issue was closed, once it moves to a status that `closes` it or not: when it first
+ * reached a closing status, kept while it moves between closing statuses, and cleared when it is
+ * reopened.
  */
-export function closedAtFor(
-  category: StatusCategory,
-  previous: Date | null,
-  now: Date,
-): Date | null {
-  if (category !== 'done') {
-    return null;
-  }
-  return previous ?? now;
+export function closedAtFor(closes: boolean, previous: Date | null, now: Date): Date | null {
+  return closes ? (previous ?? now) : null;
 }

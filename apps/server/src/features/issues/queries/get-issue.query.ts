@@ -27,7 +27,7 @@ export const getIssue = defineQuery({
           id: statuses.id,
           name: statuses.name,
           color: statuses.color,
-          category: statuses.category,
+          closes: statuses.closes,
         },
         category: {
           id: issueCategories.id,

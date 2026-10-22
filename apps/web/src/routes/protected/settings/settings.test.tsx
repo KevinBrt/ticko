@@ -33,14 +33,18 @@ describe('the settings', () => {
     await expect.element(breadcrumb.getByText('Members')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('have nothing to show yet to users who only manage instance settings', async () => {
+  it('open on the statuses for users who only manage instance settings', async () => {
     fakeServer({ user: { ...GRACE, permissions: ['instance.settings.manage'] } });
-    const { screen } = await renderApp({ path: '/settings' });
+    const { screen, router } = await renderApp({ path: '/settings' });
+    const sections = screen.getByRole('navigation', { name: 'Settings sections' });
 
-    await expect.element(screen.getByText('Nothing to configure yet')).toBeVisible();
+    await expect.element(screen.getByRole('heading', { level: 1, name: 'Statuses' })).toBeVisible();
+    expect(router.state.location.pathname).toBe('/settings/statuses');
     await expect
-      .element(screen.getByRole('navigation', { name: 'Settings sections' }))
-      .not.toBeInTheDocument();
+      .element(sections.getByRole('link', { name: 'Statuses' }))
+      .toHaveAttribute('aria-current', 'page');
+    await expect.element(sections.getByRole('link', { name: 'Issue properties' })).toBeVisible();
+    await expect.element(sections.getByRole('link', { name: 'Members' })).not.toBeInTheDocument();
   });
 
   it('are left out of the navigation of users who manage nothing', async () => {

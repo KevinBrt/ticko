@@ -4,6 +4,7 @@ export {
   isInvitationExpired,
 } from './invitations.ts';
 export { formatIssueKey, type IssueKeyParts, parseIssueKey } from './issue-key.ts';
+export { type CategoriesPlan, planCategories } from './issues/categories.ts';
 export {
   DEFAULT_CATEGORIES,
   DEFAULT_FIELD_NAMES,
@@ -31,6 +32,7 @@ export {
   type IssueFields,
   issueChanges,
 } from './issues/issue-changes.ts';
+export { priorityLevelOf } from './issues/priority-level.ts';
 export {
   canMoveTo,
   closedAtFor,
@@ -38,8 +40,10 @@ export {
   initialStatusOf,
   nextStatusesOf,
   type Transition,
+  type WorkflowMoves,
   type WorkflowOwner,
 } from './issues/workflow.ts';
+export { closingChanges, planWorkflow, type WorkflowPlan } from './issues/workflow-plan.ts';
 export {
   type AccountChange,
   canActOnRole,

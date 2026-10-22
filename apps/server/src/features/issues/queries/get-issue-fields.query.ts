@@ -1,9 +1,8 @@
-import { effectiveWorkflow, nextStatusesOf } from '@toppo/core';
+import { effectiveWorkflow, nextStatusesOf, priorityLevelOf } from '@toppo/core';
 import { schema } from '@toppo/db';
 import { type IssueFieldsResponse, projectIssuesParamsSchema } from '@toppo/shared';
 import { asc, eq, isNull, or } from 'drizzle-orm';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
-import { priorityLevelOf } from '../utils/issue-rows.util.ts';
 
 const { issueCategories, priorities, statuses, workflowStatuses, workflowTransitions, workflows } =
   schema;
@@ -18,7 +17,7 @@ export const getIssueFields = defineQuery({
   input: projectIssuesParamsSchema,
   async handler({ db, project }): Promise<IssueFieldsResponse> {
     const candidates = await db
-      .select({ id: workflows.id, projectId: workflows.projectId })
+      .select({ id: workflows.id, projectId: workflows.projectId, mode: workflows.mode })
       .from(workflows)
       .where(or(isNull(workflows.projectId), eq(workflows.projectId, project.id)));
     const workflow = effectiveWorkflow(candidates, project.id);
@@ -28,7 +27,7 @@ export const getIssueFields = defineQuery({
           id: statuses.id,
           name: statuses.name,
           color: statuses.color,
-          category: statuses.category,
+          closes: statuses.closes,
           isInitial: workflowStatuses.isInitial,
         })
         .from(workflowStatuses)
@@ -61,9 +60,10 @@ export const getIssueFields = defineQuery({
         .from(priorities)
         .orderBy(asc(priorities.level)),
     ]);
+    const moves = { mode: workflow.mode, statusIds: steps.map(({ id }) => id), transitions };
 
     return {
-      statuses: steps.map((step) => ({ ...step, next: nextStatusesOf(transitions, step.id) })),
+      statuses: steps.map((step) => ({ ...step, next: nextStatusesOf(moves, step.id) })),
       categories,
       priorities: levels.map((priority) => ({
         ...priority,

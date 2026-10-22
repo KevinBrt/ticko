@@ -168,7 +168,7 @@ describe('reporting an issue', () => {
       title: 'Broken link',
       description: '',
       project: { key: 'WEB', name: 'WEB' },
-      status: { id: STATUS.new, category: 'todo' },
+      status: { id: STATUS.new, closes: false },
       category: { id: idOf(DEFAULT_CATEGORIES, 'request') },
       priority: { id: idOf(DEFAULT_PRIORITIES, 'normal'), level: 2 },
       assignee: null,
@@ -531,7 +531,7 @@ describe('issues assigned to me', () => {
     expect(mine.matching).toBe(4);
     expect(mine.rows[1]).toMatchObject({
       project: { key: 'APP', name: 'Mobile app' },
-      status: { id: STATUS.resolved, category: 'done' },
+      status: { id: STATUS.resolved, closes: true },
       assignee: { id: teamId, name: 'Grace Hopper' },
     });
     expect(await keysAssigned(adminCookie)).toStrictEqual([]);

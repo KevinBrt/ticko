@@ -28,14 +28,26 @@ export {
   issueActivitySchema,
 } from './issues/activities.ts';
 export {
+  CATEGORIES_MAX,
+  CATEGORY_NAME_MAX_LENGTH,
+  type CategoriesRequest,
+  type CategoriesResponse,
+  type CategoryDraft,
+  type CategoryRow,
+  categoriesRequestSchema,
+  categoriesResponseSchema,
+  categoryDraftSchema,
+  categoryNameSchema,
+} from './issues/categories.ts';
+export {
   ISSUE_DESCRIPTION_MAX_LENGTH,
   ISSUE_TITLE_MAX_LENGTH,
   issueDescriptionSchema,
   issueTitleSchema,
   PRIORITY_LEVELS,
   type PriorityLevel,
-  STATUS_CATEGORIES,
-  type StatusCategory,
+  WORKFLOW_MODES,
+  type WorkflowMode,
 } from './issues/fields.ts';
 export {
   type AssignedIssue,
@@ -75,6 +87,39 @@ export {
   updateIssueRequestSchema,
   userRefSchema,
 } from './issues/issues.ts';
+export { checkOptions, OPTION_PROBLEMS } from './issues/options.ts';
+export {
+  PRIORITY_NAME_MAX_LENGTH,
+  type PrioritiesRequest,
+  type PrioritiesResponse,
+  type PriorityDraft,
+  type PriorityRow,
+  prioritiesRequestSchema,
+  prioritiesResponseSchema,
+  priorityDraftSchema,
+  priorityNameSchema,
+} from './issues/priorities.ts';
+export {
+  checkWorkflow,
+  type ProjectWorkflowResponse,
+  projectWorkflowResponseSchema,
+  type RevertWorkflowRequest,
+  removedStatusSchema,
+  revertWorkflowRequestSchema,
+  STATUS_NAME_MAX_LENGTH,
+  statusNameSchema,
+  statusRefSchema,
+  transitionDraftSchema,
+  WORKFLOW_PROBLEMS,
+  WORKFLOW_STATUSES_MAX,
+  type WorkflowRequest,
+  type WorkflowResponse,
+  type WorkflowStatusDraft,
+  type WorkflowStatusRow,
+  workflowRequestSchema,
+  workflowResponseSchema,
+  workflowStatusDraftSchema,
+} from './issues/workflows.ts';
 export { DEFAULT_LOCALE, type Locale, localeSchema, SUPPORTED_LOCALES } from './locale.ts';
 export {
   type AcceptInvitationRequest,

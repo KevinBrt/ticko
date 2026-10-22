@@ -1,4 +1,4 @@
-import { PALETTE_COLORS, STATUS_CATEGORIES } from '@toppo/shared';
+import { PALETTE_COLORS, WORKFLOW_MODES } from '@toppo/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -25,7 +25,8 @@ export const statuses = pgTable(
   {
     id: id(),
     name: text('name').notNull(),
-    category: text('category', { enum: STATUS_CATEGORIES }).notNull(),
+    /** Issues on it are closed (`closed_at` set). */
+    closes: boolean('closes').notNull().default(false),
     color: text('color', { enum: PALETTE_COLORS }).notNull().default('gray'),
     /** Null for the instance's statuses. */
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
@@ -33,7 +34,6 @@ export const statuses = pgTable(
   },
   (table) => [
     check('statuses_name_not_blank', sql`btrim(${table.name}) <> ''`),
-    check('statuses_category_check', sql`${table.category} in ('todo', 'in_progress', 'done')`),
     check(
       'statuses_color_check',
       sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan', 'orange', 'pink')`,
@@ -54,11 +54,14 @@ export const workflows = pgTable(
     id: id(),
     /** Null for the instance's workflow. */
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    /** `free`: any status may follow any other; its transitions wait for it to be defined again. */
+    mode: text('mode', { enum: WORKFLOW_MODES }).notNull().default('defined'),
     ...timestamps,
   },
   (table) => [
     // One workflow for the instance, and at most one copy per project.
     unique('workflows_project_unique').on(table.projectId).nullsNotDistinct(),
+    check('workflows_mode_check', sql`${table.mode} in ('defined', 'free')`),
   ],
 );
 
