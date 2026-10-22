@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IssueSummary, IssuesQuery, UserRef } from '@toppo/shared';
-import { Alert, Button } from '@toppo/ui';
-import { PlusCircleIcon } from 'lucide-react';
+import type { IssueSummary, ProjectIssuesQuery, UserRef } from '@toppo/shared';
+import { Alert, Button, EmptyState } from '@toppo/ui';
+import { PlusCircleIcon, SearchXIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { Issues } from '../../api/issues.api.ts';
 import { IssuesQueries } from '../../queries/issues.queries.ts';
+import { isNarrowed, orderOf, sortedBy, sortOf } from '../../utils/issue-list.util.ts';
 import { AssigneeDialog } from '../fields/assignee-dialog.tsx';
 import { PersonName } from '../fields/person-name.tsx';
 import { IssuesTable } from './issues-table.tsx';
+import { IssuesToolbar } from './issues-toolbar.tsx';
 
 const KNOWN_ERRORS = {
   INVALID_ASSIGNEE: 'issues.invalidAssignee',
@@ -17,22 +19,24 @@ const KNOWN_ERRORS = {
 } as const;
 
 /**
- * One page of a project's issues, newest first, each row opening its issue. Who may assign issues
- * gives an unassigned one to someone from the list.
+ * One page of a project's issues as the toolbar asks for them, each row opening its issue. Who
+ * may assign issues gives an unassigned one to someone from the list.
  */
 export function IssuesList({
   projectKey,
   query,
   canAssign,
+  seesEveryIssue,
   empty,
   onQueryChange,
 }: {
   projectKey: string;
-  query: IssuesQuery;
+  query: ProjectIssuesQuery;
   canAssign: boolean;
-  /** Shown when the project has no issue yet. */
+  seesEveryIssue: boolean;
+  /** Shown when the list is not searched nor filtered, and still empty. */
   empty: ReactNode;
-  onQueryChange: (query: IssuesQuery) => void;
+  onQueryChange: (query: ProjectIssuesQuery) => void;
 }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -49,14 +53,33 @@ export function IssuesList({
 
   return (
     <div className="flex flex-col gap-4">
+      <IssuesToolbar
+        projectKey={projectKey}
+        query={query}
+        seesEveryIssue={seesEveryIssue}
+        canListPeople={canAssign}
+        onQueryChange={onQueryChange}
+      />
       {failure ? (
         <Alert tone="danger">{requestErrorMessage(failure, t, KNOWN_ERRORS)}</Alert>
       ) : null}
       <IssuesTable
         issues={issues}
-        empty={empty}
+        grouping={query.group}
+        empty={
+          isNarrowed(query) ? (
+            <EmptyState
+              icon={SearchXIcon}
+              title={t('issues.list.noMatchTitle')}
+              description={t('issues.list.noMatchDescription')}
+            />
+          ) : (
+            empty
+          )
+        }
         last={{
           header: t('issues.assignee'),
+          sort: 'assignee',
           cell: (issue) => (
             <AssigneeCell
               issue={issue}
@@ -65,6 +88,11 @@ export function IssuesList({
               onAssign={(assignee) => assign.mutate({ key: issue.key, assignee })}
             />
           ),
+        }}
+        sorting={{
+          sort: sortOf(query),
+          order: orderOf(query),
+          onSort: (sort) => onQueryChange(sortedBy(query, sort)),
         }}
         onPage={(page) => onQueryChange({ ...query, page })}
       />

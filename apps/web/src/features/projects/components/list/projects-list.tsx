@@ -165,8 +165,10 @@ export function ProjectsList({
 
 /** A project, the whole row opening it: its name is the link, stretched over the row. */
 function ProjectRow({ project }: { project: ProjectSummary }) {
+  // Only the background eases: a row moving up gets its line at once, not fading from the text
+  // color.
   return (
-    <tr className="relative transition-colors hover:bg-surface-hover">
+    <tr className="relative transition-[background-color] hover:bg-surface-hover">
       <td className="py-3 pr-2 pl-4">
         <div className="flex min-w-0 items-center gap-3">
           <ProjectMark name={project.name} color={project.color} />

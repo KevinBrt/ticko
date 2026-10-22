@@ -37,6 +37,7 @@ export {
 } from './components/overlays/dialog.tsx';
 export {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,

@@ -40,14 +40,15 @@ describe('projectIssuesQuerySchema', () => {
     expect(projectIssuesQuerySchema.parse(query)).toStrictEqual(query);
   });
 
-  it('lists the newest first, ungrouped, by default', () => {
-    expect(projectIssuesQuerySchema.parse({})).toStrictEqual({ page: 1, sort: 'newest' });
+  it('lists the newest first by key, ungrouped, by default', () => {
+    expect(projectIssuesQuerySchema.parse({})).toStrictEqual({ page: 1, sort: 'key' });
   });
 
   it.each([
     { status: 'not-an-id' },
     { reporter: 'none' },
-    { sort: 'title' },
+    { sort: 'name' },
+    { order: 'up' },
     { group: 'category' },
     { state: 'archived' },
     { priority: Array.from({ length: 51 }, () => ID).join(',') },

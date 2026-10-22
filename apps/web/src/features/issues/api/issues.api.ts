@@ -14,6 +14,7 @@ import {
   issueFieldsResponseSchema,
   issueResponseSchema,
   issuesResponseSchema,
+  type ProjectIssuesQuery,
   type UpdateIssueRequest,
 } from '@toppo/shared';
 import { z } from 'zod';
@@ -29,11 +30,32 @@ const issuePath = (key: string) => `/api/v1/issues/${encodeURIComponent(key)}`;
 const pageQuery = (page: number | undefined) =>
   page && page > 1 ? `?${new URLSearchParams({ page: String(page) })}` : '';
 
+/** `?state=open&status=a,b`: what a project's list asks for, its lists joined by commas. */
+function listQuery(query: ProjectIssuesQuery): string {
+  const entries = {
+    page: query.page && query.page > 1 ? String(query.page) : undefined,
+    search: query.search,
+    state: query.state,
+    status: query.status?.join(','),
+    priority: query.priority?.join(','),
+    category: query.category?.join(','),
+    assignee: query.assignee?.join(','),
+    reporter: query.reporter?.join(','),
+    sort: query.sort,
+    order: query.order,
+    group: query.group,
+  };
+  const params = new URLSearchParams(
+    Object.entries(entries).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  );
+  return params.size > 0 ? `?${params}` : '';
+}
+
 /** Server calls about issues, each named by its key (`WEB-42`). One out of sight answers 404. */
 export const Issues = {
-  /** One page of a project's issues, newest first. */
-  async list(projectKey: string, { page }: IssuesQuery): Promise<IssuesResponse> {
-    return await apiRequest(`${projectPath(projectKey)}/issues${pageQuery(page)}`, {
+  /** One page of a project's issues, searched, filtered, sorted and maybe grouped. */
+  async list(projectKey: string, query: ProjectIssuesQuery): Promise<IssuesResponse> {
+    return await apiRequest(`${projectPath(projectKey)}/issues${listQuery(query)}`, {
       schema: issuesResponseSchema,
     });
   },

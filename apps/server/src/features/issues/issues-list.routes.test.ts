@@ -251,20 +251,24 @@ describe('filtering', () => {
 });
 
 describe('sorting', () => {
-  it('by number, oldest first', async () => {
-    expect(await numbers('sort=oldest')).toStrictEqual([1, 2, 3, 4, 5]);
-  });
-
-  it('by the last change, the latest first', async () => {
-    expect(await numbers('sort=updated')).toStrictEqual([3, 4, 2, 1, 5]);
-  });
-
-  it('by priority, the most urgent first, then the newest', async () => {
-    expect(await numbers('sort=priority')).toStrictEqual([4, 1, 3, 2, 5]);
-  });
-
-  it('by status, in the order of the workflow, then the newest', async () => {
-    expect(await numbers('sort=status')).toStrictEqual([5, 3, 4, 1, 2]);
+  // Each sort in its own order unless asked otherwise, ties newest first, no one last.
+  it.each([
+    ['', [5, 4, 3, 2, 1]],
+    ['sort=key&order=asc', [1, 2, 3, 4, 5]],
+    ['sort=title', [1, 4, 5, 2, 3]],
+    ['sort=title&order=desc', [3, 2, 5, 4, 1]],
+    ['sort=reporter', [4, 2, 1, 5, 3]],
+    ['sort=category', [5, 1, 3, 2, 4]],
+    ['sort=priority', [4, 1, 3, 2, 5]],
+    ['sort=priority&order=asc', [5, 3, 2, 1, 4]],
+    ['sort=status', [5, 3, 4, 1, 2]],
+    ['sort=status&order=desc', [2, 1, 4, 5, 3]],
+    ['sort=assignee', [4, 5, 1, 3, 2]],
+    ['sort=assignee&order=desc', [5, 1, 4, 3, 2]],
+    ['sort=updated', [3, 4, 2, 1, 5]],
+    ['sort=updated&order=asc', [5, 1, 2, 4, 3]],
+  ])('%s lists %j', async (query, expected) => {
+    expect(await numbers(query)).toStrictEqual(expected);
   });
 });
 
@@ -288,7 +292,7 @@ describe('grouping', () => {
   });
 
   it('by priority, the most urgent first, sorted inside each group', async () => {
-    const page = await list('group=priority&sort=oldest');
+    const page = await list('group=priority&sort=key&order=asc');
 
     expect(page.rows.map(({ key }) => key)).toStrictEqual([
       'WEB-4',
@@ -357,7 +361,7 @@ describe('searching', () => {
 
   it('applies the filters too, and never shows a requester more than their own', async () => {
     expect(await numbers('search=sign&state=closed')).toStrictEqual([]);
-    expect(await numbers('search=on&sort=oldest')).toStrictEqual([3, 4]);
+    expect(await numbers('search=on&sort=key&order=asc')).toStrictEqual([3, 4]);
     expect(await searching('crash', requesterCookie)).toStrictEqual([]);
     expect(await searching('typo', requesterCookie)).toStrictEqual([3]);
   });
@@ -370,7 +374,8 @@ describe('a list it cannot read', () => {
     'assignee=someone',
     'reporter=none',
     'state=archived',
-    'sort=title',
+    'sort=name',
+    'order=up',
     'group=category',
     'page=0',
   ])('refuses %s', async (query) => {

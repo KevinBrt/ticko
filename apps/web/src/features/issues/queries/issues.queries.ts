@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
-import type { IssuesQuery } from '@toppo/shared';
+import type { IssuesQuery, ProjectIssuesQuery } from '@toppo/shared';
 import { Issues } from '../api/issues.api.ts';
 
 /** Cached issues data. Keys start with `issues`. */
@@ -9,7 +9,7 @@ export const IssuesQueries = {
   /** Every cached page of a project's issues. */
   allOf: (projectKey: string) => ['issues', 'list', projectKey] as const,
   /** One page of a project's issues. The previous page stays while the next loads. */
-  list: (projectKey: string, query: IssuesQuery) =>
+  list: (projectKey: string, query: ProjectIssuesQuery) =>
     queryOptions({
       queryKey: ['issues', 'list', projectKey, query],
       queryFn: () => Issues.list(projectKey, query),

@@ -97,11 +97,11 @@ Nine tasks. The first issue can be created and closed at task 6, with the seeded
 
 _Done when an issue is found in under 3 seconds._
 
-- [ ] Issue list: sort, group (status, priority, assignee), pagination, state kept in the URL.
-- [ ] Filters as chips, as in the mockups; saved in the URL.
-- [ ] Full-text search (`tsvector`) and fuzzy search (`pg_trgm`); typing `WEB-42` opens the issue (`parseIssueKey`).
-- [ ] Command palette (`Ctrl/Cmd + K`) and shortcuts: `C` create, `/` search, `E` edit.
-- [ ] Phone layout of the list (cards instead of a table).
+- [x] Issue list: open issues first, sort, group (status, priority, assignee), pagination, state kept in the URL.
+- [x] Filters as a row of menus (state, status, priority, category, assignee, requester); sorting from the column headers; saved in the URL.
+- [x] Full-text search (`tsvector`) and fuzzy search (`pg_trgm`); `WEB-42` finds the issue.
+- [ ] Command palette (`Ctrl/Cmd + K`), where typing `WEB-42` opens the issue, and shortcuts: `C` create, `/` search, `E` edit.
+- [x] Phone layout of the list (cards instead of a table).
 - [ ] Indexes checked with `EXPLAIN` on a seeded database of realistic size.
 
 ## Step 4: collaboration

@@ -69,6 +69,22 @@ export function DropdownMenuRadioItem({
   );
 }
 
+/** One choice among those that go together; each chosen one carries a check mark. */
+export function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof Menu.CheckboxItem>) {
+  return (
+    <Menu.CheckboxItem className={cn(ITEM_CLASS, 'justify-between', className)} {...props}>
+      {children}
+      <Menu.ItemIndicator>
+        <CheckIcon aria-hidden="true" className="text-primary" />
+      </Menu.ItemIndicator>
+    </Menu.CheckboxItem>
+  );
+}
+
 export function DropdownMenuSeparator({
   className,
   ...props

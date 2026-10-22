@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
 import { Button } from '../button.tsx';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -56,5 +58,52 @@ describe('DropdownMenu', () => {
     await expect
       .element(screen.getByRole('menuitem', { name: 'Reactivate' }))
       .toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+/** Statuses to show, several at once: the menu stays open while choosing. */
+function StatusFilter() {
+  const [chosen, setChosen] = useState<string[]>(['New']);
+  const toggle = (status: string, checked: boolean) =>
+    setChosen((current) =>
+      checked ? [...current, status] : current.filter((value) => value !== status),
+    );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button>Status: {chosen.join(', ')}</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        {['New', 'Done'].map((status) => (
+          <DropdownMenuCheckboxItem
+            key={status}
+            checked={chosen.includes(status)}
+            onCheckedChange={(checked) => toggle(status, checked)}
+            onSelect={(event) => event.preventDefault()}
+          >
+            {status}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+describe('DropdownMenuCheckboxItem', () => {
+  it('marks each chosen option, and takes or leaves one at a time', async () => {
+    const screen = await render(<StatusFilter />);
+
+    await screen.getByRole('button', { name: 'Status: New' }).click();
+    await expect
+      .element(screen.getByRole('menuitemcheckbox', { name: 'New' }))
+      .toHaveAttribute('aria-checked', 'true');
+    await screen.getByRole('menuitemcheckbox', { name: 'Done' }).click();
+    await screen.getByRole('menuitemcheckbox', { name: 'New' }).click();
+
+    await expect
+      .element(screen.getByRole('menuitemcheckbox', { name: 'Done' }))
+      .toHaveAttribute('aria-checked', 'true');
+    await userEvent.keyboard('{Escape}');
+    await expect.element(screen.getByRole('button', { name: 'Status: Done' })).toBeVisible();
   });
 });

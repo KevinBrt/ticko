@@ -21,7 +21,7 @@ test('an issue is reported, moved through the workflow and closed', async ({ pag
   expect(created.status()).toBe(201);
 
   await page.goto(`/issues?project=${key}`);
-  await expect(page.getByText('No issues yet')).toBeVisible();
+  await expect(page.getByText('No open issues')).toBeVisible();
   await expectAccessible(page);
   await page.getByRole('link', { name: 'New issue' }).click();
 
@@ -77,12 +77,86 @@ test('an issue is reported, moved through the workflow and closed', async ({ pag
     .getByRole('navigation', { name: 'Breadcrumb' })
     .getByRole('link', { name: 'Issues' })
     .click();
-  const row = page.getByRole('row').filter({ hasText: `${key}-1` });
-  await expect(row.getByText('Resolved')).toBeVisible();
+  // Closed now: out of the open issues shown first, among the closed ones.
+  await expect(page.getByText('No open issues')).toBeVisible();
+  await page
+    .getByRole('group', { name: 'Filters' })
+    .getByRole('button', { name: 'State: Open' })
+    .click();
+  await page.getByRole('menuitemradio', { name: 'Closed' }).click();
+  await expect(page.getByRole('link', { name: 'Invoices fail to download' })).toBeVisible();
+  await expect(
+    page.getByRole('main').getByText('Resolved', { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
   await expectAccessible(page);
 
   // Given to oneself, closed or not, it is among one's issues.
   await page.goto('/my-issues');
-  await expect(page.getByRole('row').filter({ hasText: `${key}-1` })).toBeVisible();
+  await expect(
+    page.getByRole('main').getByText(`${key}-1`, { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
+  await expectAccessible(page);
+});
+
+test('an issue is found by its words, its key, or a filter, the list grouped', async ({
+  page,
+  baseURL,
+}) => {
+  const key = uniqueKey();
+  const headers = { origin: baseURL ?? '' };
+  expect(
+    (
+      await page.request.post('/api/v1/projects', { headers, data: { key, name: `Find ${key}` } })
+    ).status(),
+  ).toBe(201);
+  const fields: { priorities: { id: string; name: string }[] } = await (
+    await page.request.get(`/api/v1/projects/${key}/issue-fields`)
+  ).json();
+  const urgent = fields.priorities.find(({ name }) => name === 'Urgent');
+  if (!urgent) {
+    throw new Error('No Urgent priority');
+  }
+  for (const issue of [
+    { title: 'Invoices fail to download' },
+    { title: 'Export is empty', priorityId: urgent.id },
+    { title: 'Typo on the home page', description: 'The café is misspelled.' },
+  ]) {
+    expect(
+      (
+        await page.request.post(`/api/v1/projects/${key}/issues`, { headers, data: issue })
+      ).status(),
+    ).toBe(201);
+  }
+
+  await page.goto(`/issues?project=${key}`);
+  const search = page.getByRole('searchbox', { name: 'Search issues' });
+  await search.fill('CAFE');
+  await expect(page.getByRole('link', { name: 'Export is empty' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Typo on the home page' })).toBeVisible();
+  await search.fill(`${key.toLowerCase()}-1`);
+  await expect(page.getByRole('link', { name: 'Typo on the home page' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Invoices fail to download' })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear the filters' }).click();
+
+  await page
+    .getByRole('group', { name: 'Filters' })
+    .getByRole('button', { name: 'Priority' })
+    .click();
+  await page.getByRole('menuitemcheckbox', { name: 'Urgent' }).click();
+  await page.keyboard.press('Escape');
+  await expectAccessible(page);
+  await expect(page.getByRole('link', { name: 'Invoices fail to download' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Export is empty' })).toBeVisible();
+
+  // Kept in the address: shared or reloaded, the list shows the same.
+  await page.getByRole('button', { name: 'Group: None' }).click();
+  await page.getByRole('menuitemradio', { name: 'Priority' }).click();
+  await page.reload();
+  await expect(
+    page.getByRole('group', { name: 'Filters' }).getByRole('button', { name: 'Priority: Urgent' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Group: Priority' })).toBeVisible();
+  await expect(page.getByText('1 issue', { exact: true }).filter({ visible: true })).toBeAttached();
+  await expect(page.getByRole('link', { name: 'Export is empty' })).toBeVisible();
   await expectAccessible(page);
 });

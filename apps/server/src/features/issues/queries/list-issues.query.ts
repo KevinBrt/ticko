@@ -1,6 +1,7 @@
 import { effectiveWorkflow, issueReferenceIn, issueVisibilityOf } from '@toppo/core';
 import { type Db, schema } from '@toppo/db';
 import {
+  ISSUE_SORT_ORDERS,
   ISSUES_PAGE_SIZE,
   type IssueGrouping,
   type IssueSort,
@@ -9,6 +10,7 @@ import {
   type ProjectIssuesQuery,
   projectIssuesParamsSchema,
   projectIssuesQuerySchema,
+  type SortOrder,
 } from '@toppo/shared';
 import {
   and,
@@ -21,6 +23,7 @@ import {
   isNull,
   or,
   type SQL,
+  type SQLWrapper,
   sql,
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
@@ -33,14 +36,26 @@ const { issueCategories, issues, priorities, statuses, users, workflowStatuses, 
 const assignees = alias(users, 'assignees');
 const reporters = alias(users, 'reporters');
 
-/** Each sort ends with the newest first, so that pages never overlap. */
-const SORTS: Readonly<Record<IssueSort, SQL[]>> = {
-  newest: [desc(issues.number)],
-  oldest: [asc(issues.number)],
-  updated: [desc(issues.updatedAt), desc(issues.number)],
-  priority: [desc(priorities.level), desc(issues.number)],
-  status: [asc(workflowStatuses.position), desc(issues.number)],
+/** What each sort orders issues by: categories and statuses as the administrators ordered them. */
+const SORT_COLUMNS: Readonly<Record<IssueSort, SQLWrapper>> = {
+  key: issues.number,
+  title: sql`lower(${issues.title})`,
+  reporter: reporters.name,
+  category: issueCategories.position,
+  priority: priorities.level,
+  status: workflowStatuses.position,
+  assignee: assignees.name,
+  updated: issues.updatedAt,
 };
+
+/**
+ * Issues in `order` of their `sort` column, those without a value (no assignee) last either way,
+ * then the newest first, so that pages never overlap.
+ */
+function sortedBy(sort: IssueSort, order: SortOrder): SQL[] {
+  const direction = order === 'asc' ? sql`asc` : sql`desc`;
+  return [sql`${SORT_COLUMNS[sort]} ${direction} nulls last`, desc(issues.number)];
+}
 
 /** What groups issues, the order of the groups, and the columns that order needs. */
 const GROUPINGS: Readonly<
@@ -67,9 +82,9 @@ const GROUPINGS: Readonly<
 };
 
 /**
- * One page of a project's issues, searched, filtered, sorted and maybe grouped, all in the query: every
- * issue, or only those the caller reported when that is all they may see. Grouped, the page
- * comes with the size of every group.
+ * One page of a project's issues, searched, filtered, sorted and maybe grouped, all in the
+ * query: every issue, or only those the caller reported when that is all they may see. Grouped,
+ * the page comes with the size of every group.
  */
 export const listIssues = defineQuery({
   name: 'issue.list',
@@ -120,7 +135,10 @@ export const listIssues = defineQuery({
       .leftJoin(assignees, eq(assignees.id, issues.assigneeId))
       .leftJoin(workflowStatuses, step)
       .where(matching)
-      .orderBy(...(grouping?.order ?? []), ...SORTS[query.sort])
+      .orderBy(
+        ...(grouping?.order ?? []),
+        ...sortedBy(query.sort, query.order ?? ISSUE_SORT_ORDERS[query.sort]),
+      )
       .limit(ISSUES_PAGE_SIZE)
       .offset((query.page - 1) * ISSUES_PAGE_SIZE);
     const [total] = await db.select({ count: count() }).from(issues).where(matching);

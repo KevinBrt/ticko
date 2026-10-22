@@ -96,10 +96,42 @@ export interface IssuesQuery {
   page?: number | undefined;
 }
 
-/** How a project's issues may be sorted; each sort ends with the newest first. */
-export const ISSUE_SORTS = ['newest', 'oldest', 'updated', 'priority', 'status'] as const;
+/**
+ * What a project's issues may be sorted by, one per column of the list: the key (the number),
+ * the title, the requester, the category, the priority, the status, the assignee, the last change.
+ * Each sort ends with the newest first.
+ */
+export const ISSUE_SORTS = [
+  'key',
+  'title',
+  'reporter',
+  'category',
+  'priority',
+  'status',
+  'assignee',
+  'updated',
+] as const;
 
 export type IssueSort = (typeof ISSUE_SORTS)[number];
+
+export const SORT_ORDERS = ['asc', 'desc'] as const;
+
+export type SortOrder = (typeof SORT_ORDERS)[number];
+
+/**
+ * The order of each sort when none is asked: the newest, the most urgent and the latest changed
+ * first; names from A to Z; categories and statuses as the administrators ordered them.
+ */
+export const ISSUE_SORT_ORDERS: Readonly<Record<IssueSort, SortOrder>> = {
+  key: 'desc',
+  title: 'asc',
+  reporter: 'asc',
+  category: 'asc',
+  priority: 'desc',
+  status: 'asc',
+  assignee: 'asc',
+  updated: 'desc',
+};
 
 /** What a project's issues may be grouped by, each group headed with its count. */
 export const ISSUE_GROUPINGS = ['status', 'priority', 'assignee'] as const;
@@ -138,7 +170,9 @@ export const projectIssuesQuerySchema = issuesQuerySchema.extend({
   assignee: listParameter(z.union([z.uuid(), z.literal('me'), z.literal('none')])),
   /** Someone, or the caller (`me`). */
   reporter: listParameter(z.union([z.uuid(), z.literal('me')])),
-  sort: z.enum(ISSUE_SORTS).default('newest'),
+  sort: z.enum(ISSUE_SORTS).default('key'),
+  /** The sort's own order when left out (`ISSUE_SORT_ORDERS`). */
+  order: z.enum(SORT_ORDERS).optional(),
   group: z.enum(ISSUE_GROUPINGS).optional(),
   /** Words of the title or description, part of the title, or the issue's key or number. */
   search: z.string().trim().max(100).optional(),
@@ -153,6 +187,7 @@ export interface ProjectIssuesQuery extends IssuesQuery {
   assignee?: readonly string[] | undefined;
   reporter?: readonly string[] | undefined;
   sort?: IssueSort | undefined;
+  order?: SortOrder | undefined;
   group?: IssueGrouping | undefined;
   search?: string | undefined;
 }

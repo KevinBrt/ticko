@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { createRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { can } from '@toppo/core';
-import type { IssuesQuery } from '@toppo/shared';
+import { can, issueVisibilityOf } from '@toppo/core';
+import type { ProjectIssuesQuery } from '@toppo/shared';
 import { buttonVariants, EmptyState } from '@toppo/ui';
 import { FolderXIcon, InboxIcon, PlusIcon } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
-import { z } from 'zod';
 import { IssuesList } from '../../../features/issues/components/list/issues-list.tsx';
+import { issueListSearchSchema } from '../../../features/issues/models/issue-list.model.ts';
+import { issuesQueryOf, searchOf } from '../../../features/issues/utils/issue-list.util.ts';
 import { lastProject, rememberProject } from '../../../features/issues/utils/last-project.util.ts';
 import { ProjectsQueries } from '../../../features/projects/queries/projects.queries.ts';
 import { ApiRequestError } from '../../../shared/api/http.client.ts';
@@ -15,12 +16,6 @@ import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
 import { Page } from '../../../shared/layout/page.tsx';
 import { issuesRoute } from './issues.route.tsx';
 
-/** The project and the page live in the URL: shareable, kept by back and forward. */
-const issuesSearchSchema = z.object({
-  project: z.string().trim().max(10).optional().catch(undefined),
-  page: z.coerce.number().int().min(1).optional().catch(undefined),
-});
-
 /**
  * One project's issues. Without a project in the address, the one looked at last in this
  * browser, else the first the person reaches.
@@ -28,7 +23,7 @@ const issuesSearchSchema = z.object({
 export const issuesIndexRoute = createRoute({
   getParentRoute: () => issuesRoute,
   path: '/',
-  validateSearch: issuesSearchSchema,
+  validateSearch: issueListSearchSchema,
   beforeLoad: async ({ context, search }) => {
     if (search.project) {
       return;
@@ -46,7 +41,9 @@ export const issuesIndexRoute = createRoute({
 function IssuesScreen() {
   const { t } = useI18n();
   const navigate = useNavigate({ from: issuesIndexRoute.fullPath });
-  const { project: projectKey, page } = issuesIndexRoute.useSearch();
+  const search = issuesIndexRoute.useSearch();
+  const projectKey = search.project;
+  const query = issuesQueryOf(search);
   const project = useQuery({
     ...ProjectsQueries.detail(projectKey ?? ''),
     enabled: projectKey !== undefined,
@@ -63,7 +60,11 @@ function IssuesScreen() {
   }, [project.data, missing]);
 
   const changeQuery = useCallback(
-    (next: IssuesQuery) => navigate({ search: (previous) => ({ ...previous, page: next.page }) }),
+    (next: ProjectIssuesQuery) =>
+      navigate({
+        search: (previous) => ({ project: previous.project, ...searchOf(next) }),
+        replace: true,
+      }),
     [navigate],
   );
 
@@ -100,13 +101,14 @@ function IssuesScreen() {
     <Page title={t('issues.title')} actions={newIssue}>
       <IssuesList
         projectKey={projectKey}
-        query={{ page }}
+        query={query}
         canAssign={can(permissions, 'issue.assign')}
+        seesEveryIssue={issueVisibilityOf(permissions) === 'all'}
         empty={
           <EmptyState
             icon={InboxIcon}
-            title={t('issues.emptyTitle')}
-            description={t('issues.emptyDescription')}
+            title={t('issues.list.noOpenTitle')}
+            description={t('issues.list.noOpenDescription')}
           />
         }
         onQueryChange={changeQuery}

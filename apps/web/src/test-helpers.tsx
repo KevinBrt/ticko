@@ -30,9 +30,12 @@ import {
 import {
   type CurrentUser,
   categoriesRequestSchema,
+  ISSUE_SORT_ORDERS,
   ISSUES_PAGE_SIZE,
   type IssueActivity,
+  type IssueGrouping,
   type IssueResponse,
+  type IssueSort,
   type IssueSummary,
   type Locale,
   MEMBERS_PAGE_SIZE,
@@ -45,15 +48,18 @@ import {
   type PriorityLevel,
   type ProjectAccessRow,
   prioritiesRequestSchema,
+  projectIssuesQuerySchema,
   ROLES_MAX,
   type RoleBadge,
   type RoleDetails,
+  type SortOrder,
   type UserSummary,
   type WorkflowMode,
   workflowRequestSchema,
 } from '@toppo/shared';
 import { vi } from 'vitest';
 import { render } from 'vitest-browser-react';
+import type { z } from 'zod';
 import { createAppRouter } from './router.tsx';
 import { I18nProvider } from './shared/i18n/i18n-provider.tsx';
 
@@ -1413,31 +1419,130 @@ function summaryOf(state: FakeServerState, issue: FakeIssue): IssueSummary {
   };
 }
 
-/** `GET /api/v1/projects/:key/issues`: newest first, only one's own when that is all one sees. */
+/**
+ * `GET /api/v1/projects/:key/issues`: searched, filtered, sorted and grouped like the server, only
+ * one's own when that is all one sees.
+ */
 function listIssues(
   state: FakeServerState,
   project: FakeProject,
   permissions: readonly ProjectPermission[],
   search: URLSearchParams,
 ): Response {
-  const page = Number(search.get('page') ?? '1');
+  const parsed = projectIssuesQuerySchema.safeParse(Object.fromEntries(search));
+  if (!parsed.success) {
+    return apiError(400, 'VALIDATION_FAILED');
+  }
+  const query = parsed.data;
   const visibility = issueVisibilityOf(permissions);
-  const visible = state.issues
+  const statusOrder = workflowOf(state, project.key).statuses.map(({ id }) => id);
+  const matching = state.issues
     .filter((issue) => issue.projectKey === project.key)
     .filter(
       (issue) =>
         visibility === 'all' || (visibility === 'own' && issue.reporterId === state.user?.id),
     )
-    .sort((left, right) => right.number - left.number);
+    .filter((issue) => matchesQuery(state, issue, query))
+    .map((issue) => summaryOf(state, issue));
+  const values = sortValues(state, statusOrder);
+  const grouping = query.group ? issueGroupings(values)[query.group] : null;
+  const sort = compareBy(values[query.sort], query.order ?? ISSUE_SORT_ORDERS[query.sort]);
+  const sorted = matching.sort(
+    (left, right) =>
+      (grouping?.compare(left, right) ?? 0) ||
+      sort(left, right) ||
+      numberOf(right) - numberOf(left),
+  );
+  const groups = grouping
+    ? [...new Set(sorted.map(grouping.key))].map((key) => ({
+        key,
+        count: sorted.filter((issue) => grouping.key(issue) === key).length,
+      }))
+    : null;
   return json({
-    rows: visible
-      .slice((page - 1) * ISSUES_PAGE_SIZE, page * ISSUES_PAGE_SIZE)
-      .map((issue) => summaryOf(state, issue)),
-    matching: visible.length,
-    page,
+    rows: sorted.slice((query.page - 1) * ISSUES_PAGE_SIZE, query.page * ISSUES_PAGE_SIZE),
+    matching: sorted.length,
+    page: query.page,
     pageSize: ISSUES_PAGE_SIZE,
-    groups: null,
+    groups,
   });
+}
+
+const numberOf = (issue: IssueSummary) => Number(issue.key.split('-')[1]);
+
+/** Whether an issue passes a list's search and filters, `me` standing for the signed-in user. */
+function matchesQuery(
+  state: FakeServerState,
+  issue: FakeIssue,
+  query: z.output<typeof projectIssuesQuerySchema>,
+): boolean {
+  const me = state.user?.id;
+  const people = (values: readonly string[]) =>
+    values.map((value) => (value === 'me' ? me : value));
+  const needle = fold(query.search ?? '');
+  const checks = [
+    query.state === undefined || (query.state === 'open') === (issue.closedAt === null),
+    !query.status || query.status.includes(issue.statusId),
+    !query.priority || query.priority.includes(issue.priorityId),
+    !query.category || query.category.includes(issue.categoryId),
+    !query.assignee || people(query.assignee).includes(issue.assigneeId ?? 'none'),
+    !query.reporter || people(query.reporter).includes(issue.reporterId),
+    !needle ||
+      [issue.title, issue.description].some((text) => fold(text).includes(needle)) ||
+      fold(keyOf(issue)) === needle,
+  ];
+  return checks.every(Boolean);
+}
+
+type IssueOrder = (left: IssueSummary, right: IssueSummary) => number;
+
+type SortValue = (issue: IssueSummary) => string | number | null;
+
+/** Issues in `order` of `value`, those without one (no assignee) last either way. */
+function compareBy(value: SortValue, order: SortOrder): IssueOrder {
+  return (left, right) => {
+    const [first, second] = [value(left), value(right)];
+    if (first === null || second === null) {
+      return (first === null ? 1 : 0) - (second === null ? 1 : 0);
+    }
+    const ascending =
+      typeof first === 'number' && typeof second === 'number'
+        ? first - second
+        : String(first).localeCompare(String(second));
+    return order === 'asc' ? ascending : -ascending;
+  };
+}
+
+/** What the server sorts by, column by column; categories and statuses in their set order. */
+function sortValues(
+  state: FakeServerState,
+  statusOrder: readonly string[],
+): Record<IssueSort, SortValue> {
+  const categoryOrder = state.categories.map(({ id }) => id);
+  return {
+    key: numberOf,
+    title: (issue) => issue.title.toLowerCase(),
+    reporter: (issue) => issue.reporter.name,
+    category: (issue) => categoryOrder.indexOf(issue.category.id),
+    priority: (issue) => issue.priority.level,
+    status: (issue) => statusOrder.indexOf(issue.status.id),
+    assignee: (issue) => issue.assignee?.name ?? null,
+    updated: (issue) => issue.updatedAt,
+  };
+}
+
+/** The groupings of the server: what groups issues, and the order of the groups. */
+function issueGroupings(
+  values: Record<IssueSort, SortValue>,
+): Record<IssueGrouping, { key: (issue: IssueSummary) => string | null; compare: IssueOrder }> {
+  return {
+    status: { key: (issue) => issue.status.id, compare: compareBy(values.status, 'asc') },
+    priority: { key: (issue) => issue.priority.id, compare: compareBy(values.priority, 'desc') },
+    assignee: {
+      key: (issue) => issue.assignee?.id ?? null,
+      compare: compareBy(values.assignee, 'asc'),
+    },
+  };
 }
 
 /**
