@@ -2,21 +2,22 @@ import { Outlet } from '@tanstack/react-router';
 import { Sheet, SheetContent } from '@toppo/ui';
 import { type ReactNode, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
+import type { NavAudience } from './navigation.constants.ts';
 import { SidebarContent } from './sidebar-content.tsx';
 import { Topbar } from './topbar.tsx';
 
 /**
  * Application frame. From `lg` up the sidebar is fixed on the left; below, it moves into a
  * drawer opened from the top bar, so every screen works from 320 px phones to wide desktops.
- * The permissions and the sidebar footer come from the caller, so this frame stays free of any
+ * Who the user is and the sidebar footer come from the caller, so this frame stays free of any
  * feature.
  */
 export function AppShell({
-  permissions,
+  audience,
   sidebarFooter,
 }: {
-  /** What the signed-in user may do: the navigation hides the rest. */
-  permissions: readonly string[];
+  /** The signed-in user: the navigation hides what they could not use. */
+  audience: NavAudience;
   /** Drawn in the sidebar and in the drawer, whose links call `onNavigate` to close it. */
   sidebarFooter?: (options: { onNavigate?: () => void }) => ReactNode;
 }) {
@@ -33,7 +34,7 @@ export function AppShell({
       </a>
 
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 border-r border-sidebar-border lg:flex">
-        <SidebarContent permissions={permissions} footer={sidebarFooter?.({})} />
+        <SidebarContent audience={audience} footer={sidebarFooter?.({})} />
       </aside>
 
       <Sheet open={isMenuOpen} onOpenChange={setMenuOpen}>
@@ -43,7 +44,7 @@ export function AppShell({
           className="bg-sidebar text-sidebar-foreground lg:hidden"
         >
           <SidebarContent
-            permissions={permissions}
+            audience={audience}
             footer={sidebarFooter?.({ onNavigate: () => setMenuOpen(false) })}
             onNavigate={() => setMenuOpen(false)}
           />

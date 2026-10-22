@@ -20,6 +20,8 @@ export const currentUserSchema = z.object({
    * cannot do. Plain strings on the wire: the server stays the only judge.
    */
   permissions: z.array(z.string()),
+  /** Whether they manage the settings or the access of at least one project. */
+  managesProjects: z.boolean(),
 });
 
 export type CurrentUser = z.infer<typeof currentUserSchema>;

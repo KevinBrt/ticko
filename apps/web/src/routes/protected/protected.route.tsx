@@ -28,7 +28,7 @@ function ProtectedLayout() {
   const { data: user } = useQuery(SessionQueries.currentUser);
   return (
     <AppShell
-      permissions={user?.permissions ?? []}
+      audience={user ?? { permissions: [] }}
       sidebarFooter={({ onNavigate }) => (
         <AccountFooter
           onNavigate={onNavigate}

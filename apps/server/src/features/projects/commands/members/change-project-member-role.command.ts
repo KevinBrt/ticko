@@ -42,6 +42,14 @@ export const changeProjectMemberRole = defineCommand({
     if (!member) {
       throw new HttpError(404, 'MEMBER_NOT_FOUND', 'This person is not a member of the project');
     }
+    // The system role keeps every permission everywhere: a role of the project would mean nothing.
+    if (roleId !== null && member.ownRole.grantsAll) {
+      throw new HttpError(
+        409,
+        'SYSTEM_ROLE_HOLDER',
+        'The system role has every permission in every project',
+      );
+    }
     if (!canActOnProjectMember(project.permissions, member.projectRole ?? member.ownRole)) {
       throw beyondYours();
     }

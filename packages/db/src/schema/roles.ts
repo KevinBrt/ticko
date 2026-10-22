@@ -28,7 +28,7 @@ export const roles = pgTable(
     check('roles_name_not_blank', sql`btrim(${table.name}) <> ''`),
     check(
       'roles_color_check',
-      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan')`,
+      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan', 'orange', 'pink')`,
     ),
     uniqueIndex('roles_name_unique').on(sql`lower(${table.name})`),
     uniqueIndex('roles_single_grants_all').on(table.grantsAll).where(sql`${table.grantsAll}`),

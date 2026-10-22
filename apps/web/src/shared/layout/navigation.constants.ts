@@ -17,6 +17,16 @@ export interface NavItem {
   icon: LucideIcon;
   /** Shown only to users holding at least one of these permissions; to everyone when absent. */
   requiresAnyOf?: readonly Permission[];
+  /** Also shown to those who manage a project, whatever their permissions in the instance. */
+  orToProjectManagers?: true;
+  /** Active on this very path only, not on the pages below it. */
+  exact?: true;
+}
+
+/** Who a navigation is for: what they may do, and whether they manage a project. */
+export interface NavAudience {
+  permissions: readonly string[];
+  managesProjects?: boolean;
 }
 
 export interface NavSection {
@@ -42,7 +52,13 @@ export const NAV_SECTIONS: readonly NavSection[] = [
   {
     labelKey: 'nav.workspace',
     items: [
-      { to: '/projects', labelKey: 'nav.projects', icon: FolderKanbanIcon },
+      {
+        to: '/projects',
+        labelKey: 'nav.projects',
+        icon: FolderKanbanIcon,
+        requiresAnyOf: ['project.create'],
+        orToProjectManagers: true,
+      },
       {
         to: '/settings',
         labelKey: 'nav.settings',

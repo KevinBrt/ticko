@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { roleBadgeSchema } from '../members/roles.ts';
 import { projectKeySchema } from '../project-key.ts';
 
-/** Rows per page of a project's members. */
-export const PROJECT_MEMBERS_PAGE_SIZE = 50;
+/** Rows per page of a project's access list. */
+export const PROJECT_ACCESS_PAGE_SIZE = 50;
 
 /** How many people one request adds to a project. */
 export const PROJECT_MEMBERS_PER_REQUEST_MAX = 50;
@@ -16,22 +16,35 @@ export const projectMemberParamsSchema = z.object({
   userId: z.uuid(),
 });
 
-/** Query of `GET /api/v1/projects/:projectKey/members`. */
-export const projectMembersQuerySchema = z.object({
+export const projectInvitationParamsSchema = z.object({
+  projectKey: projectKeySchema,
+  invitationId: z.uuid(),
+});
+
+/** Query of `GET /api/v1/projects/:projectKey/access`. */
+export const projectAccessQuerySchema = z.object({
   /** Part of a name or an address, case and accents ignored. */
   search: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
 
-export interface ProjectMembersQuery {
+export interface ProjectAccessQuery {
   search?: string | undefined;
   page?: number | undefined;
 }
 
-export const projectMemberSchema = z.object({
+/** Why someone reaches a project. */
+export const PROJECT_ACCESS_REASONS = ['systemRole', 'allProjects', 'member'] as const;
+
+export type ProjectAccessReason = (typeof PROJECT_ACCESS_REASONS)[number];
+
+const personAccessSchema = z.object({
+  kind: z.literal('person'),
   userId: z.uuid(),
   name: z.string(),
   email: z.string(),
+  /** Added to the project, or reaching it anyway: those are not removed from it. */
+  access: z.enum(PROJECT_ACCESS_REASONS),
   /** The member's own role. */
   ownRole: roleBadgeSchema,
   /** The role the project gives them instead, if any. */
@@ -40,17 +53,34 @@ export const projectMemberSchema = z.object({
   deactivatedAt: z.iso.datetime().nullable(),
 });
 
-export type ProjectMember = z.infer<typeof projectMemberSchema>;
+const invitationAccessSchema = z.object({
+  kind: z.literal('invitation'),
+  invitationId: z.uuid(),
+  email: z.string(),
+  role: roleBadgeSchema,
+  /** The invitation gives every project: it is not taken out of this one. */
+  allProjects: z.boolean(),
+  /** UTC ISO 8601. */
+  expiresAt: z.iso.datetime(),
+});
 
-export const projectMembersResponseSchema = z.object({
-  /** One page, by name. */
-  rows: z.array(projectMemberSchema),
+/** Someone who has access to a project, or will once their invitation is accepted. */
+export const projectAccessRowSchema = z.discriminatedUnion('kind', [
+  personAccessSchema,
+  invitationAccessSchema,
+]);
+
+export type ProjectAccessRow = z.infer<typeof projectAccessRowSchema>;
+
+export const projectAccessResponseSchema = z.object({
+  /** One page: automatic access first, then the members, then pending invitations, by name. */
+  rows: z.array(projectAccessRowSchema),
   matching: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
 });
 
-export type ProjectMembersResponse = z.infer<typeof projectMembersResponseSchema>;
+export type ProjectAccessResponse = z.infer<typeof projectAccessResponseSchema>;
 
 /** Body of `POST /api/v1/projects/:projectKey/members`: who joins, and with which role there. */
 export const addProjectMembersRequestSchema = z.object({
@@ -76,7 +106,10 @@ export const pickerQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
 });
 
-/** People who could join a project: active members of the instance not in it yet. */
+/**
+ * People who could join a project: active members of the instance who do not reach it yet. Those
+ * who reach every project are never offered.
+ */
 export const projectCandidatesResponseSchema = z.object({
   people: z.array(z.object({ id: z.uuid(), name: z.string(), email: z.string() })),
 });

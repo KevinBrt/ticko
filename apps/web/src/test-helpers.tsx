@@ -10,6 +10,7 @@ import {
   instancePermissionsOf,
   type ProjectPermission,
   permissionsOfRole,
+  projectColorFor,
   projectPermissionsOf,
   rolePermissionsFrom,
 } from '@toppo/core';
@@ -18,9 +19,12 @@ import {
   type Locale,
   MEMBERS_PAGE_SIZE,
   type MemberRow,
+  type PaletteColor,
   type PendingInvitation,
-  PROJECT_MEMBERS_PAGE_SIZE,
+  PROJECT_ACCESS_PAGE_SIZE,
+  PROJECT_MEMBERS_PREVIEW,
   PROJECTS_PAGE_SIZE,
+  type ProjectAccessRow,
   ROLES_MAX,
   type RoleBadge,
   type RoleDetails,
@@ -42,6 +46,8 @@ export const ADA: CurrentUser = {
   name: 'Ada Lovelace',
   email: 'ada@example.com',
   permissions: instancePermissionsOfRole(DEFAULT_ROLE_IDS.administrator),
+  // The fake server works it out from its projects.
+  managesProjects: false,
 };
 
 /** A team member, who manages nothing in the instance. */
@@ -50,6 +56,7 @@ export const GRACE: CurrentUser = {
   name: 'Grace Hopper',
   email: 'grace@example.com',
   permissions: instancePermissionsOfRole(DEFAULT_ROLE_IDS.team),
+  managesProjects: false,
 };
 export const ADA_PASSWORD = 'correct horse battery staple';
 export const GOOD_SETUP_CODE = 'ABCD-EFGH-JKLM';
@@ -99,6 +106,8 @@ export interface FakeServerState {
   projects: FakeProject[];
   /** Members given every project, by id. */
   allProjects: Set<string>;
+  /** The projects each invitation gives, by invitation id; none when absent. */
+  invitationProjects: Map<string, { allProjects: boolean; projectKeys: string[] }>;
 }
 
 /** A project as the fake server keeps it, with the members it lists and the role it gives them. */
@@ -107,6 +116,7 @@ export interface FakeProject {
   key: string;
   name: string;
   description: string;
+  color: PaletteColor;
   archived: boolean;
   keyEditable: boolean;
   members: { userId: string; roleId: string | null }[];
@@ -132,6 +142,7 @@ export function fakeProject(
     key,
     name,
     description: '',
+    color: 'blue',
     archived: false,
     keyEditable: true,
     members: [
@@ -171,6 +182,7 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       invitationLinks: new Map(),
       projects: [],
       allProjects: new Set(),
+      invitationProjects: new Map(),
       ...initial,
     },
     requests: [],
@@ -182,7 +194,13 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     (body: Record<string, unknown>, search: URLSearchParams) => Response
   > = {
     'GET /api/v1/setup': () => json({ required: state.setupRequired }),
-    'GET /api/v1/me': () => json({ user: state.user }),
+    'GET /api/v1/me': () =>
+      json({
+        user: state.user && {
+          ...state.user,
+          managesProjects: state.projects.some((project) => managesProject(state, project)),
+        },
+      }),
     'PATCH /api/v1/me': (body) => {
       if (!state.user) {
         return apiError(401, 'UNAUTHENTICATED');
@@ -396,6 +414,10 @@ function invite(state: FakeServerState, body: Record<string, unknown>): Response
       invitedBy: state.user?.name ?? '',
       expiresAt: '2026-10-28T10:00:00.000Z',
     });
+    state.invitationProjects.set(id, {
+      allProjects: body['allProjects'] === true,
+      projectKeys: (body['projectKeys'] as string[] | undefined) ?? [],
+    });
     return { id, email, link: newLink(state, email) };
   });
   return json({ invitations: links, alreadyMembers }, 201);
@@ -593,24 +615,50 @@ function projectPermissionsFor(
   });
 }
 
+/** Whether the signed-in user manages `project`'s settings or access. */
+function managesProject(state: FakeServerState, project: FakeProject): boolean {
+  const permissions = projectPermissionsFor(state, project) ?? [];
+  return can(permissions, 'project.settings.manage') || can(permissions, 'project.members.manage');
+}
+
 const byName = (left: { name: string; key: string }, right: { name: string; key: string }) =>
   left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
   left.key.localeCompare(right.key);
 
-/** `GET /api/v1/projects`: the projects the user reaches, searched, by state, paged. */
+/** `GET /api/v1/projects`: the projects the user reaches or manages, searched, by state, paged. */
 function listProjects(state: FakeServerState, search: URLSearchParams): Response {
   const archived = search.get('state') === 'archived';
+  const managed = search.get('scope') === 'managed';
   const needle = fold(search.get('search') ?? '');
   const page = Number(search.get('page') ?? '1');
   const visible = state.projects
-    .filter((project) => projectPermissionsFor(state, project) !== null)
+    .filter((project) =>
+      managed ? managesProject(state, project) : projectPermissionsFor(state, project) !== null,
+    )
     .filter(({ key, name }) => [key, name].some((text) => fold(text).includes(needle)))
     .sort(byName);
   const inState = visible.filter((project) => project.archived === archived);
   return json({
     rows: inState
       .slice((page - 1) * PROJECTS_PAGE_SIZE, page * PROJECTS_PAGE_SIZE)
-      .map(({ id, key, name, description }) => ({ id, key, name, description })),
+      .map(({ id, key, name, description, color, members }) => {
+        const listed = members
+          .flatMap(({ userId }) => state.users.filter((user) => user.id === userId))
+          .sort((left, right) => left.name.localeCompare(right.name));
+        return {
+          id,
+          key,
+          name,
+          description,
+          color,
+          members: {
+            count: listed.length,
+            shown: listed
+              .slice(0, PROJECT_MEMBERS_PREVIEW)
+              .map((user) => ({ userId: user.id, name: user.name })),
+          },
+        };
+      }),
     matching: inState.length,
     counts: {
       active: visible.filter((project) => !project.archived).length,
@@ -633,6 +681,7 @@ function createProject(state: FakeServerState, body: Record<string, unknown>): R
     key,
     name: String(body['name']).trim(),
     description: String(body['description'] ?? '').trim(),
+    color: projectColorFor(state.projects.length),
     archived: false,
     keyEditable: true,
     members: state.user ? [{ userId: state.user.id, roleId: null }] : [],
@@ -641,7 +690,7 @@ function createProject(state: FakeServerState, body: Record<string, unknown>): R
 }
 
 const PROJECT_PATH =
-  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|members|candidates|roles))?(?:\/([^/]+))?$/;
+  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|access|members|invitations|candidates|roles))?(?:\/([^/]+))?$/;
 
 /** `/api/v1/projects/:key` and what hangs off it, with the server's rules. */
 function projectRequest(
@@ -655,14 +704,19 @@ function projectRequest(
   if (!match) {
     return undefined;
   }
-  const [, key, part = '', userId = ''] = match;
+  const [, key, part = '', target = ''] = match;
   const project = state.projects.find((candidate) => candidate.key === key);
   const permissions = project ? projectPermissionsFor(state, project) : null;
   if (!(project && permissions)) {
     return asSignedIn(state) ?? apiError(404, 'PROJECT_NOT_FOUND');
   }
-  const unless = (permission: ProjectPermission, answer: () => Response) =>
-    can(permissions, permission) ? answer() : apiError(403, 'FORBIDDEN');
+  const unless = (permission: ProjectPermission, answer: () => Response) => {
+    if (!can(permissions, permission)) {
+      return apiError(403, 'FORBIDDEN');
+    }
+    const writes = method !== 'GET' && part !== 'unarchive';
+    return writes && project.archived ? apiError(409, 'PROJECT_ARCHIVED') : answer();
+  };
   const fields = (body ?? {}) as Record<string, unknown>;
   switch (`${method} ${part}`) {
     case 'GET ': {
@@ -671,19 +725,37 @@ function projectRequest(
     }
     case 'PATCH ':
       return unless('project.settings.manage', () => updateProject(state, project, fields));
+    case 'DELETE ':
+      // An instance permission, held through one's own role.
+      return (
+        asHolder(state, 'project.delete') ??
+        (() => {
+          state.projects = state.projects.filter((candidate) => candidate !== project);
+          return NO_CONTENT();
+        })()
+      );
     case 'POST archive':
     case 'POST unarchive':
       return unless('project.settings.manage', () => {
         project.archived = part === 'archive';
         return NO_CONTENT();
       });
-    case 'GET members':
-      return unless('project.members.manage', () => projectMembers(state, project, search));
+    case 'GET access':
+      return unless('project.members.manage', () => projectAccess(state, project, search));
+    case 'DELETE invitations':
+      return unless('project.members.manage', () => {
+        const access = state.invitationProjects.get(target);
+        if (!access?.projectKeys.includes(project.key)) {
+          return apiError(404, 'INVITATION_NOT_FOUND');
+        }
+        access.projectKeys = access.projectKeys.filter((other) => other !== project.key);
+        return NO_CONTENT();
+      });
     case 'POST members':
     case 'PATCH members':
     case 'DELETE members':
       return unless('project.members.manage', () =>
-        changeProjectMembers(state, project, permissions, method, userId, fields),
+        changeProjectMembers(state, project, permissions, method, target, fields),
       );
     case 'GET candidates':
       return unless('project.members.manage', () => {
@@ -691,6 +763,7 @@ function projectRequest(
         return json({
           people: state.users
             .filter(({ id }) => !project.members.some((member) => member.userId === id))
+            .filter((user) => accessReason(state, project, user) === null)
             .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
             .map(({ id, name, email }) => ({ id, name, email })),
         });
@@ -732,37 +805,78 @@ function updateProject(
   return NO_CONTENT();
 }
 
-function projectMembers(
+/** How `user` reaches `project` whatever its members, or `null` through them only. */
+function accessReason(
+  state: FakeServerState,
+  project: FakeProject,
+  user: UserSummary,
+): 'systemRole' | 'allProjects' | 'member' | null {
+  if (state.roles.find(({ id }) => id === user.role.id)?.grantsAll) {
+    return 'systemRole';
+  }
+  if (state.allProjects.has(user.id)) {
+    return 'allProjects';
+  }
+  return project.members.some((member) => member.userId === user.id) ? 'member' : null;
+}
+
+const ACCESS_ORDER = { systemRole: 0, allProjects: 1, member: 2 } as const;
+
+/** `GET /api/v1/projects/:key/access`: people by how they reach the project, then invitations. */
+function projectAccess(
   state: FakeServerState,
   project: FakeProject,
   search: URLSearchParams,
 ): Response {
   const needle = fold(search.get('search') ?? '');
   const page = Number(search.get('page') ?? '1');
-  const rows = project.members
-    .flatMap(({ userId, roleId }) => {
-      const user = state.users.find(({ id }) => id === userId);
-      const projectRole = badgesOf(state).find(({ id }) => id === roleId) ?? null;
-      return user
+  const people = state.users
+    .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
+    .flatMap((user) => {
+      const access = accessReason(state, project, user);
+      const roleId = project.members.find((member) => member.userId === user.id)?.roleId;
+      return access
         ? [
             {
-              userId,
+              kind: 'person' as const,
+              userId: user.id,
               name: user.name,
               email: user.email,
+              access,
               ownRole: user.role,
-              projectRole,
+              projectRole: badgesOf(state).find(({ id }) => id === roleId) ?? null,
               deactivatedAt: user.deactivatedAt,
             },
           ]
         : [];
     })
-    .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
-    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+    .sort(
+      (left, right) =>
+        ACCESS_ORDER[left.access] - ACCESS_ORDER[right.access] ||
+        left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
+    );
+  const invitations = state.invitations.flatMap((invitation): ProjectAccessRow[] => {
+    const access = state.invitationProjects.get(invitation.id);
+    const gives = access && (access.allProjects || access.projectKeys.includes(project.key));
+    return gives && fold(invitation.email).includes(needle)
+      ? [
+          {
+            kind: 'invitation',
+            invitationId: invitation.id,
+            email: invitation.email,
+            role: invitation.role,
+            allProjects: access.allProjects,
+            expiresAt: invitation.expiresAt,
+          },
+        ]
+      : [];
+  });
+  const rows = [...people, ...invitations];
   return json({
-    rows: rows.slice((page - 1) * PROJECT_MEMBERS_PAGE_SIZE, page * PROJECT_MEMBERS_PAGE_SIZE),
+    rows: rows.slice((page - 1) * PROJECT_ACCESS_PAGE_SIZE, page * PROJECT_ACCESS_PAGE_SIZE),
     matching: rows.length,
     page,
-    pageSize: PROJECT_MEMBERS_PAGE_SIZE,
+    pageSize: PROJECT_ACCESS_PAGE_SIZE,
   });
 }
 
@@ -792,10 +906,9 @@ function changeProjectMembers(
   if (!member) {
     return apiError(404, 'MEMBER_NOT_FOUND');
   }
-  const ownRoleId = state.users.find(({ id }) => id === userId)?.role.id;
-  const current = state.roles.find(({ id }) => id === (member.roleId ?? ownRoleId));
-  if (current && !canActOnProjectMember(permissions, current)) {
-    return apiError(403, 'ROLE_BEYOND_YOURS');
+  const refusal = memberRefusal(state, permissions, member, roleId);
+  if (refusal) {
+    return refusal;
   }
   if (method === 'DELETE') {
     project.members = project.members.filter((candidate) => candidate !== member);
@@ -803,6 +916,24 @@ function changeProjectMembers(
     member.roleId = roleId;
   }
   return NO_CONTENT();
+}
+
+/** Why a change to `member` is refused, or `undefined` when it may go on. */
+function memberRefusal(
+  state: FakeServerState,
+  permissions: readonly ProjectPermission[],
+  member: FakeProject['members'][number],
+  roleId: string | null,
+): Response | undefined {
+  const roleOf = (id: string | undefined) => state.roles.find((role) => role.id === id);
+  const ownRole = roleOf(state.users.find(({ id }) => id === member.userId)?.role.id);
+  if (roleId && ownRole?.grantsAll) {
+    return apiError(409, 'SYSTEM_ROLE_HOLDER');
+  }
+  const current = roleOf(member.roleId ?? ownRole?.id);
+  return current && !canActOnProjectMember(permissions, current)
+    ? apiError(403, 'ROLE_BEYOND_YOURS')
+    : undefined;
 }
 
 /** `/api/v1/users/:id/projects` and `/api/v1/users/:id/projects/:key`. */

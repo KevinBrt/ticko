@@ -1,11 +1,11 @@
 import {
   type AssignableRolesResponse,
   assignableRolesResponseSchema,
+  type ProjectAccessQuery,
+  type ProjectAccessResponse,
   type ProjectCandidatesResponse,
-  type ProjectMembersQuery,
-  type ProjectMembersResponse,
+  projectAccessResponseSchema,
   projectCandidatesResponseSchema,
-  projectMembersResponseSchema,
 } from '@toppo/shared';
 import { z } from 'zod';
 import { apiRequest } from '../../../shared/api/http.client.ts';
@@ -18,8 +18,9 @@ const memberPath = (key: string, userId: string) =>
   `${projectPath(key)}/members/${encodeURIComponent(userId)}`;
 
 /** Server calls about who has access to a project, for holders of `project.members.manage`. */
-export const ProjectMembers = {
-  async list(key: string, { search, page }: ProjectMembersQuery): Promise<ProjectMembersResponse> {
+export const ProjectAccess = {
+  /** Everyone who reaches the project, and the invitations that will bring someone in. */
+  async list(key: string, { search, page }: ProjectAccessQuery): Promise<ProjectAccessResponse> {
     const params = new URLSearchParams();
     if (search) {
       params.set('search', search);
@@ -28,12 +29,12 @@ export const ProjectMembers = {
       params.set('page', String(page));
     }
     const query = params.size > 0 ? `?${params}` : '';
-    return await apiRequest(`${projectPath(key)}/members${query}`, {
-      schema: projectMembersResponseSchema,
+    return await apiRequest(`${projectPath(key)}/access${query}`, {
+      schema: projectAccessResponseSchema,
     });
   },
 
-  /** People who could join: active members of the instance not in the project yet. */
+  /** People who could join: active members of the instance who do not reach the project yet. */
   async candidates(key: string, search: string): Promise<ProjectCandidatesResponse['people']> {
     const query = search ? `?${new URLSearchParams({ search })}` : '';
     return (
@@ -69,5 +70,13 @@ export const ProjectMembers = {
 
   async remove(key: string, userId: string): Promise<void> {
     await apiRequest(memberPath(key, userId), { method: 'DELETE', schema: noContent });
+  },
+
+  /** Takes the project out of a pending invitation. */
+  async removeInvitation(key: string, invitationId: string): Promise<void> {
+    await apiRequest(`${projectPath(key)}/invitations/${encodeURIComponent(invitationId)}`, {
+      method: 'DELETE',
+      schema: noContent,
+    });
   },
 };

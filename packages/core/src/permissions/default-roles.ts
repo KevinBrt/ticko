@@ -40,6 +40,7 @@ export const DEFAULT_ROLE_IDS = {
  * give a member another role.
  * - Administrator: everything, locked.
  * - Team: the people who work on issues (developers, support…); they see every issue of a project.
+ *   Projects are set up by administrators.
  * - Requester: people outside the team (customers, other departments); they see their own issues only.
  */
 export const DEFAULT_ROLES: readonly RoleDefinition[] = [
@@ -64,7 +65,6 @@ export const DEFAULT_ROLES: readonly RoleDefinition[] = [
       'issue.update',
       'issue.assign',
       'comment.create',
-      'project.create',
     ],
   },
   {

@@ -136,7 +136,7 @@ describe('the permissions of the current user', () => {
     expect((await permissionsInMe(adminCookie))?.sort()).toStrictEqual(
       ALL_INSTANCE_PERMISSIONS.sort(),
     );
-    expect(await permissionsInMe(teamCookie)).toStrictEqual(['project.create']);
+    expect(await permissionsInMe(teamCookie)).toStrictEqual([]);
   });
 
   it('never include what the role may not be given, nor unknown permissions', async () => {
@@ -148,7 +148,12 @@ describe('the permissions of the current user', () => {
         .where(eq(schema.roles.id, DEFAULT_ROLE_IDS.team));
     const original = [...storedPermissionsOf(DEFAULT_ROLE_IDS.team)];
 
-    await setTeamPermissions([...original, 'instance.roles.manage', 'plugin.removed']);
+    await setTeamPermissions([
+      ...original,
+      'project.create',
+      'instance.roles.manage',
+      'plugin.removed',
+    ]);
     try {
       expect(await permissionsInMe(teamCookie)).toStrictEqual(['project.create']);
     } finally {

@@ -4,16 +4,20 @@ import { useI18n } from '../i18n/i18n-provider.tsx';
 import type { NavSection } from './navigation.constants.ts';
 
 /**
- * A part of the app with its own navigation, like the settings: a column beside the page on wide
- * screens, a row of links above it on smaller ones.
+ * A part of the app with its own navigation, like the settings or a project's: a column beside
+ * the page on wide screens, a row of links above it on smaller ones. Links keep the current path
+ * parameters, so a project's sections stay in that project.
  */
 export function SectionLayout({
   label,
+  header,
   sections,
   children,
 }: {
   /** Accessible name of the navigation. */
   label: string;
+  /** Shown above the links in the column, e.g. what the section is about; hidden on small screens. */
+  header?: ReactNode;
   sections: readonly NavSection[];
   children: ReactNode;
 }) {
@@ -31,6 +35,7 @@ export function SectionLayout({
         className="lg:w-56 lg:shrink-0 lg:border-r lg:border-border lg:bg-surface lg:px-3 lg:py-6"
       >
         <div className="lg:sticky lg:top-22">
+          {header ? <div className="hidden lg:mb-5 lg:block">{header}</div> : null}
           {sections.map((section) => (
             <div key={section.labelKey ?? 'main'} className="lg:mb-5">
               {section.labelKey ? (
@@ -39,10 +44,12 @@ export function SectionLayout({
                 </p>
               ) : null}
               <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-                {section.items.map(({ to, labelKey }) => (
+                {section.items.map(({ to, labelKey, exact }) => (
                   <li key={to} className="shrink-0">
                     <Link
                       to={to}
+                      params={true}
+                      activeOptions={{ exact: exact === true }}
                       className="flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground pointer-coarse:min-h-11 data-[status=active]:bg-primary-subtle data-[status=active]:text-primary-subtle-foreground"
                     >
                       {t(labelKey)}

@@ -12,9 +12,10 @@ function uniqueKey(): string {
     .padStart(5, '0')}`;
 }
 
-test('a project is created, set up, archived and brought back', async ({ page }) => {
+test('a project is created, set up, archived, brought back and deleted', async ({ page }) => {
   const key = uniqueKey();
   const name = `Customer portal ${key}`;
+  const renamed = `Client portal ${key}`;
 
   await page.goto('/projects');
   await page.getByRole('button', { name: 'New project' }).click();
@@ -24,46 +25,51 @@ test('a project is created, set up, archived and brought back', async ({ page })
   await expectAccessible(page);
   await dialog.getByRole('button', { name: 'Create the project' }).click();
 
-  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  // The new project opens on its general settings.
+  await expect(page.getByRole('heading', { level: 1, name: 'General' })).toBeVisible();
   await expect(page).toHaveURL(`/projects/${key}`);
-  await expectAccessible(page);
-
-  // Its settings: another name.
-  await page.getByRole('main').getByRole('link', { name: 'Settings' }).click();
-  await page.getByLabel('Name').fill(`Client portal ${key}`);
+  await page.getByLabel('Project name').fill(renamed);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Saved.')).toBeVisible();
   await expectAccessible(page);
 
-  // Its members: its creator, with their own role.
-  const sections = page.getByRole('navigation', { name: 'Project settings sections' });
-  await sections.getByRole('link', { name: 'Members' }).click();
+  // Its access: the administrator reaches it whatever its members.
+  await page
+    .getByRole('navigation', { name: 'Project sections' })
+    .getByRole('link', { name: 'Access' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Project access' })).toBeVisible();
   await expect(
-    page.getByRole('button', {
-      name: `Role of ${ADMIN.name} in the project, Own role (Administrator)`,
-    }),
+    page.getByRole('listitem').filter({ hasText: ADMIN.name }).getByText('Automatic access'),
   ).toBeVisible();
   await expectAccessible(page);
 
   // Archived: read-only, out of the active projects, and back after.
-  await sections.getByRole('link', { name: 'General' }).click();
+  await page.goto(`/projects/${key}`);
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
   await page
-    .getByRole('dialog', { name: `Archive Client portal ${key}?` })
+    .getByRole('dialog', { name: `Archive ${renamed}?` })
     .getByRole('button', { name: 'Archive the project' })
     .click();
-  await expect(page.getByRole('button', { name: 'Unarchive' })).toBeVisible();
-  await expect(page.getByLabel('Name')).toHaveCount(0);
+  await expect(page.getByText('This project is archived: it is read-only.')).toBeVisible();
+  await expect(page.getByLabel('Project name')).toHaveCount(0);
 
   await page.goto(`/projects?q=${key}`);
   await expect(page.getByText('No project matches this search.')).toBeVisible();
   await page.getByRole('button', { name: /^Archived/ }).click();
-  await page.getByRole('link', { name: new RegExp(`^${key}`) }).click();
-  await expect(page.getByText('This project is archived: it is read-only.')).toBeVisible();
-
-  await page.getByRole('main').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('link', { name: renamed }).click();
   await page.getByRole('button', { name: 'Unarchive' }).click();
-  await expect(page.getByLabel('Name')).toHaveValue(`Client portal ${key}`);
+  await expect(page.getByLabel('Project name')).toHaveValue(renamed);
+
+  // Deleted for good, once its key is typed.
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  const deletion = page.getByRole('dialog', { name: `Delete ${renamed}?` });
+  await deletion.getByLabel(`Type ${key} to confirm`).fill(key);
+  await expectAccessible(page);
+  await deletion.getByRole('button', { name: 'Delete for good' }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await page.goto(`/projects?q=${key}`);
+  await expect(page.getByText('No project matches this search.')).toBeVisible();
 });
 
 test.describe('out of reach', () => {

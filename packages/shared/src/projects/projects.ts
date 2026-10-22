@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PALETTE_COLORS } from '../colors.ts';
 import { projectKeySchema } from '../project-key.ts';
 
 export const PROJECT_NAME_MAX_LENGTH = 80;
@@ -7,6 +8,11 @@ export const PROJECT_DESCRIPTION_MAX_LENGTH = 1000;
 
 /** Rows per page of the projects list. */
 export const PROJECTS_PAGE_SIZE = 50;
+
+/** How many of a project's members its row in the list shows, beside their count. */
+export const PROJECT_MEMBERS_PREVIEW = 4;
+
+export const projectColorSchema = z.enum(PALETTE_COLORS);
 
 export const projectKeyParamsSchema = z.object({
   projectKey: projectKeySchema,
@@ -35,6 +41,7 @@ export const updateProjectRequestSchema = z.object({
   key: projectKeySchema,
   name: projectNameSchema,
   description: projectDescriptionSchema,
+  color: projectColorSchema,
 });
 
 export type UpdateProjectRequest = z.input<typeof updateProjectRequestSchema>;
@@ -45,6 +52,7 @@ export const projectResponseSchema = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string(),
+  color: projectColorSchema,
   /** Read-only while archived. */
   archived: z.boolean(),
   /** The key can change until the project's first issue. */
@@ -63,6 +71,8 @@ export type ProjectResponse = z.infer<typeof projectResponseSchema>;
  * archived ones are listed apart.
  */
 export const projectsQuerySchema = z.object({
+  /** Every project the caller reaches, or only those whose settings or access they manage. */
+  scope: z.enum(['reachable', 'managed']).default('reachable'),
   state: z.enum(['active', 'archived']).default('active'),
   /** Part of a key or a name, case and accents ignored. */
   search: z.string().trim().max(100).optional(),
@@ -71,6 +81,7 @@ export const projectsQuerySchema = z.object({
 
 /** The filters a screen sends; the first page of active projects when none is given. */
 export interface ProjectsQuery {
+  scope?: 'reachable' | 'managed' | undefined;
   state?: 'active' | 'archived' | undefined;
   search?: string | undefined;
   page?: number | undefined;
@@ -81,6 +92,13 @@ export const projectSummarySchema = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string(),
+  color: projectColorSchema,
+  /** The people added to the project, not those who reach every project. */
+  members: z.object({
+    count: z.number().int(),
+    /** The first few, by name. */
+    shown: z.array(z.object({ userId: z.uuid(), name: z.string() })),
+  }),
 });
 
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;

@@ -95,7 +95,8 @@ describe('default roles', () => {
     'project.settings.manage': [true, false, false],
     'project.members.manage': [true, false, false],
     'instance.users.manage': [true, false, false],
-    'project.create': [true, true, false],
+    'project.create': [true, false, false],
+    'project.delete': [true, false, false],
     'instance.settings.manage': [true, false, false],
     'instance.roles.manage': [true, false, false],
   };

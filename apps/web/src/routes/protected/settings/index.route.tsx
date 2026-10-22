@@ -12,9 +12,7 @@ export const settingsIndexRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: '/',
   beforeLoad: ({ context }) => {
-    const [first] = visibleSections(SETTINGS_NAV, context.user.permissions).flatMap(
-      (section) => section.items,
-    );
+    const [first] = visibleSections(SETTINGS_NAV, context.user).flatMap((section) => section.items);
     if (first) {
       throw redirect({ to: first.to, replace: true });
     }

@@ -1,4 +1,4 @@
-import { can, type InstancePermission, type ProjectPermission } from '@toppo/core';
+import { can, type InstancePermission, type Permission } from '@toppo/core';
 import type { Db } from '@toppo/db';
 import type { FastifyInstance } from 'fastify';
 import { HttpError } from '../http/http-error.ts';
@@ -11,12 +11,13 @@ export type ProjectField = 'projectKey' | 'issueKey';
 
 /**
  * Access to the project an input names: a member who reaches it and, when `permission` is given,
- * whose permissions there include it. The field is part of the route's path, so a route checks
- * it before reading the body.
+ * holds it: a project permission in that project, an instance one through their own role (to
+ * delete the project). The field is part of the route's path, so a route checks it before
+ * reading the body.
  */
 export interface ProjectAccessRule<Input = never> {
   project: ProjectField & keyof Input;
-  permission?: ProjectPermission;
+  permission?: Permission;
   /** An archived project is read-only: commands on it are refused unless this is set (to unarchive it). */
   evenArchived?: true;
 }

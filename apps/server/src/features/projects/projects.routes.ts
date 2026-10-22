@@ -5,11 +5,12 @@ import {
   createProjectRequestSchema,
   createProjectResponseSchema,
   pickerQuerySchema,
+  projectAccessQuerySchema,
+  projectAccessResponseSchema,
   projectCandidatesResponseSchema,
+  projectInvitationParamsSchema,
   projectKeyParamsSchema,
   projectMemberParamsSchema,
-  projectMembersQuerySchema,
-  projectMembersResponseSchema,
   projectResponseSchema,
   projectsQuerySchema,
   projectsResponseSchema,
@@ -20,15 +21,17 @@ import { z } from 'zod';
 import type { ZodTypeProvider } from '../../platform/http/zod.ts';
 import { archiveProject } from './commands/archive-project.command.ts';
 import { createProject } from './commands/create-project.command.ts';
+import { deleteProject } from './commands/delete-project.command.ts';
 import { addProjectMembers } from './commands/members/add-project-members.command.ts';
 import { changeProjectMemberRole } from './commands/members/change-project-member-role.command.ts';
+import { removeProjectInvitation } from './commands/members/remove-project-invitation.command.ts';
 import { removeProjectMember } from './commands/members/remove-project-member.command.ts';
 import { unarchiveProject } from './commands/unarchive-project.command.ts';
 import { updateProject } from './commands/update-project.command.ts';
 import { getProject } from './queries/get-project.query.ts';
 import { listProjects } from './queries/list-projects.query.ts';
+import { listProjectAccess } from './queries/members/list-project-access.query.ts';
 import { listProjectCandidates } from './queries/members/list-project-candidates.query.ts';
-import { listProjectMembers } from './queries/members/list-project-members.query.ts';
 import { listProjectRoles } from './queries/members/list-project-roles.query.ts';
 
 /** Commands answer `204 No Content`: the client refetches what it shows. */
@@ -109,25 +112,38 @@ export function registerProjectRoutes(app: FastifyInstance): void {
         .send(await unarchiveProject.execute(request.executionContext, request.params)),
   );
 
+  routes.delete(
+    '/api/v1/projects/:projectKey',
+    {
+      config: { access: deleteProject.access },
+      schema: { params: projectKeyParamsSchema, response: NO_CONTENT },
+    },
+    async (request, reply) =>
+      reply.status(204).send(await deleteProject.execute(request.executionContext, request.params)),
+  );
+
   registerProjectMemberRoutes(app);
 }
 
-/** Who has access to a project, managed by holders of `project.members.manage` there. */
+/**
+ * Who has access to a project, and the invitations that will give it, managed by holders of
+ * `project.members.manage` there.
+ */
 function registerProjectMemberRoutes(app: FastifyInstance): void {
   const routes = app.withTypeProvider<ZodTypeProvider>();
 
   routes.get(
-    '/api/v1/projects/:projectKey/members',
+    '/api/v1/projects/:projectKey/access',
     {
-      config: { access: listProjectMembers.access },
+      config: { access: listProjectAccess.access },
       schema: {
         params: projectKeyParamsSchema,
-        querystring: projectMembersQuerySchema,
-        response: { 200: projectMembersResponseSchema },
+        querystring: projectAccessQuerySchema,
+        response: { 200: projectAccessResponseSchema },
       },
     },
     (request) =>
-      listProjectMembers.execute(request.executionContext, {
+      listProjectAccess.execute(request.executionContext, {
         ...request.params,
         ...request.query,
       }),
@@ -181,6 +197,18 @@ function registerProjectMemberRoutes(app: FastifyInstance): void {
       reply
         .status(204)
         .send(await removeProjectMember.execute(request.executionContext, request.params)),
+  );
+
+  routes.delete(
+    '/api/v1/projects/:projectKey/invitations/:invitationId',
+    {
+      config: { access: removeProjectInvitation.access },
+      schema: { params: projectInvitationParamsSchema, response: NO_CONTENT },
+    },
+    async (request, reply) =>
+      reply
+        .status(204)
+        .send(await removeProjectInvitation.execute(request.executionContext, request.params)),
   );
 
   routes.get(

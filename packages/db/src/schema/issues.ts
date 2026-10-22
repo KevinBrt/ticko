@@ -54,7 +54,7 @@ export const issueCategories = pgTable(
     check('issue_categories_name_not_blank', sql`btrim(${table.name}) <> ''`),
     check(
       'issue_categories_color_check',
-      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan')`,
+      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan', 'orange', 'pink')`,
     ),
     check('issue_categories_position_check', sql`${table.position} >= 0`),
     uniqueIndex('issue_categories_name_unique').on(sql`lower(${table.name})`),
@@ -69,7 +69,7 @@ export const issues = pgTable(
   'issues',
   {
     id: id(),
-    /** Projects are archived, never deleted. */
+    /** Deleted with their project by the command made for it, never by a cascade. */
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'restrict' }),
@@ -117,6 +117,7 @@ export const activities = pgTable(
   'activities',
   {
     id: id(),
+    /** Deleted with their project by the command made for it, never by a cascade. */
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'restrict' }),

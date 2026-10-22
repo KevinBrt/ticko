@@ -80,7 +80,7 @@ export function RoleForm({
                   'cursor-pointer outline-offset-2 peer-checked:outline-2 peer-checked:outline-primary peer-focus-visible:outline-2 peer-focus-visible:outline-ring',
                 )}
               >
-                {t(`roles.colors.${option}`)}
+                {t(`colors.${option}`)}
               </span>
             </label>
           ))}

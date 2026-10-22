@@ -113,6 +113,20 @@
       "when": 1792657697260,
       "tag": "0015_seed_default_transitions",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792664533131,
+      "tag": "0016_project_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792664540800,
+      "tag": "0017_team_without_project_create",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,8 @@ import {
   addProjectMembersRequestSchema,
   changeProjectMemberRoleRequestSchema,
   pickerQuerySchema,
-  projectMembersQuerySchema,
+  projectAccessQuerySchema,
+  projectAccessRowSchema,
 } from './members.ts';
 import {
   createProjectRequestSchema,
@@ -36,28 +37,73 @@ describe('createProjectRequestSchema', () => {
     expect(createProjectRequestSchema.safeParse(body).success).toBe(false);
   });
 
-  it('asks for every field when updating', () => {
+  it('asks for every field when updating, the color among the palette', () => {
+    const update = { key: 'WEB', name: 'Website', description: '', color: 'orange' };
+    expect(updateProjectRequestSchema.parse(update)).toStrictEqual(update);
     expect(updateProjectRequestSchema.safeParse({ key: 'WEB', name: 'Website' }).success).toBe(
       false,
     );
+    expect(updateProjectRequestSchema.safeParse({ ...update, color: '#f60' }).success).toBe(false);
   });
 });
 
 describe('list queries', () => {
   it('start on the first page of active projects', () => {
-    expect(projectsQuerySchema.parse({})).toStrictEqual({ state: 'active', page: 1 });
-    expect(projectsQuerySchema.parse({ state: 'archived', search: ' web ', page: '2' })).toEqual({
+    expect(projectsQuerySchema.parse({})).toStrictEqual({
+      scope: 'reachable',
+      state: 'active',
+      page: 1,
+    });
+    expect(
+      projectsQuerySchema.parse({
+        scope: 'managed',
+        state: 'archived',
+        search: ' web ',
+        page: '2',
+      }),
+    ).toEqual({
+      scope: 'managed',
       state: 'archived',
       search: 'web',
       page: 2,
     });
     expect(projectsQuerySchema.safeParse({ state: 'deleted' }).success).toBe(false);
+    expect(projectsQuerySchema.safeParse({ scope: 'all' }).success).toBe(false);
   });
 
-  it('page a project’s members and search people to add', () => {
-    expect(projectMembersQuerySchema.parse({ page: '3' })).toStrictEqual({ page: 3 });
+  it('page a project’s access list and search people to add', () => {
+    expect(projectAccessQuerySchema.parse({ page: '3' })).toStrictEqual({ page: 3 });
     expect(pickerQuerySchema.parse({ search: ' ada ' })).toStrictEqual({ search: 'ada' });
     expect(pickerQuerySchema.safeParse({ search: 'x'.repeat(101) }).success).toBe(false);
+  });
+});
+
+describe('a project’s access list', () => {
+  const ROLE = { id: GRACE, name: 'Team', color: 'green' };
+
+  it('tells people and invitations apart', () => {
+    const person = {
+      kind: 'person',
+      userId: GRACE,
+      name: 'Grace Hopper',
+      email: 'grace@example.com',
+      access: 'allProjects',
+      ownRole: ROLE,
+      projectRole: null,
+      deactivatedAt: null,
+    };
+    const invitation = {
+      kind: 'invitation',
+      invitationId: ALAN,
+      email: 'alan@example.com',
+      role: ROLE,
+      allProjects: false,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    };
+    expect(projectAccessRowSchema.parse(person)).toStrictEqual(person);
+    expect(projectAccessRowSchema.parse(invitation)).toStrictEqual(invitation);
+    expect(projectAccessRowSchema.safeParse({ ...person, access: 'friend' }).success).toBe(false);
+    expect(projectAccessRowSchema.safeParse({ ...invitation, kind: 'guest' }).success).toBe(false);
   });
 });
 

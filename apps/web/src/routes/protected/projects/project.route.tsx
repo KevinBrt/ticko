@@ -2,21 +2,34 @@ import { useQuery } from '@tanstack/react-query';
 import { createRoute, Outlet } from '@tanstack/react-router';
 import { EmptyState } from '@toppo/ui';
 import { FolderXIcon } from 'lucide-react';
+import { ProjectIdentity } from '../../../features/projects/components/settings/project-identity.tsx';
+import { PROJECT_ADMIN_NAV } from '../../../features/projects/constants/project-admin.constants.ts';
 import { ProjectsQueries } from '../../../features/projects/queries/projects.queries.ts';
 import { ApiRequestError } from '../../../shared/api/http.client.ts';
 import { requestErrorMessage } from '../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
+import { AccessDenied } from '../../../shared/layout/access-denied.tsx';
+import { visibleSections } from '../../../shared/layout/navigation.util.ts';
 import { Page } from '../../../shared/layout/page.tsx';
+import { SectionLayout } from '../../../shared/layout/section-layout.tsx';
 import { projectsRoute } from './projects.route.tsx';
 
+/** The project's name in the top bar, its key until the name is known. */
+function ProjectCrumb({ params }: { params: Readonly<Record<string, string | undefined>> }) {
+  const key = params['projectKey'] ?? '';
+  const { data: project } = useQuery(ProjectsQueries.detail(key));
+  return project?.name ?? key;
+}
+
 /**
- * One project's pages. A project out of reach answers like one that does not exist: the screen
- * says so the same way, never that it is forbidden.
+ * A project's own pages, for those who manage it: its general settings, who has access to it.
+ * A project out of reach answers like one that does not exist: the screen says so the same way,
+ * never that it is forbidden.
  */
 export const projectRoute = createRoute({
   getParentRoute: () => projectsRoute,
   path: '$projectKey',
-  staticData: { crumbParam: 'projectKey' },
+  staticData: { crumb: ProjectCrumb },
   component: ProjectLayout,
 });
 
@@ -44,5 +57,21 @@ function ProjectLayout() {
       </Page>
     );
   }
-  return <Outlet />;
+  const sections = visibleSections(PROJECT_ADMIN_NAV, { permissions: project.data.permissions });
+  if (sections.length === 0) {
+    return (
+      <Page title={project.data.name}>
+        <AccessDenied />
+      </Page>
+    );
+  }
+  return (
+    <SectionLayout
+      label={t('projectAdmin.navLabel')}
+      header={<ProjectIdentity project={project.data} />}
+      sections={sections}
+    >
+      <Outlet />
+    </SectionLayout>
+  );
 }

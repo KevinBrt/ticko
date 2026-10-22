@@ -18,9 +18,12 @@ export const projectPath = (key: string) => `/api/v1/projects/${encodeURICompone
 
 /** Server calls about projects. A project out of the caller's reach answers 404. */
 export const Projects = {
-  /** One page of the projects the caller reaches: the server searches and pages. */
-  async list({ state, search, page }: ProjectsQuery): Promise<ProjectsResponse> {
+  /** One page of the projects the caller reaches, or manages: the server searches and pages. */
+  async list({ scope, state, search, page }: ProjectsQuery): Promise<ProjectsResponse> {
     const params = new URLSearchParams();
+    if (scope === 'managed') {
+      params.set('scope', scope);
+    }
     if (state === 'archived') {
       params.set('state', state);
     }
@@ -60,5 +63,10 @@ export const Projects = {
 
   async unarchive(key: string): Promise<void> {
     await apiRequest(`${projectPath(key)}/unarchive`, { method: 'POST', schema: noContent });
+  },
+
+  /** For good: the project, its issues and their history. */
+  async delete(key: string): Promise<void> {
+    await apiRequest(projectPath(key), { method: 'DELETE', schema: noContent });
   },
 };

@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRouter, type RouterHistory } from '@tanstack/react-router';
+import type { ComponentType } from 'react';
 import { accountRoute } from './routes/protected/account/account.route.tsx';
 import { indexRoute } from './routes/protected/index.route.tsx';
 import { issuesRoute } from './routes/protected/issues/issues.route.tsx';
@@ -7,10 +8,8 @@ import { myIssuesRoute } from './routes/protected/issues/my-issues.route.tsx';
 import { notFoundRoute } from './routes/protected/not-found.route.tsx';
 import { projectsIndexRoute } from './routes/protected/projects/index.route.tsx';
 import { projectRoute } from './routes/protected/projects/project.route.tsx';
+import { projectAccessRoute } from './routes/protected/projects/project-access.route.tsx';
 import { projectGeneralRoute } from './routes/protected/projects/project-general.route.tsx';
-import { projectHomeRoute } from './routes/protected/projects/project-home.route.tsx';
-import { projectMembersRoute } from './routes/protected/projects/project-members.route.tsx';
-import { projectSettingsRoute } from './routes/protected/projects/project-settings.route.tsx';
 import { projectsRoute } from './routes/protected/projects/projects.route.tsx';
 import { protectedRoute } from './routes/protected/protected.route.tsx';
 import { settingsIndexRoute } from './routes/protected/settings/index.route.tsx';
@@ -35,10 +34,7 @@ const routeTree = rootRoute.addChildren([
     myIssuesRoute,
     projectsRoute.addChildren([
       projectsIndexRoute,
-      projectRoute.addChildren([
-        projectHomeRoute,
-        projectSettingsRoute.addChildren([projectGeneralRoute, projectMembersRoute]),
-      ]),
+      projectRoute.addChildren([projectGeneralRoute, projectAccessRoute]),
     ]),
     settingsRoute.addChildren([settingsIndexRoute, membersRoute, rolesRoute]),
     accountRoute,
@@ -75,7 +71,7 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /** Title shown in the top bar and the browser tab. */
     titleKey?: PlainMessageKey;
-    /** For a route about one record, the path parameter the top bar shows, e.g. `WEB`. */
-    crumbParam?: 'projectKey';
+    /** For a route about one record, what the top bar shows for it, e.g. the project's name. */
+    crumb?: ComponentType<{ params: Readonly<Record<string, string | undefined>> }>;
   }
 }

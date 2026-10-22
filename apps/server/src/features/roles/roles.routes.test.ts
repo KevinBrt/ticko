@@ -36,7 +36,6 @@ const TEAM_PERMISSIONS = [
   'issue.update',
   'issue.assign',
   'comment.create',
-  'project.create',
 ];
 
 function signIn(email: string) {
@@ -313,7 +312,7 @@ describe('PUT /api/v1/roles/permissions', () => {
         {
           roleId: DEFAULT_ROLE_IDS.team,
           from: TEAM_PERMISSIONS,
-          to: [...TEAM_PERMISSIONS.filter((p) => p !== 'project.create'), 'instance.users.manage'],
+          to: [...TEAM_PERMISSIONS.filter((p) => p !== 'issue.assign'), 'instance.users.manage'],
         },
         { roleId: reviewer, from: [], to: ['comment.create', 'issue.read', 'issue.read'] },
       ],

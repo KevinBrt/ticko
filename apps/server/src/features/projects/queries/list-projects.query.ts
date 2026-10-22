@@ -1,19 +1,28 @@
-import { containsText, schema } from '@toppo/db';
-import { PROJECTS_PAGE_SIZE, type ProjectsResponse, projectsQuerySchema } from '@toppo/shared';
-import { and, count, isNotNull, isNull, sql } from 'drizzle-orm';
-import { reachableBy } from '../../../platform/auth/project-access.ts';
+import { containsText, type Db, schema } from '@toppo/db';
+import {
+  PROJECT_MEMBERS_PREVIEW,
+  PROJECTS_PAGE_SIZE,
+  type ProjectSummary,
+  type ProjectsResponse,
+  projectsQuerySchema,
+} from '@toppo/shared';
+import { and, count, eq, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
+import { managedBy, reachableBy } from '../../../platform/auth/project-access.ts';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 
-const { projects } = schema;
+const { projectMembers, projects, users } = schema;
 
-/** One page of the projects the caller reaches, with the counts of the active and archived tabs. */
+/**
+ * One page of the projects the caller reaches, or only those they manage, with the counts of the
+ * active and archived tabs and a glimpse of each project's members.
+ */
 export const listProjects = defineQuery({
   name: 'project.list',
   access: 'authenticated',
   input: projectsQuerySchema,
-  async handler({ db, actor }, { state, search, page }): Promise<ProjectsResponse> {
+  async handler({ db, actor }, { scope, state, search, page }): Promise<ProjectsResponse> {
     const visible = and(
-      reachableBy(actor.id),
+      scope === 'managed' ? managedBy(actor.id) : reachableBy(actor.id),
       search ? containsText([projects.key, projects.name], search) : undefined,
     );
     const inState =
@@ -25,6 +34,7 @@ export const listProjects = defineQuery({
         key: projects.key,
         name: projects.name,
         description: projects.description,
+        color: projects.color,
       })
       .from(projects)
       .where(and(visible, inState))
@@ -38,11 +48,15 @@ export const listProjects = defineQuery({
       })
       .from(projects)
       .where(visible);
+    const members = await membersOf(
+      db,
+      rows.map(({ id }) => id),
+    );
 
     const active = counts?.active ?? 0;
     const archived = counts?.archived ?? 0;
     return {
-      rows,
+      rows: rows.map((row) => ({ ...row, members: members.get(row.id) ?? NO_MEMBERS })),
       matching: state === 'archived' ? archived : active,
       counts: { active, archived },
       page,
@@ -50,3 +64,47 @@ export const listProjects = defineQuery({
     };
   },
 });
+
+type MembersPreview = ProjectSummary['members'];
+
+const NO_MEMBERS: MembersPreview = { count: 0, shown: [] };
+
+/** How many people each project lists, and the first of them by name: one query for the page. */
+async function membersOf(db: Db, projectIds: string[]): Promise<Map<string, MembersPreview>> {
+  if (projectIds.length === 0) {
+    return new Map();
+  }
+  const ranked = db
+    .select({
+      projectId: projectMembers.projectId,
+      userId: users.id,
+      name: users.name,
+      rank: sql<number>`row_number() over (partition by ${projectMembers.projectId}
+        order by lower(${users.name}), ${users.id})`.as('rank'),
+      total: sql<number>`count(*) over (partition by ${projectMembers.projectId})`
+        .mapWith(Number)
+        .as('total'),
+    })
+    .from(projectMembers)
+    .innerJoin(users, eq(users.id, projectMembers.userId))
+    .where(and(inArray(projectMembers.projectId, projectIds), isNull(users.deletedAt)))
+    .as('ranked');
+  const shown = await db
+    .select({
+      projectId: ranked.projectId,
+      userId: ranked.userId,
+      name: ranked.name,
+      total: ranked.total,
+    })
+    .from(ranked)
+    .where(lte(ranked.rank, PROJECT_MEMBERS_PREVIEW))
+    .orderBy(ranked.projectId, ranked.rank);
+
+  const previews = new Map<string, MembersPreview>();
+  for (const { projectId, userId, name, total } of shown) {
+    const preview = previews.get(projectId) ?? { count: Number(total), shown: [] };
+    preview.shown.push({ userId, name });
+    previews.set(projectId, preview);
+  }
+  return previews;
+}

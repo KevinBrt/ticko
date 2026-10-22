@@ -1,21 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import type { ProjectsQuery } from '@toppo/shared';
-import { Alert, cn, Input } from '@toppo/ui';
-import { SearchIcon } from 'lucide-react';
+import type { ProjectSummary, ProjectsQuery } from '@toppo/shared';
+import { Alert, Avatar, cn, Input } from '@toppo/ui';
+import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { pluralForm } from '../../../../shared/i18n/plural.util.ts';
 import { Pager } from '../../../../shared/layout/pager.tsx';
 import { ProjectsQueries } from '../../queries/projects.queries.ts';
+import { ProjectMark } from '../project-mark.tsx';
 
 /** The search goes to the server once typing pauses, not on every key. */
 const SEARCH_DELAY_MS = 300;
 
 /**
- * One page of the projects the caller reaches, active or archived, as the server searched them.
- * Reports filter changes, for the caller to keep in the URL.
+ * One page of projects, active or archived, as the server searched them; each row opens its
+ * project. Reports filter changes, for the caller to keep in the URL.
  */
 export function ProjectsList({
   query,
@@ -113,31 +114,29 @@ export function ProjectsList({
       {rows.length === 0 ? (
         <p className="px-4 py-10 text-center text-sm text-muted-foreground">{emptyMessage()}</p>
       ) : (
-        <ul className="divide-y divide-border">
-          {rows.map((project) => (
-            <li key={project.id}>
-              <Link
-                to="/projects/$projectKey"
-                params={{ projectKey: project.key }}
-                className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-hover pointer-coarse:min-h-11"
-              >
-                <span className="mt-0.5 shrink-0 rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground">
-                  {project.key}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {project.name}
-                  </span>
-                  {project.description ? (
-                    <span className="block truncate text-sm text-muted-foreground">
-                      {project.description}
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <table className="w-full table-fixed text-sm">
+          <thead className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr>
+              <th scope="col" className="py-2.5 pr-2 pl-4 font-medium">
+                {t('projects.project')}
+              </th>
+              <th scope="col" className="hidden w-32 px-2 py-2.5 font-medium sm:table-cell">
+                {t('projects.key')}
+              </th>
+              <th scope="col" className="hidden w-52 px-2 py-2.5 font-medium md:table-cell">
+                {t('projects.members')}
+              </th>
+              <th scope="col" className="w-12 py-2.5 pr-4">
+                <span className="sr-only">{t('projects.actions')}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((project) => (
+              <ProjectRow key={project.id} project={project} />
+            ))}
+          </tbody>
+        </table>
       )}
       <Pager
         page={page}
@@ -148,5 +147,72 @@ export function ProjectsList({
         onPage={(next) => onQueryChange({ ...query, page: next })}
       />
     </section>
+  );
+}
+
+/** A project, the whole row opening it: its name is the link, stretched over the row. */
+function ProjectRow({ project }: { project: ProjectSummary }) {
+  return (
+    <tr className="relative transition-colors hover:bg-surface-hover">
+      <td className="py-3 pr-2 pl-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <ProjectMark name={project.name} color={project.color} />
+          <div className="min-w-0">
+            <Link
+              to="/projects/$projectKey"
+              params={{ projectKey: project.key }}
+              className="block truncate font-medium text-foreground outline-none after:absolute after:inset-0 hover:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+            >
+              {project.name}
+            </Link>
+            <p className="truncate text-muted-foreground">
+              <span className="font-mono text-xs sm:hidden">{project.key} </span>
+              {project.description}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="hidden px-2 py-3 sm:table-cell">
+        <span className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground">
+          {project.key}
+        </span>
+      </td>
+      <td className="hidden px-2 py-3 md:table-cell">
+        <MembersStack members={project.members} />
+      </td>
+      <td className="py-3 pr-4">
+        <SlidersHorizontalIcon
+          aria-hidden="true"
+          className="ml-auto size-4 text-muted-foreground"
+        />
+      </td>
+    </tr>
+  );
+}
+
+/** The first members' initials and how many more there are; read out as a count. */
+function MembersStack({ members }: { members: ProjectSummary['members'] }) {
+  const { t, locale } = useI18n();
+
+  if (members.count === 0) {
+    return <span className="text-muted-foreground">{t('projects.noMembers')}</span>;
+  }
+  const more = members.count - members.shown.length;
+  return (
+    <>
+      <span className="sr-only">
+        {t(`projects.membersCount.${pluralForm(locale, members.count)}`, { count: members.count })}
+      </span>
+      <span aria-hidden="true" className="flex -space-x-1.5">
+        {members.shown.map((member) => (
+          <Avatar key={member.userId} name={member.name} className="size-7 ring-2 ring-surface" />
+        ))}
+        {more > 0 ? (
+          <span className="flex size-7 items-center justify-center rounded-full bg-surface-muted text-xs font-medium text-muted-foreground ring-2 ring-surface">
+            {t('projects.moreMembers', { count: more })}
+          </span>
+        ) : null}
+      </span>
+    </>
   );
 }

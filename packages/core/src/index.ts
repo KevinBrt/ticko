@@ -72,3 +72,4 @@ export {
   type ProjectAccess,
   projectPermissionsOf,
 } from './permissions/projects.ts';
+export { projectColorFor } from './projects/project-color.ts';

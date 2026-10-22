@@ -121,6 +121,7 @@ describe('the current user', () => {
     expect(Object.keys(response.json().user).sort()).toStrictEqual([
       'email',
       'id',
+      'managesProjects',
       'name',
       'permissions',
     ]);

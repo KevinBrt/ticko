@@ -1,4 +1,11 @@
-import { can, type ProjectPermission, parseIssueKey, projectPermissionsOf } from '@toppo/core';
+import {
+  can,
+  isProjectPermission,
+  type Permission,
+  type ProjectPermission,
+  parseIssueKey,
+  projectPermissionsOf,
+} from '@toppo/core';
 import { type Db, schema } from '@toppo/db';
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -44,16 +51,50 @@ export function reachableBy(actorId: string): SQL {
   )`;
 }
 
+/** The project permissions that make someone a manager of a project: its screens are theirs. */
+const MANAGING: readonly ProjectPermission[] = [
+  'project.settings.manage',
+  'project.members.manage',
+];
+
+/**
+ * The projects whose settings or access `actorId` manages, as a condition on `projects`: the
+ * system role manages them all; anyone else through the role they have there (`projectPermissionsOf`
+ * in `@toppo/core`, in SQL).
+ */
+export function managedBy(actorId: string): SQL {
+  // In a raw template Drizzle names an alias without its table: the joins spell both out.
+  return sql`exists (
+    select 1 from ${users}
+      join ${roles} as own_roles on ${ownRoles.id} = ${users.instanceRoleId}
+      left join ${projectMembers} on ${projectMembers.projectId} = ${projects.id}
+        and ${projectMembers.userId} = ${users.id}
+      left join ${roles} as project_roles on ${projectRoles.id} = ${projectMembers.roleId}
+    where ${users.id} = ${actorId} and (
+      ${ownRoles.grantsAll}
+      or ((${projectMembers.id} is not null or ${users.allProjects}) and (
+        coalesce(${projectRoles.grantsAll}, false)
+        or coalesce(${projectRoles.permissions}, ${ownRoles.permissions})
+          && array[${sql.join(
+            MANAGING.map((permission) => sql`${permission}`),
+            sql`, `,
+          )}]::text[]
+      ))
+    )
+  )`;
+}
+
 /**
  * The project with `key`, as `actor` may use it. A project out of the actor's reach answers like
  * one that does not exist, so that its very existence stays private; one they reach without
- * `permission` is forbidden. One query: the project, the actor's role and their membership.
+ * `permission` is forbidden. A project permission is looked up in the project, an instance one in
+ * the actor's own role. One query: the project, the actor's role and their membership.
  */
 export async function resolveProject(
   db: Db,
   actor: Actor,
   key: string | null,
-  permission?: ProjectPermission,
+  permission?: Permission,
 ): Promise<ProjectContext> {
   if (key === null) {
     throw notFound();
@@ -87,7 +128,8 @@ export async function resolveProject(
   if (!(row && permissions)) {
     throw notFound();
   }
-  if (permission && !can(permissions, permission)) {
+  const granted = permission && isProjectPermission(permission) ? permissions : actor.permissions;
+  if (permission && !can(granted, permission)) {
     throw new HttpError(403, 'FORBIDDEN', 'You do not have permission to do this');
   }
   return { id: row.id, key: row.key, archived: row.archivedAt !== null, permissions };

@@ -16,9 +16,9 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   // Every matched route with a title is a step of the path: Projects / WEB / Settings.
   const crumbs = useMatches().flatMap((match) => {
     const path: RoutePath = match.fullPath;
-    const { titleKey, crumbParam } = match.staticData;
+    const { titleKey, crumb: Crumb } = match.staticData;
     const params: Readonly<Record<string, string | undefined>> = match.params;
-    const label = titleKey ? t(titleKey) : crumbParam && params[crumbParam];
+    const label = titleKey ? t(titleKey) : Crumb && <Crumb params={params} />;
     return label && isStepPath(path) ? [{ id: match.id, to: path, label }] : [];
   });
 

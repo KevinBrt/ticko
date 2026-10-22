@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { UpdateProjectRequest } from '@toppo/shared';
+import type { CreateProjectRequest } from '@toppo/shared';
 import { Button, Dialog, DialogContent, DialogTrigger } from '@toppo/ui';
 import { PlusIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -15,7 +15,7 @@ export function NewProject({ onCreated }: { onCreated: (key: string) => Promise<
   const [open, setOpen] = useState(false);
 
   const create = useMutation({
-    mutationFn: (project: UpdateProjectRequest) => Projects.create(project),
+    mutationFn: (project: CreateProjectRequest) => Projects.create(project),
     onSuccess: async (key) => {
       await queryClient.invalidateQueries({ queryKey: ProjectsQueries.all });
       setOpen(false);
@@ -43,8 +43,6 @@ export function NewProject({ onCreated }: { onCreated: (key: string) => Promise<
         closeLabel={t('projectSettings.close')}
       >
         <ProjectForm
-          submitLabel={t('projects.create')}
-          pendingLabel={t('projects.creating')}
           pending={create.isPending}
           error={create.error}
           onSubmit={(project) => create.mutate(project)}

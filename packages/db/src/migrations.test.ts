@@ -509,6 +509,17 @@ describe('projects and issues', () => {
     ).rejects.toThrow();
   });
 
+  it('gives projects a color of the palette only', async () => {
+    await expect(
+      database.db.insert(projects).values({ key: 'PINK', name: 'Pink', color: 'pink' }),
+    ).resolves.toBeDefined();
+    await expect(
+      database.db.execute(
+        sql`insert into projects (id, key, name, color) values (${uuidv7()}, 'HEX', 'Hex', '#f60')`,
+      ),
+    ).rejects.toThrow();
+  });
+
   it('keeps one workflow for the instance and at most one copy per project', async () => {
     const projectId = await createProject();
 

@@ -1,6 +1,11 @@
 export { Button, type ButtonProps, buttonVariants } from './components/button.tsx';
 export { Avatar, initialsOf } from './components/display/avatar.tsx';
-export { Badge, type BadgeTone, badgeClassName } from './components/display/badge.tsx';
+export {
+  Badge,
+  type BadgeTone,
+  badgeClassName,
+  toneClassName,
+} from './components/display/badge.tsx';
 export { Logo } from './components/display/logo.tsx';
 export { Alert, type AlertProps } from './components/feedback/alert.tsx';
 export { EmptyState, type EmptyStateProps } from './components/feedback/empty-state.tsx';

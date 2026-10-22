@@ -9,9 +9,16 @@ const TONES = {
   amber: 'bg-badge-amber text-badge-amber-foreground',
   violet: 'bg-badge-violet text-badge-violet-foreground',
   cyan: 'bg-badge-cyan text-badge-cyan-foreground',
+  orange: 'bg-badge-orange text-badge-orange-foreground',
+  pink: 'bg-badge-pink text-badge-pink-foreground',
 } as const;
 
 export type BadgeTone = keyof typeof TONES;
+
+/** The background and text colors of a tone, for marks that are not badges (a project's initials). */
+export function toneClassName(tone: BadgeTone): string {
+  return TONES[tone];
+}
 
 /** Classes of a badge, for elements that look like one (a select styled as a role badge). */
 export function badgeClassName(tone: BadgeTone, className?: string): string {

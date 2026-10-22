@@ -89,16 +89,8 @@ describe('the roles and permissions screen', () => {
               'issue.update',
               'issue.assign',
               'comment.create',
-              'project.create',
             ],
-            to: [
-              'issue.read',
-              'issue.read.own',
-              'issue.create',
-              'issue.update',
-              'comment.create',
-              'project.create',
-            ],
+            to: ['issue.read', 'issue.read.own', 'issue.create', 'issue.update', 'comment.create'],
           },
           {
             roleId: DEFAULT_ROLE_IDS.requester,

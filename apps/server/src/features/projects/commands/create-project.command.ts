@@ -1,11 +1,16 @@
+import { projectColorFor } from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
 import { createProjectRequestSchema } from '@toppo/shared';
+import { count } from 'drizzle-orm';
 import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
 
 const { projectMembers, projects } = schema;
 
-/** Creates a project; whoever creates it gets access to it, with their own role. */
+/**
+ * Creates a project, in the next color of the palette; whoever creates it gets access to it, with
+ * their own role.
+ */
 export const createProject = defineCommand({
   name: 'project.create',
   access: { permission: 'project.create' },
@@ -15,10 +20,13 @@ export const createProject = defineCommand({
     { key, name, description },
   ): Promise<{ id: string; key: string }> {
     const id = uuidv7();
+    // Archived projects count too: colors keep turning however projects come and go.
+    const [existing] = await tx.select({ count: count() }).from(projects);
+    const color = projectColorFor(existing?.count ?? 0);
     // The key's unique index decides between concurrent creations: no check-then-insert race.
     const [created] = await tx
       .insert(projects)
-      .values({ id, key, name, description })
+      .values({ id, key, name, description, color })
       .onConflictDoNothing({ target: projects.key })
       .returning({ id: projects.id });
     if (!created) {

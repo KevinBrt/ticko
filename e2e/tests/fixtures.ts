@@ -34,6 +34,15 @@ export { expect };
 
 /** Runs axe against WCAG 2.2 AA and fails on any violation. */
 export async function expectAccessible(page: Page): Promise<void> {
+  // Animations end first: a dialog fading in would be judged on its colors halfway through.
+  await page.evaluate(async () => {
+    const ending = document
+      .getAnimations()
+      .filter(
+        (animation) => animation.effect?.getComputedTiming().endTime !== Number.POSITIVE_INFINITY,
+      );
+    await Promise.all(ending.map((animation) => animation.finished));
+  });
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();

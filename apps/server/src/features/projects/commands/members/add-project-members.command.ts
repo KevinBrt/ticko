@@ -10,6 +10,9 @@ const { projectMembers, roles, users } = schema;
 const beyondYours = () =>
   new HttpError(403, 'ROLE_BEYOND_YOURS', 'You cannot give more than you hold in this project');
 
+const systemRoleHolder = () =>
+  new HttpError(409, 'SYSTEM_ROLE_HOLDER', 'The system role has every permission in every project');
+
 /**
  * Gives active members of the instance access to the project, with a role there or their own.
  * Nobody gets more rights in the project than whoever adds them holds. Those already in are left
@@ -31,6 +34,10 @@ export const addProjectMembers = defineCommand({
       .where(and(inArray(users.id, userIds), isNull(users.deletedAt), isNull(users.deactivatedAt)));
     if (people.length !== userIds.length) {
       throw new HttpError(404, 'USER_NOT_FOUND', 'Someone to add is not an active member');
+    }
+    // The system role keeps every permission everywhere: a role of the project would mean nothing.
+    if (role && people.some(({ grantsAll }) => grantsAll)) {
+      throw systemRoleHolder();
     }
     // Without a role of the project, each one's own role applies there: it must stay within reach.
     if (people.some((ownRole) => !canActOnProjectMember(project.permissions, role ?? ownRole))) {

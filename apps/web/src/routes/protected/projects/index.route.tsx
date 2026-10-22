@@ -29,7 +29,8 @@ function ProjectsScreen() {
   const { t } = useI18n();
   const navigate = useNavigate({ from: projectsIndexRoute.fullPath });
   const { state, q, page } = projectsIndexRoute.useSearch();
-  const query: ProjectsQuery = { state, search: q, page };
+  // The projects screen is where projects are managed: those the user manages, nothing more.
+  const query: ProjectsQuery = { scope: 'managed', state, search: q, page };
   const { data: user } = useQuery(SessionQueries.currentUser);
 
   const changeQuery = useCallback(
@@ -48,6 +49,7 @@ function ProjectsScreen() {
   return (
     <Page
       title={t('nav.projects')}
+      description={t('projects.intro')}
       actions={
         user && can(user.permissions, 'project.create') ? (
           <NewProject

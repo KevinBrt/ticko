@@ -1,7 +1,7 @@
 import { createRoute } from '@tanstack/react-router';
 import { protectedRoute } from '../protected.route.tsx';
 
-/** The projects: their list, and each project's own pages. */
+/** The projects, as those who manage them see them: their list, and each project's own pages. */
 export const projectsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/projects',

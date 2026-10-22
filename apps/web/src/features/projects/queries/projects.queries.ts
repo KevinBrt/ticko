@@ -1,6 +1,6 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
-import type { ProjectMembersQuery, ProjectsQuery } from '@toppo/shared';
-import { ProjectMembers } from '../api/project-members.api.ts';
+import type { ProjectAccessQuery, ProjectsQuery } from '@toppo/shared';
+import { ProjectAccess } from '../api/project-access.api.ts';
 import { Projects } from '../api/projects.api.ts';
 
 /** Cached projects data. Keys start with `projects`. */
@@ -19,23 +19,23 @@ export const ProjectsQueries = {
       queryKey: ['projects', 'detail', key],
       queryFn: () => Projects.get(key),
     }),
-  /** Every cached page of a project's members, to refresh them after a change. */
-  allMembers: (key: string) => ['projects', 'members', key] as const,
-  members: (key: string, query: ProjectMembersQuery) =>
+  /** Every cached page of a project's access list, to refresh them after a change. */
+  allAccess: (key: string) => ['projects', 'access', key] as const,
+  access: (key: string, query: ProjectAccessQuery) =>
     queryOptions({
-      queryKey: ['projects', 'members', key, query],
-      queryFn: () => ProjectMembers.list(key, query),
+      queryKey: ['projects', 'access', key, query],
+      queryFn: () => ProjectAccess.list(key, query),
       placeholderData: keepPreviousData,
     }),
   candidates: (key: string, search: string) =>
     queryOptions({
       queryKey: ['projects', 'candidates', key, search],
-      queryFn: () => ProjectMembers.candidates(key, search),
+      queryFn: () => ProjectAccess.candidates(key, search),
       placeholderData: keepPreviousData,
     }),
   roles: (key: string) =>
     queryOptions({
       queryKey: ['projects', 'roles', key],
-      queryFn: () => ProjectMembers.roles(key),
+      queryFn: () => ProjectAccess.roles(key),
     }),
 };

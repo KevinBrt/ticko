@@ -1,3 +1,4 @@
+import { PALETTE_COLORS } from '@toppo/shared';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -22,6 +23,8 @@ export const projects = pgTable(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description').notNull().default(''),
+    /** Shown with the project's initials; given in turn from the palette at creation. */
+    color: text('color', { enum: PALETTE_COLORS }).notNull().default('gray'),
     /** Set while the project is archived: read-only. */
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     /**
@@ -36,6 +39,10 @@ export const projects = pgTable(
     // Mirrors PROJECT_KEY_PATTERN (`@toppo/shared`).
     check('projects_key_format', sql`${table.key} ~ '^[A-Z][A-Z0-9]{1,9}$'`),
     check('projects_name_not_blank', sql`btrim(${table.name}) <> ''`),
+    check(
+      'projects_color_check',
+      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan', 'orange', 'pink')`,
+    ),
     check('projects_next_issue_number_positive', sql`${table.nextIssueNumber} >= 1`),
   ],
 );

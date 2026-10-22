@@ -48,7 +48,7 @@ describe('the settings', () => {
     const { screen } = await renderApp();
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
 
-    await expect.element(nav.getByRole('link', { name: 'Projects' })).toBeVisible();
+    await expect.element(nav.getByRole('link', { name: 'Issues' })).toBeVisible();
     await expect.element(nav.getByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe('the settings', () => {
     await screen.getByRole('button', { name: 'Open navigation' }).click();
     const drawer = screen.getByRole('dialog', { name: 'Main navigation' });
 
-    await expect.element(drawer.getByRole('link', { name: 'Projects' })).toBeVisible();
+    await expect.element(drawer.getByRole('link', { name: 'Issues' })).toBeVisible();
     await expect.element(drawer.getByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 

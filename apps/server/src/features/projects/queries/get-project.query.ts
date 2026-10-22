@@ -16,6 +16,7 @@ export const getProject = defineQuery({
       .select({
         name: projects.name,
         description: projects.description,
+        color: projects.color,
         nextIssueNumber: projects.nextIssueNumber,
       })
       .from(projects)
@@ -28,6 +29,7 @@ export const getProject = defineQuery({
       key: project.key,
       name: row.name,
       description: row.description,
+      color: row.color,
       archived: project.archived,
       keyEditable: row.nextIssueNumber === 1,
       permissions: [...project.permissions],

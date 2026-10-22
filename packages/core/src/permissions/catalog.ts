@@ -32,6 +32,8 @@ export const PERMISSIONS = {
   'project.members.manage': { scope: 'project', section: 'project' },
   'instance.users.manage': { scope: 'instance', section: 'organisation' },
   'project.create': { scope: 'instance', section: 'organisation' },
+  // Takes a project's issues and their history with it, for good.
+  'project.delete': { scope: 'instance', section: 'organisation' },
   'instance.settings.manage': { scope: 'instance', section: 'organisation' },
   // Whoever edits roles can give themselves anything: only administrators may.
   'instance.roles.manage': { scope: 'instance', section: 'organisation', systemOnly: true },

@@ -7,14 +7,15 @@ import { HttpError } from '../../../platform/http/http-error.ts';
 const { projects } = schema;
 
 /**
- * Renames a project and changes its description, and its key until its first issue exists: a key
- * already passed on in an issue number never changes. `projectKey` is the current key.
+ * Renames a project and changes its description and color, and its key until its first issue
+ * exists: a key already passed on in an issue number never changes. `projectKey` is the current
+ * key.
  */
 export const updateProject = defineCommand({
   name: 'project.update',
   access: { project: 'projectKey', permission: 'project.settings.manage' },
   input: projectKeyParamsSchema.extend(updateProjectRequestSchema.shape),
-  async handler({ tx, actor, project, log }, { key, name, description }): Promise<void> {
+  async handler({ tx, actor, project, log }, { key, name, description, color }): Promise<void> {
     if (key !== project.key) {
       // Locked: an issue being created meanwhile is numbered before the check, not after.
       const [current] = await tx
@@ -27,7 +28,10 @@ export const updateProject = defineCommand({
       }
     }
     try {
-      await tx.update(projects).set({ key, name, description }).where(eq(projects.id, project.id));
+      await tx
+        .update(projects)
+        .set({ key, name, description, color })
+        .where(eq(projects.id, project.id));
     } catch (error) {
       // Another project took this key meanwhile.
       if (isUniqueViolation(error, 'projects_key_unique')) {

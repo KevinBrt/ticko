@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PROJECT_MEMBERS_PER_REQUEST_MAX, type RoleBadge } from '@toppo/shared';
+import { PROJECT_MEMBERS_PER_REQUEST_MAX } from '@toppo/shared';
 import {
   Alert,
   Button,
@@ -16,13 +16,14 @@ import { useEffect, useState } from 'react';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { pluralForm } from '../../../../shared/i18n/plural.util.ts';
-import { ProjectMembers } from '../../api/project-members.api.ts';
+import { ProjectAccess } from '../../api/project-access.api.ts';
 import { ProjectsQueries } from '../../queries/projects.queries.ts';
 
 const KNOWN_ERRORS = {
-  ROLE_BEYOND_YOURS: 'projectMembers.roleBeyondYours',
-  USER_NOT_FOUND: 'projectMembers.userNotFound',
-  INVALID_ROLE: 'projectMembers.invalidRole',
+  ROLE_BEYOND_YOURS: 'projectAccess.roleBeyondYours',
+  USER_NOT_FOUND: 'projectAccess.userNotFound',
+  INVALID_ROLE: 'projectAccess.invalidRole',
+  SYSTEM_ROLE_HOLDER: 'projectAccess.systemRoleHolder',
 } as const;
 
 /** The search goes to the server once typing pauses, not on every key. */
@@ -34,15 +35,11 @@ interface Person {
   email: string;
 }
 
-/** "Add members": people found by the server, chosen one by one, and the role they get here. */
-export function AddMembersDialog({
-  projectKey,
-  roles,
-}: {
-  projectKey: string;
-  /** The roles the caller may give in the project. */
-  roles: readonly RoleBadge[];
-}) {
+/**
+ * "Add members": people found by the server, chosen one by one, and the role they get here among
+ * those the caller may give.
+ */
+export function AddMembersDialog({ projectKey }: { projectKey: string }) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -54,6 +51,7 @@ export function AddMembersDialog({
     ...ProjectsQueries.candidates(projectKey, search),
     enabled: open,
   });
+  const roles = useQuery({ ...ProjectsQueries.roles(projectKey), enabled: open });
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(typed.trim()), SEARCH_DELAY_MS);
@@ -62,7 +60,7 @@ export function AddMembersDialog({
 
   const add = useMutation({
     mutationFn: () =>
-      ProjectMembers.add(
+      ProjectAccess.add(
         projectKey,
         chosen.map(({ id }) => id),
         roleId || null,
@@ -95,13 +93,13 @@ export function AddMembersDialog({
       <DialogTrigger asChild>
         <Button>
           <UserPlusIcon aria-hidden="true" />
-          {t('projectMembers.add')}
+          {t('projectAccess.add')}
         </Button>
       </DialogTrigger>
       <DialogContent
-        title={t('projectMembers.add')}
-        description={t('projectMembers.addDescription')}
-        closeLabel={t('projectMembers.close')}
+        title={t('projectAccess.add')}
+        description={t('projectAccess.addDescription')}
+        closeLabel={t('projectAccess.close')}
       >
         <div className="flex flex-col gap-5">
           {add.isError ? (
@@ -109,7 +107,7 @@ export function AddMembersDialog({
           ) : null}
           <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-1.5 text-sm font-medium text-foreground">
-              {t('projectMembers.people')}
+              {t('projectAccess.people')}
             </legend>
             {chosen.length > 0 ? (
               <ul className="flex flex-wrap gap-1.5">
@@ -117,7 +115,7 @@ export function AddMembersDialog({
                   <li key={person.id}>
                     <button
                       type="button"
-                      aria-label={t('projectMembers.unselect', { name: person.name })}
+                      aria-label={t('projectAccess.unselect', { name: person.name })}
                       onClick={() => toggle(person)}
                       className="flex min-h-8 items-center gap-1 rounded-full bg-primary-subtle py-1 pr-2 pl-3 text-sm text-primary-subtle-foreground pointer-coarse:min-h-11"
                     >
@@ -130,8 +128,8 @@ export function AddMembersDialog({
             ) : null}
             <Input
               type="search"
-              aria-label={t('projectMembers.searchPeople')}
-              placeholder={t('projectMembers.searchPeople')}
+              aria-label={t('projectAccess.searchPeople')}
+              placeholder={t('projectAccess.searchPeople')}
               value={typed}
               maxLength={100}
               onChange={(event) => setTyped(event.target.value)}
@@ -166,25 +164,25 @@ export function AddMembersDialog({
               ))}
               {candidates.data?.length === 0 ? (
                 <li className="px-3 py-4 text-center text-sm text-muted-foreground">
-                  {t('projectMembers.noCandidate')}
+                  {t('projectAccess.noCandidate')}
                 </li>
               ) : null}
             </ul>
             <p aria-live="polite" className="text-xs text-muted-foreground">
-              {t(`projectMembers.selected.${pluralForm(locale, chosen.length)}`, {
+              {t(`projectAccess.selected.${pluralForm(locale, chosen.length)}`, {
                 count: chosen.length,
               })}
             </p>
           </fieldset>
-          <Field label={t('projectMembers.roleHere')}>
+          <Field label={t('projectAccess.roleHere')}>
             {(control) => (
               <Select
                 {...control}
                 value={roleId}
                 onChange={(event) => setRoleId(event.target.value)}
               >
-                <option value="">{t('projectMembers.ownRoleOption')}</option>
-                {roles.map((role) => (
+                <option value="">{t('projectAccess.ownRoleOption')}</option>
+                {(roles.data ?? []).map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.name}
                   </option>
@@ -194,10 +192,10 @@ export function AddMembersDialog({
           </Field>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <DialogClose asChild>
-              <Button variant="secondary">{t('projectMembers.cancel')}</Button>
+              <Button variant="secondary">{t('projectAccess.cancel')}</Button>
             </DialogClose>
             <Button disabled={chosen.length === 0 || add.isPending} onClick={() => add.mutate()}>
-              {add.isPending ? t('projectMembers.adding') : t('projectMembers.addConfirm')}
+              {add.isPending ? t('projectAccess.adding') : t('projectAccess.addConfirm')}
             </Button>
           </div>
         </div>

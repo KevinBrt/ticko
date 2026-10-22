@@ -33,7 +33,7 @@ function SettingsLayout() {
   return (
     <SectionLayout
       label={t('settings.navLabel')}
-      sections={visibleSections(SETTINGS_NAV, permissions)}
+      sections={visibleSections(SETTINGS_NAV, { permissions })}
     >
       <Outlet />
     </SectionLayout>

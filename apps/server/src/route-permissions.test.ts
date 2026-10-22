@@ -11,7 +11,7 @@ import { schema, uuidv7 } from '@toppo/db';
 import { apiErrorSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance, HTTPMethods, LightMyRequestResponse } from 'fastify';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { isProjectAccess } from './platform/auth/access-control.ts';
 import {
   buildTestApp,
@@ -212,7 +212,23 @@ describe.each(INSTANCE_ROUTES)('$method $url', ({ method, url, permission }) => 
   );
 });
 
+/** What to grant for `permission`: in the member's own role, or in the role the project gives. */
+function grantsFor(permission: Permission | undefined) {
+  return {
+    own: permission && isInstancePermission(permission) ? [permission] : [],
+    inProject: permission && isProjectPermission(permission) ? [permission] : [],
+  };
+}
+
 describe.each(PROJECT_ROUTES)('$method $url', ({ method, url, permission }) => {
+  // One of these routes deletes the project: each test starts with it in place.
+  beforeEach(async () => {
+    await context.database.db
+      .insert(schema.projects)
+      .values({ id: projectId, key: PROJECT_KEY, name: 'Permissions' })
+      .onConflictDoNothing();
+  });
+
   it('answers as if the project did not exist to a user who cannot reach it', async () => {
     await grantProbe(GRANTABLE_PERMISSIONS);
     await setProbeMembership(null);
@@ -223,8 +239,8 @@ describe.each(PROJECT_ROUTES)('$method $url', ({ method, url, permission }) => {
   });
 
   if (permission) {
-    it(`refuses a member whose role there lacks ${permission}`, async () => {
-      await grantProbe(GRANTABLE_PERMISSIONS);
+    it(`refuses a member who has every permission but ${permission}`, async () => {
+      await grantProbe(GRANTABLE_PERMISSIONS.filter((granted) => granted !== permission));
       await setProbeMembership(PROJECT_PERMISSIONS.filter((granted) => granted !== permission));
       const response = await call(method, url);
 
@@ -233,9 +249,10 @@ describe.each(PROJECT_ROUTES)('$method $url', ({ method, url, permission }) => {
     });
   }
 
-  it(`lets in a member whose role there grants ${permission ?? 'nothing'} but that`, async () => {
-    await grantProbe([]);
-    await setProbeMembership(permission ? [permission] : []);
+  it(`lets in a member who holds ${permission ?? 'nothing'} but that`, async () => {
+    const { own, inProject } = grantsFor(permission);
+    await grantProbe(own);
+    await setProbeMembership(inProject);
     const response = await call(method, url);
 
     expect(['UNAUTHENTICATED', 'FORBIDDEN', 'PROJECT_NOT_FOUND']).not.toContain(refusal(response));

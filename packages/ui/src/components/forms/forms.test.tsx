@@ -19,6 +19,18 @@ describe('Field', () => {
     await expect.element(input).toHaveAccessibleDescription('Used to sign in Enter a valid email');
   });
 
+  it('wires label, help and error the same way laid out as a row', async () => {
+    const screen = await render(
+      <Field layout="row" label="Key" description="Prefix of the issue numbers" error="Too long">
+        {(control) => <Input {...control} />}
+      </Field>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Key' });
+
+    await expect.element(input).toHaveAttribute('aria-invalid', 'true');
+    await expect.element(input).toHaveAccessibleDescription('Prefix of the issue numbers Too long');
+  });
+
   it('is valid and undescribed by default', async () => {
     const screen = await render(<Field label="Name">{(control) => <Input {...control} />}</Field>);
     const input = screen.getByRole('textbox', { name: 'Name' });

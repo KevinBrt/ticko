@@ -36,7 +36,7 @@ export const statuses = pgTable(
     check('statuses_category_check', sql`${table.category} in ('todo', 'in_progress', 'done')`),
     check(
       'statuses_color_check',
-      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan')`,
+      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan', 'orange', 'pink')`,
     ),
     // Two statuses of the same scope (the instance, or one project) never share a name.
     uniqueIndex('statuses_name_unique').on(

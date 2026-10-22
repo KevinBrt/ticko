@@ -51,6 +51,10 @@ export const PERMISSION_MESSAGES: Readonly<Record<SwitchPermission, PermissionMe
     label: 'roles.permissions.projectCreate.label',
     description: 'roles.permissions.projectCreate.description',
   },
+  'project.delete': {
+    label: 'roles.permissions.projectDelete.label',
+    description: 'roles.permissions.projectDelete.description',
+  },
   'instance.settings.manage': {
     label: 'roles.permissions.settingsManage.label',
     description: 'roles.permissions.settingsManage.description',

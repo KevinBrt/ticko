@@ -1,14 +1,20 @@
-import { DEFAULT_ROLE_IDS } from '@toppo/core';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_PRIORITIES,
+  DEFAULT_ROLE_IDS,
+  DEFAULT_STATUSES,
+} from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
 import {
   apiErrorSchema,
   assignableRolesResponseSchema,
+  meResponseSchema,
+  projectAccessResponseSchema,
   projectCandidatesResponseSchema,
-  projectMembersResponseSchema,
   projectResponseSchema,
   projectsResponseSchema,
 } from '@toppo/shared';
-import { eq } from 'drizzle-orm';
+import { count, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -25,6 +31,7 @@ let adminCookie: string;
 let memberCookie: string;
 let outsiderCookie: string;
 let managerCookie: string;
+let adminId: string;
 let memberId: string;
 let outsiderId: string;
 let managerId: string;
@@ -73,12 +80,68 @@ async function listKeys(cookie: string, query = ''): Promise<string[]> {
   return projectsResponseSchema.parse(response.json()).rows.map(({ key }) => key);
 }
 
+async function getProject(key: string, cookie = adminCookie) {
+  return projectResponseSchema.parse((await call('GET', `/api/v1/projects/${key}`, cookie)).json());
+}
+
 async function join(projectKey: string, userId: string, roleId: string | null = null) {
   const response = await call('POST', `/api/v1/projects/${projectKey}/members`, adminCookie, {
     userIds: [userId],
     roleId,
   });
   expect(response.statusCode).toBe(204);
+}
+
+async function managesProjects(cookie: string): Promise<boolean | undefined> {
+  const response = await call('GET', '/api/v1/me', cookie);
+  return meResponseSchema.parse(response.json()).user?.managesProjects;
+}
+
+/** Lets the Team role create projects again, as an administrator may in the matrix. */
+async function teamCreatesProjects(allowed: boolean): Promise<void> {
+  await context.database.db
+    .update(schema.roles)
+    .set({
+      permissions: allowed
+        ? sql`array_append(${schema.roles.permissions}, 'project.create')`
+        : sql`array_remove(${schema.roles.permissions}, 'project.create')`,
+    })
+    .where(eq(schema.roles.id, DEFAULT_ROLE_IDS.team));
+}
+
+async function projectIdOf(key: string): Promise<string> {
+  const [project] = await context.database.db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(eq(schema.projects.key, key));
+  if (!project) {
+    throw new Error(`No project ${key}`);
+  }
+  return project.id;
+}
+
+/** A pending invitation, written directly: creating one through the API is rate limited. */
+async function invite(
+  email: string,
+  { projectKey, allProjects = false }: { projectKey?: string; allProjects?: boolean },
+): Promise<string> {
+  const { db } = context.database;
+  const id = uuidv7();
+  await db.insert(schema.invitations).values({
+    id,
+    email,
+    roleId: DEFAULT_ROLE_IDS.team,
+    tokenHash: id.replaceAll('-', '').padEnd(64, '0'),
+    invitedById: adminId,
+    expiresAt: new Date(Date.now() + 86_400_000),
+    allProjects,
+  });
+  if (projectKey) {
+    await db
+      .insert(schema.invitationProjects)
+      .values({ invitationId: id, projectId: await projectIdOf(projectKey) });
+  }
+  return id;
 }
 
 beforeAll(async () => {
@@ -109,6 +172,11 @@ beforeAll(async () => {
   memberId = await person('Grace Hopper', 'grace@example.com');
   outsiderId = await person('Alan Turing', 'alan@example.com');
   managerId = await person('Barbara Liskov', 'barbara@example.com');
+  const [admin] = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.email, 'ada@example.com'));
+  adminId = admin?.id ?? '';
   adminCookie = cookieHeader(await signIn('ada@example.com'));
   memberCookie = cookieHeader(await signIn('grace@example.com'));
   outsiderCookie = cookieHeader(await signIn('alan@example.com'));
@@ -121,10 +189,24 @@ beforeAll(async () => {
 });
 
 describe('creating and listing projects', () => {
-  it('creates a project its creator has access to', async () => {
+  it('leaves creating projects to administrators by default', async () => {
+    const response = await call('POST', '/api/v1/projects', memberCookie, {
+      key: 'API',
+      name: 'Public API',
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(errorCode(response)).toBe('FORBIDDEN');
+  });
+
+  it('creates a project its creator has access to, in the next color', async () => {
+    await teamCreatesProjects(true);
     await createProject('API', memberCookie);
+    await teamCreatesProjects(false);
 
     expect(await listKeys(memberCookie)).toStrictEqual(['API', 'WEB']);
+    expect((await getProject('WEB')).color).toBe('blue');
+    expect((await getProject('API')).color).toBe('orange');
   });
 
   it('refuses a key another project has', async () => {
@@ -163,6 +245,29 @@ describe('creating and listing projects', () => {
       .where(eq(schema.users.id, outsiderId));
   });
 
+  it('lists only the projects one manages on the projects screen, with their members', async () => {
+    expect(await listKeys(managerCookie, '?scope=managed')).toStrictEqual(['WEB']);
+    // Grace created API, but her own role manages nothing in a project.
+    expect(await listKeys(memberCookie, '?scope=managed')).toStrictEqual([]);
+    expect(await listKeys(adminCookie, '?scope=managed')).toStrictEqual(['API', 'HR', 'WEB']);
+
+    const response = await call('GET', '/api/v1/projects?scope=managed', managerCookie);
+    const [web] = projectsResponseSchema.parse(response.json()).rows;
+    expect(web?.members.count).toBe(3);
+    expect(web?.members.shown.map(({ name }) => name)).toStrictEqual([
+      'Ada Lovelace',
+      'Barbara Liskov',
+      'Grace Hopper',
+    ]);
+  });
+
+  it('tells the web app whether one manages a project', async () => {
+    expect(await managesProjects(adminCookie)).toBe(true);
+    expect(await managesProjects(managerCookie)).toBe(true);
+    expect(await managesProjects(memberCookie)).toBe(false);
+    expect(await managesProjects(outsiderCookie)).toBe(false);
+  });
+
   it('searches keys and names on the server', async () => {
     expect(await listKeys(adminCookie, '?search=project%20h')).toStrictEqual(['HR']);
     expect(await listKeys(adminCookie, '?search=ap')).toStrictEqual(['API']);
@@ -171,11 +276,10 @@ describe('creating and listing projects', () => {
 
 describe('a project’s settings', () => {
   it('show a member the project and what they may do in it', async () => {
-    const response = await call('GET', '/api/v1/projects/WEB', memberCookie);
-
-    expect(projectResponseSchema.parse(response.json())).toMatchObject({
+    expect(await getProject('WEB', memberCookie)).toMatchObject({
       key: 'WEB',
       name: 'Project WEB',
+      color: 'blue',
       archived: false,
       keyEditable: true,
       permissions: [
@@ -197,19 +301,21 @@ describe('a project’s settings', () => {
     }
   });
 
-  it('change the name, the description and the key until the first issue', async () => {
+  it('change the name, the description, the color and the key until the first issue', async () => {
     await createProject('DOCS');
     const renamed = await call('PATCH', '/api/v1/projects/DOCS', adminCookie, {
       key: 'MANUAL',
       name: '  User manual ',
       description: 'How to use Toppo',
+      color: 'pink',
     });
 
     expect(renamed.statusCode).toBe(204);
-    const project = projectResponseSchema.parse(
-      (await call('GET', '/api/v1/projects/MANUAL', adminCookie)).json(),
-    );
-    expect(project).toMatchObject({ name: 'User manual', description: 'How to use Toppo' });
+    expect(await getProject('MANUAL')).toMatchObject({
+      name: 'User manual',
+      description: 'How to use Toppo',
+      color: 'pink',
+    });
   });
 
   it('keep the key once an issue was numbered, and refuse one already taken', async () => {
@@ -221,11 +327,13 @@ describe('a project’s settings', () => {
       key: 'GUIDE',
       name: 'User manual',
       description: '',
+      color: 'pink',
     });
     const taken = await call('PATCH', '/api/v1/projects/HR', adminCookie, {
       key: 'WEB',
       name: 'People',
       description: '',
+      color: 'gray',
     });
 
     expect(fixed.statusCode).toBe(409);
@@ -247,6 +355,7 @@ describe('a project’s settings', () => {
       key: 'HR',
       name: 'People',
       description: '',
+      color: 'gray',
     });
     expect(edit.statusCode).toBe(409);
     expect(errorCode(edit)).toBe('PROJECT_ARCHIVED');
@@ -256,18 +365,97 @@ describe('a project’s settings', () => {
   });
 });
 
-describe('a project’s members', () => {
-  it('list the members with their own role and the one the project gives', async () => {
-    const response = await call('GET', '/api/v1/projects/WEB/members', managerCookie);
+describe('deleting a project', () => {
+  it('needs its own permission, and stays hidden from those who cannot reach it', async () => {
+    const member = await call('DELETE', '/api/v1/projects/WEB', memberCookie);
+    const outsider = await call('DELETE', '/api/v1/projects/WEB', outsiderCookie);
+
+    expect(member.statusCode).toBe(403);
+    expect(errorCode(member)).toBe('FORBIDDEN');
+    expect(outsider.statusCode).toBe(404);
+    expect(errorCode(outsider)).toBe('PROJECT_NOT_FOUND');
+  });
+
+  it('takes its issues, their history and its invitations with it, archived or not', async () => {
+    const { db } = context.database;
+    await createProject('OLD');
+    const projectId = await projectIdOf('OLD');
+    const [status] = DEFAULT_STATUSES;
+    const [category] = DEFAULT_CATEGORIES;
+    const [priority] = DEFAULT_PRIORITIES;
+    if (!(status && category && priority)) {
+      throw new Error('No default fields');
+    }
+    const issueId = uuidv7();
+    await db.insert(schema.issues).values({
+      id: issueId,
+      projectId,
+      number: 1,
+      title: 'Broken link',
+      categoryId: category.id,
+      statusId: status.id,
+      priorityId: priority.id,
+      reporterId: adminId,
+    });
+    await db.insert(schema.activities).values([
+      { projectId, issueId, actorId: adminId, type: 'issue.created' },
+      { projectId, actorId: adminId, type: 'issue.deleted', payload: { key: 'OLD-2' } },
+    ]);
+    const invitationId = await invite('olga@example.com', { projectKey: 'OLD' });
+    expect((await call('POST', '/api/v1/projects/OLD/archive', adminCookie)).statusCode).toBe(204);
+
+    const deleted = await call('DELETE', '/api/v1/projects/OLD', adminCookie);
+
+    expect(deleted.statusCode).toBe(204);
+    expect((await call('GET', '/api/v1/projects/OLD', adminCookie)).statusCode).toBe(404);
+    const left = async (table: typeof schema.issues | typeof schema.activities) => {
+      const [row] = await db
+        .select({ count: count() })
+        .from(table)
+        .where(eq(table.projectId, projectId));
+      return row?.count;
+    };
+    expect(await left(schema.issues)).toBe(0);
+    expect(await left(schema.activities)).toBe(0);
+    // The invitation stays, without the project.
+    const [invited] = await db
+      .select({ count: count() })
+      .from(schema.invitationProjects)
+      .where(eq(schema.invitationProjects.invitationId, invitationId));
+    expect(invited?.count).toBe(0);
+  });
+});
+
+describe('a project’s access', () => {
+  it('lists who reaches it anyway first, then its members, then the invitations', async () => {
+    await invite('nina@example.com', { projectKey: 'WEB' });
+    await invite('zoe@example.com', { allProjects: true });
+    const response = await call('GET', '/api/v1/projects/WEB/access', managerCookie);
 
     expect(response.statusCode).toBe(200);
-    const { rows, matching } = projectMembersResponseSchema.parse(response.json());
-    expect(matching).toBe(3);
-    expect(rows.find(({ userId }) => userId === managerId)).toMatchObject({
-      ownRole: { id: DEFAULT_ROLE_IDS.team },
-      projectRole: { id: managerRoleId, name: 'Manager' },
-    });
-    expect(rows.find(({ userId }) => userId === memberId)?.projectRole).toBeNull();
+    const { rows, matching } = projectAccessResponseSchema.parse(response.json());
+    expect(matching).toBe(5);
+    expect(
+      rows.map((row) =>
+        row.kind === 'person'
+          ? [row.name, row.access, row.projectRole?.name ?? null]
+          : [row.email, row.allProjects],
+      ),
+    ).toStrictEqual([
+      ['Ada Lovelace', 'systemRole', null],
+      ['Barbara Liskov', 'member', 'Manager'],
+      ['Grace Hopper', 'member', null],
+      ['nina@example.com', false],
+      ['zoe@example.com', true],
+    ]);
+  });
+
+  it('searches people and invitations on the server', async () => {
+    const response = await call('GET', '/api/v1/projects/WEB/access?search=nina', managerCookie);
+
+    const { rows, matching } = projectAccessResponseSchema.parse(response.json());
+    expect(matching).toBe(1);
+    expect(rows.map((row) => row.kind)).toStrictEqual(['invitation']);
   });
 
   it('offer the roles a manager may give: none granting more than they hold', async () => {
@@ -277,19 +465,27 @@ describe('a project’s members', () => {
     expect(roles.map(({ id }) => id)).toStrictEqual([managerRoleId]);
   });
 
-  it('suggest people to add: active members not in the project yet', async () => {
-    await context.database.db.insert(schema.users).values({
+  it('suggest people to add: active members who do not reach the project yet', async () => {
+    const { db } = context.database;
+    await db.insert(schema.users).values({
       name: 'Ann Former',
       email: 'ann@example.com',
       instanceRoleId: DEFAULT_ROLE_IDS.team,
       deactivatedAt: new Date(),
     });
-    const response = await call('GET', '/api/v1/projects/WEB/candidates?search=a', managerCookie);
+    const candidates = async () => {
+      const response = await call('GET', '/api/v1/projects/WEB/candidates?search=a', managerCookie);
+      return projectCandidatesResponseSchema.parse(response.json()).people.map(({ name }) => name);
+    };
 
-    // Ada created the project and Grace and Barbara were added: they are in. Ann is deactivated.
-    expect(
-      projectCandidatesResponseSchema.parse(response.json()).people.map(({ name }) => name),
-    ).toStrictEqual(['Alan Turing']);
+    // Ada reaches every project, Grace and Barbara are in, and Ann is deactivated.
+    expect(await candidates()).toStrictEqual(['Alan Turing']);
+    await db.update(schema.users).set({ allProjects: true }).where(eq(schema.users.id, outsiderId));
+    expect(await candidates()).toStrictEqual([]);
+    await db
+      .update(schema.users)
+      .set({ allProjects: false })
+      .where(eq(schema.users.id, outsiderId));
   });
 
   it('let a manager add someone with a role within theirs, never beyond', async () => {
@@ -314,6 +510,21 @@ describe('a project’s members', () => {
     expect((await call('GET', '/api/v1/projects/WEB', outsiderCookie)).statusCode).toBe(200);
   });
 
+  it('give the system role no role of a project: it has every permission anyway', async () => {
+    const changed = await call('PATCH', `/api/v1/projects/WEB/members/${adminId}`, adminCookie, {
+      roleId: managerRoleId,
+    });
+    const added = await call('POST', '/api/v1/projects/HR/members', adminCookie, {
+      userIds: [adminId],
+      roleId: managerRoleId,
+    });
+
+    expect(changed.statusCode).toBe(409);
+    expect(errorCode(changed)).toBe('SYSTEM_ROLE_HOLDER');
+    expect(added.statusCode).toBe(409);
+    expect(errorCode(added)).toBe('SYSTEM_ROLE_HOLDER');
+  });
+
   it('change and remove members, never one holding more than the manager there', async () => {
     const onMember = await call(
       'DELETE',
@@ -326,10 +537,10 @@ describe('a project’s members', () => {
       roleId: deleterRoleId,
     });
     expect(changed.statusCode).toBe(204);
-    const member = projectResponseSchema.parse(
-      (await call('GET', '/api/v1/projects/WEB', memberCookie)).json(),
-    );
-    expect(member.permissions).toStrictEqual(['issue.read', 'issue.delete']);
+    expect((await getProject('WEB', memberCookie)).permissions).toStrictEqual([
+      'issue.read',
+      'issue.delete',
+    ]);
 
     const removed = await call(
       'DELETE',
@@ -349,6 +560,36 @@ describe('a project’s members', () => {
 
     expect(response.statusCode).toBe(404);
     expect(errorCode(response)).toBe('MEMBER_NOT_FOUND');
+  });
+
+  it('take the project out of an invitation, within the manager’s rights', async () => {
+    const access = projectAccessResponseSchema.parse(
+      (await call('GET', '/api/v1/projects/WEB/access', adminCookie)).json(),
+    );
+    const invitationOf = (email: string) =>
+      access.rows.flatMap((row) =>
+        row.kind === 'invitation' && row.email === email ? [row.invitationId] : [],
+      )[0] ?? '';
+    const nina = invitationOf('nina@example.com');
+    const zoe = invitationOf('zoe@example.com');
+
+    // Nina's Team role creates issues, which the manager may not.
+    const beyond = await call('DELETE', `/api/v1/projects/WEB/invitations/${nina}`, managerCookie);
+    const removed = await call('DELETE', `/api/v1/projects/WEB/invitations/${nina}`, adminCookie);
+    const again = await call('DELETE', `/api/v1/projects/WEB/invitations/${nina}`, adminCookie);
+    // Zoe's invitation gives every project: it is changed from the members screen.
+    const everyProject = await call(
+      'DELETE',
+      `/api/v1/projects/WEB/invitations/${zoe}`,
+      adminCookie,
+    );
+
+    expect(beyond.statusCode).toBe(403);
+    expect(errorCode(beyond)).toBe('ROLE_BEYOND_YOURS');
+    expect(removed.statusCode).toBe(204);
+    expect(again.statusCode).toBe(404);
+    expect(errorCode(again)).toBe('INVITATION_NOT_FOUND');
+    expect(everyProject.statusCode).toBe(404);
   });
 
   it('keep a role given in a project from being deleted', async () => {

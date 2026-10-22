@@ -2,23 +2,23 @@ import { Link } from '@tanstack/react-router';
 import { Logo } from '@toppo/ui';
 import type { ReactNode } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
-import { NAV_SECTIONS } from './navigation.constants.ts';
+import { NAV_SECTIONS, type NavAudience } from './navigation.constants.ts';
 import { visibleSections } from './navigation.util.ts';
 
 /** Brand and main navigation. Rendered in the fixed sidebar on desktop and in the drawer on mobile. */
 export function SidebarContent({
-  permissions,
+  audience,
   footer,
   onNavigate,
 }: {
-  /** What the signed-in user may do: links they could not use are left out. */
-  permissions: readonly string[];
+  /** The signed-in user: links they could not use are left out. */
+  audience: NavAudience;
   /** Shown at the bottom, e.g. the signed-in account. */
   footer?: ReactNode;
   onNavigate?: () => void;
 }) {
   const { t } = useI18n();
-  const sections = visibleSections(NAV_SECTIONS, permissions);
+  const sections = visibleSections(NAV_SECTIONS, audience);
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
