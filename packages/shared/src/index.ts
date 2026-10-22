@@ -14,8 +14,17 @@ export {
   type UpdateAccountRequest,
   updateAccountRequestSchema,
 } from './auth.ts';
+export { PALETTE_COLORS, type PaletteColor } from './colors.ts';
 export { CSP_NONCE_PLACEHOLDER } from './csp.ts';
 export { type HealthResponse, healthResponseSchema } from './health.ts';
+export {
+  ISSUE_DESCRIPTION_MAX_LENGTH,
+  ISSUE_TITLE_MAX_LENGTH,
+  PRIORITY_LEVELS,
+  type PriorityLevel,
+  STATUS_CATEGORIES,
+  type StatusCategory,
+} from './issues/fields.ts';
 export { DEFAULT_LOCALE, type Locale, localeSchema, SUPPORTED_LOCALES } from './locale.ts';
 export {
   type AcceptInvitationRequest,

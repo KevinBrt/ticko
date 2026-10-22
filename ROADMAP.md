@@ -9,7 +9,7 @@ Each step ends with a working demo, green CI and updated docs. Anything touching
 - [ ] Protect `main` once contributors arrive: require the CI checks (quality, tests, end-to-end) before merging.
 - [ ] Check that the `ghcr.io/kevinbrt/toppo` package is public once the first `edge` image is published (GitHub → Packages → Package settings).
 - [ ] Leave the release-please pull request open until 0.1 is ready: merging it publishes the version and the `latest` image.
-- [ ] Answer the [open questions](#open-questions) needed by step 2.
+- [x] Answer the [open questions](#open-questions) needed by step 2: categories, priorities and labels are instance-wide lists.
 
 ## Step 1: roles, permissions and users
 
@@ -55,36 +55,37 @@ _Done when no route answers without a verified permission._
 
 _Done when an issue can be created and closed._
 
-**Schema** (reviewed by hand before the migration)
+Nine tasks, each committed on its own. The first issue can be created and closed at task 6, with the seeded defaults; the settings screens come after. Reference mockups: the project's issue list and the issue page.
 
-- [ ] `projects`, `project_members`, `statuses`, `workflows`, `workflow_statuses`, `priorities`, `issues`, `activities`.
-- [ ] Issue numbers unique per project and safe under concurrency (counter on the project row, locked in the creating transaction).
-
-**Project permissions**
-
-- [ ] Project access per member: none until given, every project, or chosen ones; chosen when inviting, changed later from the member or the project; the system role reaches every project. A project a member cannot reach answers 404, as if it did not exist.
-- [ ] Effective permissions in a project = the role the project gives the member, or else their own role; `access: { permission, projectOf: (input) => projectId }`.
-
-**Domain** (`core`)
-
-- [ ] Effective workflow: project override or global default; initial status; status categories.
-- [ ] Issue validation rules shared by the server and the forms.
-
-**Commands and queries**
-
-- [ ] Projects: create (key such as `WEB`), update, archive; who reaches it, and role overrides.
-- [ ] Issues: create, update title and description, change status, set priority, assign, close and reopen, delete.
-- [ ] Every issue change writes an `activities` row in the same transaction (`defineCommand` provides the hook).
-- [ ] Workflows: global workflow editor; "customize for this project"; "revert to the global workflow" with the status mapping step.
-
-**Web app**
-
-- [ ] Projects list and creation; project settings (members, workflow).
-- [ ] Issue creation form and issue page, after the reference mockups; activity history.
-
-**Tests**
-
-- [ ] End-to-end: create project `WEB`, create `WEB-1`, move it through the workflow, close it.
+1. **Schema and defaults** (reviewed by hand before the migration)
+   - [x] `projects` (`next_issue_number`: the counter, locked by the creating transaction), `project_members`, `statuses`, `workflows`, `workflow_statuses`, `priorities` (four fixed levels), `issue_categories`, `issues` (`UNIQUE (project_id, number)`), `activities` (outliving a deleted issue); project access on users and invitations.
+   - [x] Defaults, renamed in the administrator’s language at setup: the workflow New, To do, In progress, Waiting, Resolved; the priorities Low, Normal, High, Urgent; the categories Bug, Request, Question.
+2. **Domain rules in `core`**
+   - [ ] Effective workflow (the project's or the instance's) and initial status; an issue is closed while its status is in the done category, `closed_at` follows.
+   - [ ] Effective permissions in a project: the role the project gives the member, or else their own role; the system role has everything.
+   - [ ] Issue validation rules shared by the server and the forms.
+3. **Project permissions**
+   - [ ] `access: { permission, projectOf: (input) => projectId }`; permissions in the project read by the query itself; a project a member cannot reach answers 404, as if it did not exist.
+   - [ ] Generated permission tests cover project routes: no access, access without the permission, a role given by the project.
+4. **Projects and access**
+   - [ ] Create (`project.create`; the creator gets access), list (paged and searched by the server), settings (name, description, key until the first issue), archive and unarchive: an archived project is read-only.
+   - [ ] Access per member: none until given, every project, or chosen ones; chosen when inviting (none by default), changed from the member or the project; a role per project; the system role reaches every project.
+   - [ ] Whoever manages a project's members cannot give a role stronger than their own; a role given in a project cannot be deleted.
+5. **Issues, server side**
+   - [ ] Create (number from the counter, initial status, default type and priority), read by key (`WEB-42`), change title, description, type, status and priority, assign to anyone who reaches the project, close and reopen.
+   - [ ] Delete for good after confirming: an activity keeps the key and who deleted it; the number is never reused.
+   - [ ] One page of a project's issues, newest first (sorting and filters come with step 3).
+   - [ ] Every issue change writes an `activities` row in the same transaction.
+6. **Issues, in the app** (after the mockups)
+   - [ ] The project's issue list, the creation form, the issue page at `/issues/WEB-42`: Markdown description (`react-markdown`, raw HTML ignored), fields edited in place with optimistic updates, activity history, delete after confirming. From 320 px, with the keyboard.
+7. **Categories and priorities in the settings** (`instance.settings.manage`)
+   - [ ] Categories: add, rename, recolor, reorder (keyboard buttons, not only drag and drop), choose the default, delete once unused.
+   - [ ] Priorities: rename the four levels, choose the default.
+8. **Workflows**
+   - [ ] Global workflow editor: statuses, category, color, order, initial status.
+   - [ ] "Customize for this project" (a copy of its own); "revert to the global workflow" with the status mapping step, in one transaction, one activity per moved issue.
+9. **End-to-end and docs**
+   - [ ] Create project `WEB`, create `WEB-1`, move it through the workflow, close it, on desktop and phone; `ARCHITECTURE.md` and this roadmap updated.
 
 ## Step 3: views
 
@@ -101,8 +102,8 @@ _Done when an issue is found in under 3 seconds._
 
 - [ ] Comments in Markdown, sanitized (no raw HTML); edit and delete one's own; moderation permission.
 - [ ] Attachments: size limits, type sniffed server-side, stored under `/data/uploads` with random keys, downloads authorized and served as attachments.
-- [ ] Labels, with the global default / project override mechanism.
-- [ ] Custom fields: types, required at creation, shown at creation, visible to requesters, default values; field sets with project overrides.
+- [ ] Labels: one list for the instance, edited in the settings; no project labels.
+- [ ] Properties (Version, Team…), replacing custom fields: defined for the instance; a project adds its own, hides one or replaces its options; each shown in the issue list or not, asked at creation or not, then required or not. List type first, then multi-select, text, number, date, user, checkbox; visibility to requesters.
 - [ ] Background job queue in PostgreSQL (`FOR UPDATE SKIP LOCKED`), retried with backoff.
 - [ ] In-app notifications (bell, unread count, mark as read), fed by `activities`; mentions with `@`.
 - [ ] Email: SMTP settings in the admin (password encrypted with the instance key), test email, invitations and notifications by email, password reset (Better Auth endpoint added to the allowlist).
@@ -132,12 +133,6 @@ _Done when an issue is found in under 3 seconds._
 - [ ] Kanban board, as a plugin or in core (to decide).
 
 ## Open questions
-
-Needed for step 2:
-
-- **Priorities**: an instance-wide editable list (proposed), or the same project override mechanism as workflows?
-- **Labels**: full label sets (proposed, for consistency), or global labels plus project labels?
-- **Issue types** (bug, feature, task): a built-in concept, or a default select custom field (proposed)?
 
 Needed before 0.1:
 

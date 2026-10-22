@@ -1,7 +1,17 @@
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { users } from './auth.ts';
 import { id, timestamps } from './columns.ts';
+import { projects } from './projects.ts';
 import { roles } from './roles.ts';
 
 /**
@@ -21,6 +31,8 @@ export const invitations = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Access to every project, present and future; otherwise to `invitation_projects` only. */
+    allProjects: boolean('all_projects').notNull().default(false),
     /** Set once the invitation is used; accepted invitations stay as a record of who invited whom. */
     acceptedAt: timestamp('accepted_at', { withTimezone: true }),
     ...timestamps,
@@ -40,5 +52,27 @@ export const invitations = pgTable(
       'invitations_role_unless_accepted',
       sql`${table.roleId} is not null or ${table.acceptedAt} is not null`,
     ),
+  ],
+);
+
+/** The projects an invitation gives access to, unless it gives all of them. */
+export const invitationProjects = pgTable(
+  'invitation_projects',
+  {
+    id: id(),
+    invitationId: uuid('invitation_id')
+      .notNull()
+      .references(() => invitations.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('invitation_projects_invitation_project_unique').on(
+      table.invitationId,
+      table.projectId,
+    ),
+    index('invitation_projects_project_id_idx').on(table.projectId),
   ],
 );

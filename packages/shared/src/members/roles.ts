@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { PALETTE_COLORS, type PaletteColor } from '../colors.ts';
 
-/** Colors of role badges, from the design tokens' status palette. */
-export const ROLE_COLORS = ['gray', 'blue', 'green', 'amber', 'violet', 'cyan'] as const;
+/** Colors of role badges. */
+export const ROLE_COLORS = PALETTE_COLORS;
 
-export type RoleColor = (typeof ROLE_COLORS)[number];
+export type RoleColor = PaletteColor;
 
 /** A role as member management shows it: a colored badge. */
 export const roleBadgeSchema = z.object({

@@ -85,6 +85,20 @@
       "when": 1792615352676,
       "tag": "0011_role_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792654508643,
+      "tag": "0012_projects_and_issues",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792654531589,
+      "tag": "0013_seed_default_fields",
+      "breakpoints": true
     }
   ]
 }

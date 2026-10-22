@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { apiErrorSchema } from './api-error.ts';
 import { healthResponseSchema } from './health.ts';
+import { PRIORITY_LEVELS, STATUS_CATEGORIES } from './issues/fields.ts';
 import { invitationTokenSchema } from './members/invitations.ts';
+import { memberRowSchema, membersQuerySchema } from './members/members.ts';
 import {
   ROLE_NAME_MAX_LENGTH,
   rolePermissionsRequestSchema,
@@ -113,5 +115,52 @@ describe('rolePermissionsRequestSchema', () => {
       rolePermissionsRequestSchema.safeParse({ changes: [change(team), change(team)] }).success,
     ).toBe(false);
     expect(rolePermissionsRequestSchema.safeParse({ changes: [] }).success).toBe(false);
+  });
+});
+
+describe('membersQuerySchema', () => {
+  it('reads the query string: the first page by default, a trimmed search', () => {
+    expect(membersQuerySchema.parse({})).toStrictEqual({ page: 1 });
+    expect(membersQuerySchema.parse({ search: '  ada ', page: '3' })).toStrictEqual({
+      search: 'ada',
+      page: 3,
+    });
+  });
+
+  it.each([
+    { role: 'not-a-role-id' },
+    { search: 'x'.repeat(101) },
+    { page: '0' },
+    { page: '2.5' },
+    { page: '10001' },
+  ])('refuses %j', (query) => {
+    expect(membersQuerySchema.safeParse(query).success).toBe(false);
+  });
+});
+
+describe('memberRowSchema', () => {
+  it('tells members from invitations', () => {
+    const role = { id: '01a1569b-9801-747e-91c9-d058653f2a8e', name: 'Team', color: 'green' };
+    const invitation = {
+      type: 'invitation',
+      id: '01a1569b-9900-7000-8000-000000000201',
+      email: 'grace@example.com',
+      role,
+      invitedBy: null,
+      expiresAt: '2026-10-28T10:00:00.000Z',
+    };
+
+    expect(memberRowSchema.parse(invitation)).toStrictEqual(invitation);
+    expect(memberRowSchema.safeParse({ ...invitation, type: 'member' }).success).toBe(false);
+  });
+});
+
+describe('issue fields', () => {
+  it('rank priorities from 1, the lowest, to 4', () => {
+    expect(PRIORITY_LEVELS).toStrictEqual([1, 2, 3, 4]);
+  });
+
+  it('end the status categories with done, which closes an issue', () => {
+    expect(STATUS_CATEGORIES.at(-1)).toBe('done');
   });
 });

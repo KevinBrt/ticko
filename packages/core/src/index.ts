@@ -5,6 +5,19 @@ export {
 } from './invitations.ts';
 export { formatIssueKey, type IssueKeyParts, parseIssueKey } from './issue-key.ts';
 export {
+  DEFAULT_CATEGORIES,
+  DEFAULT_FIELD_NAMES,
+  DEFAULT_PRIORITIES,
+  DEFAULT_STATUSES,
+  DEFAULT_WORKFLOW_ID,
+  type DefaultCategory,
+  type DefaultCategoryKind,
+  type DefaultPriority,
+  type DefaultPriorityKind,
+  type DefaultStatus,
+  type DefaultStatusKind,
+} from './issues/default-fields.ts';
+export {
   type AccountChange,
   canActOnRole,
   type InstanceAccounts,

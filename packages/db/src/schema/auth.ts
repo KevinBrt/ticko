@@ -33,6 +33,11 @@ export const users = pgTable(
      * Only a deleted account may lose it, when its role is deleted.
      */
     instanceRoleId: uuid('instance_role_id').references(() => roles.id, { onDelete: 'set null' }),
+    /**
+     * Toppo: access to every project, present and future; otherwise to those listed in
+     * `project_members` only. The system role reaches every project anyway.
+     */
+    allProjects: boolean('all_projects').notNull().default(false),
     /** Toppo: set while an administrator has deactivated the account. */
     deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
     /**

@@ -10,7 +10,7 @@ Toppo is an open-source issue tracker in the spirit of YouTrack, Mantis or Taiga
 
 - **Everything included, for everyone.** No user limit, no paid SSO, no closed "enterprise" edition.
 - **One command to install.** `docker compose up` starts Toppo and PostgreSQL. Runs on a server, a NAS or a Raspberry Pi (amd64 and arm64).
-- **Configurable.** Workflows, custom fields (required or optional at creation), labels and roles are set once for the whole instance and can be overridden per project.
+- **Configurable.** Workflows and properties (shown in the list, asked at creation, required or not) are set for the whole instance and adapted per project; categories, priorities, labels and roles are edited once for everyone.
 - **Fast and pleasant.** Keyboard shortcuts, command palette, works on phones.
 - **Secure by default.** Strict Content Security Policy, hardened container, every route authorized and validated.
 - **Extensible.** Integrations (GitHub, Slack, webhooks) are plugins built on a public SDK.

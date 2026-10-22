@@ -1,19 +1,36 @@
-import { DEFAULT_ROLE_IDS, DEFAULT_ROLE_NAMES, DEFAULT_ROLES } from '@toppo/core';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_FIELD_NAMES,
+  DEFAULT_PRIORITIES,
+  DEFAULT_ROLE_IDS,
+  DEFAULT_ROLE_NAMES,
+  DEFAULT_ROLES,
+  DEFAULT_STATUSES,
+} from '@toppo/core';
 import { schema, uuidv7 } from '@toppo/db';
-import { type SetupResponse, setupRequestSchema } from '@toppo/shared';
+import { type Locale, type SetupResponse, setupRequestSchema } from '@toppo/shared';
 import { eq } from 'drizzle-orm';
-import { defineCommand } from '../../../platform/cqrs/cqrs.ts';
+import { defineCommand, type Transaction } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
 import { setupCodesMatch } from '../utils/setup-code.util.ts';
 
-const { accounts, instanceSettings, INSTANCE_SETTINGS_ID, roles, users } = schema;
+const {
+  accounts,
+  instanceSettings,
+  INSTANCE_SETTINGS_ID,
+  issueCategories,
+  priorities,
+  roles,
+  statuses,
+  users,
+} = schema;
 
 /** Better Auth's provider id for email and password credentials. */
 const CREDENTIAL_PROVIDER = 'credential';
 
 /**
- * Creates the first administrator, names the default roles in their language and closes the
- * wizard, atomically. The instance settings row is locked meanwhile, so concurrent attempts are
+ * Creates the first administrator, names the default roles, statuses, priorities and categories
+ * in their language and closes the wizard, atomically. The instance settings row is locked meanwhile, so concurrent attempts are
  * serialized and only the first succeeds.
  */
 export const completeSetup = defineCommand({
@@ -58,6 +75,7 @@ export const completeSetup = defineCommand({
         .set({ name: DEFAULT_ROLE_NAMES[input.locale][role.kind] })
         .where(eq(roles.id, role.id));
     }
+    await nameDefaultFields(tx, input.locale);
     await tx
       .update(instanceSettings)
       .set({ setupCompletedAt: new Date() })
@@ -67,3 +85,26 @@ export const completeSetup = defineCommand({
     return { userId };
   },
 });
+
+/** The seeded statuses, priorities and categories, in the administrator's language. */
+async function nameDefaultFields(tx: Transaction, locale: Locale): Promise<void> {
+  const names = DEFAULT_FIELD_NAMES[locale];
+  for (const status of DEFAULT_STATUSES) {
+    await tx
+      .update(statuses)
+      .set({ name: names.statuses[status.kind] })
+      .where(eq(statuses.id, status.id));
+  }
+  for (const priority of DEFAULT_PRIORITIES) {
+    await tx
+      .update(priorities)
+      .set({ name: names.priorities[priority.kind] })
+      .where(eq(priorities.id, priority.id));
+  }
+  for (const category of DEFAULT_CATEGORIES) {
+    await tx
+      .update(issueCategories)
+      .set({ name: names.categories[category.kind] })
+      .where(eq(issueCategories.id, category.id));
+  }
+}
