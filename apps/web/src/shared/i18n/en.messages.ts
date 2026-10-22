@@ -239,6 +239,7 @@ export const en = {
       both: '{members} and {invitations}',
     },
     deleteConfirm: 'Delete the role',
+    understood: 'OK',
     leaveTitle: 'Leave without saving?',
     leaveDescription: 'The changes you made to the permissions will be lost.',
     stay: 'Stay',

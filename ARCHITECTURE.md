@@ -301,7 +301,7 @@ Seven steps, in order; each ends with a working demo and green tests.
 - [x] **0. Foundation**: _done when `docker compose up` leads to a logged-in admin._
   - [x] 0a. Monorepo, tooling and guards, CI, Docker image and compose, `/health`, design tokens, responsive app shell, i18n.
   - [x] 0b. Schema (users, roles, settings) and migrations, permission catalog and default roles, Better Auth local accounts, first-run wizard with setup code, sign-in and sign-out.
-- [ ] **1. Roles and permissions**: custom roles, route and operation permissions, user management, permission matrix tests. _Done when no route answers without a verified permission._
+- [x] **1. Roles and permissions**: custom roles, route and operation permissions, user management, permission matrix tests. _Done when no route answers without a verified permission._
 - [ ] **2. Projects and issues**: project CRUD, issues, workflows with global defaults and project overrides, `WEB-42` numbering, `activities` log. _Done when an issue can be created and closed._
 - [ ] **3. Views**: list with sort and grouping, filters, search, command palette. _Done when an issue is found in under 3 seconds._
 - [ ] **4. Collaboration**: comments, attachments, labels, custom fields (required or optional at creation), in-app and email notifications.

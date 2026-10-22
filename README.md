@@ -4,7 +4,7 @@
 
 Toppo is an open-source issue tracker in the spirit of YouTrack, Mantis or Taiga: one edition with everything included, installed with one command, on your own server.
 
-> **Status: early development.** Toppo is not usable yet. Follow the [roadmap](ARCHITECTURE.md#roadmap-to-01) to see where we are.
+> **Status: early development.** Toppo is not usable yet. Follow the [roadmap](ROADMAP.md) to see where we are.
 
 ## Why Toppo
 

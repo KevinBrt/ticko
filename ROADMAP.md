@@ -49,6 +49,7 @@ _Done when no route answers without a verified permission._
 **Tests**
 
 - [x] End-to-end: the administrator invites a team member, who accepts, signs in and cannot open the settings.
+- [x] End-to-end, a member’s whole journey: a role made in the matrix, an invitation with it, access to the members but not the roles, the permission taken back and gone on the next request, one’s own account, then the member and the role deleted.
 
 ## Step 2: projects and issues
 
@@ -137,6 +138,10 @@ Needed for step 2:
 - **Priorities**: an instance-wide editable list (proposed), or the same project override mechanism as workflows?
 - **Labels**: full label sets (proposed, for consistency), or global labels plus project labels?
 - **Issue types** (bug, feature, task): a built-in concept, or a default select custom field (proposed)?
+
+Needed before 0.1:
+
+- **Lost passwords** while email is not set up: today a member who forgets their password, or the only administrator, has no way back in. Proposed: an administrator creates a one-time reset link from the members list (like an invitation), and a recovery code printed in the logs on demand covers the last administrator.
 
 Needed for step 5:
 

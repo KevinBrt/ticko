@@ -65,7 +65,9 @@ export function DeleteRoleDialog({
           ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <DialogClose asChild>
-              <Button variant="secondary">{holders ? t('roles.close') : t('roles.cancel')}</Button>
+              <Button variant="secondary">
+                {holders ? t('roles.understood') : t('roles.cancel')}
+              </Button>
             </DialogClose>
             {holders ? null : (
               <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>

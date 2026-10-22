@@ -24,6 +24,8 @@ docker compose up -d
    The line looks like `Toppo is not set up yet: open http://localhost:3000 and enter the setup code ABCD-EFGH-JKLM`. A new code is printed at each start until setup is done.
 
 2. Open <http://localhost:3000>, enter the code and create the first administrator account.
+3. Invite your team from **Settings › Members**: each person gets a personal link, valid for 7 days, that you send them by mail or chat. They choose their name and password when they open it.
+4. Adjust what each role allows in **Settings › Roles and permissions**. Administrator, Team and Requester are only a starting point: rename them, change them or create your own.
 
 The code exists so that nobody else can claim a fresh instance reachable from the network. Once the first administrator exists, the wizard is closed for good. For automated deployments, preset the code with `TOPPO_SETUP_CODE`.
 

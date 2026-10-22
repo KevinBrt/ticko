@@ -202,6 +202,9 @@ describe('the roles and permissions screen', () => {
     await expect
       .element(dialog.getByRole('button', { name: 'Delete the role' }))
       .not.toBeInTheDocument();
+    await dialog.getByRole('button', { name: 'OK' }).click();
+    await expect.element(dialog).not.toBeInTheDocument();
+    await expect.element(screen.getByRole('button', { name: 'Actions for Team' })).toHaveFocus();
   });
 
   it('asks before leaving with unsaved changes', async () => {

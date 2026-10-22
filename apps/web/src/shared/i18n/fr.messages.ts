@@ -253,6 +253,7 @@ export const fr: Messages = {
       both: '{members} et {invitations}',
     },
     deleteConfirm: 'Supprimer le rôle',
+    understood: 'OK',
     leaveTitle: 'Quitter sans enregistrer ?',
     leaveDescription: 'Les changements faits aux permissions seront perdus.',
     stay: 'Rester',
