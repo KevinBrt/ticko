@@ -3,9 +3,10 @@ import { expect, expectAccessible, test } from './fixtures.ts';
 
 test.use({ locale: 'en-US' });
 
-// Categories are one list for the whole instance: only one browser changes it, the desktop one.
+// Categories are one list for the whole instance, its default given to every new issue: changed
+// alone, once the other tests are done.
 test('an administrator adds a category, new issues get it by default, then removes it', {
-  tag: '@desktop-only',
+  tag: '@instance',
 }, async ({ page, baseURL }) => {
   const suffix = randomInt(36 ** 5)
     .toString(36)

@@ -47,7 +47,6 @@ describe('migrations on an empty database', () => {
 
   afterAll(async () => {
     await Promise.all(databases.map((database) => database.close()));
-    await empty.drop();
   });
 
   it('applies every migration once, even when servers start concurrently', async () => {
@@ -74,17 +73,14 @@ describe('migrations on an empty database', () => {
 });
 
 describe('initial data and constraints', () => {
-  let testDatabase: TestDatabase;
   let database: Database;
 
   beforeAll(async () => {
-    testDatabase = await createTestDatabase();
-    database = createDatabase({ url: testDatabase.url, maxConnections: 2 });
+    database = createDatabase({ url: (await createTestDatabase()).url, maxConnections: 2 });
   });
 
   afterAll(async () => {
     await database.close();
-    await testDatabase.drop();
   });
 
   it('seeds exactly the default roles of @toppo/core', async () => {
@@ -317,17 +313,14 @@ describe('initial data and constraints', () => {
 });
 
 describe('projects and issues', () => {
-  let testDatabase: TestDatabase;
   let database: Database;
 
   beforeAll(async () => {
-    testDatabase = await createTestDatabase();
-    database = createDatabase({ url: testDatabase.url, maxConnections: 2 });
+    database = createDatabase({ url: (await createTestDatabase()).url, maxConnections: 2 });
   });
 
   afterAll(async () => {
     await database.close();
-    await testDatabase.drop();
   });
 
   async function createUser(): Promise<string> {

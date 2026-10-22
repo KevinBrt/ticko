@@ -10,7 +10,7 @@ const COMPOSE_FILE = fileURLToPath(new URL('../../../docker/compose.dev.yml', im
 const ALREADY_EXISTS_CODES = new Set(['42P04', '23505']);
 
 /**
- * Makes sure the test PostgreSQL server answers. Locally, starts the development database with
+ * Makes sure the test PostgreSQL server answers. Locally, starts the in-memory test server with
  * Docker Compose when needed; in CI, the workflow provides the server.
  */
 export async function ensurePostgres(): Promise<void> {
@@ -21,7 +21,7 @@ export async function ensurePostgres(): Promise<void> {
     throw new Error(`PostgreSQL is not reachable at ${redact(testDatabaseUrl())}.`);
   }
   try {
-    execFileSync('docker', ['compose', '-f', COMPOSE_FILE, 'up', '--detach', '--wait', 'db'], {
+    execFileSync('docker', ['compose', '-f', COMPOSE_FILE, 'up', '--detach', '--wait', 'test-db'], {
       stdio: 'inherit',
     });
   } catch (error) {
@@ -59,14 +59,19 @@ async function becomesReachable(timeoutMs: number): Promise<boolean> {
 const MAINTENANCE_CONNECT_TIMEOUT = 10;
 /** Seconds to tell whether the server is up at all, before trying to start it. */
 const PROBE_CONNECT_TIMEOUT = 2;
+/**
+ * How many databases are dropped side by side. Each drop waits for a checkpoint; drops waiting
+ * together share one, where one by one each would wait for its own.
+ */
+const DROP_CONNECTIONS = 8;
 
 /** Runs `task` on the always-present `postgres` database, to create or drop other databases. */
 export async function withMaintenanceConnection<T>(
   task: (sql: postgres.Sql) => Promise<T>,
-  connectTimeout = MAINTENANCE_CONNECT_TIMEOUT,
+  { connectTimeout = MAINTENANCE_CONNECT_TIMEOUT, connections = 1 } = {},
 ): Promise<T> {
   const sql = postgres(testDatabaseUrl('postgres'), {
-    max: 1,
+    max: connections,
     connect_timeout: connectTimeout,
     onnotice: () => undefined,
   });
@@ -92,9 +97,22 @@ export async function createDatabase(name: string, template?: string): Promise<v
 }
 
 export async function dropDatabase(name: string): Promise<void> {
-  await withMaintenanceConnection(async (sql) => {
-    await sql`drop database if exists ${sql(name)} with (force)`;
-  });
+  await dropDatabases([name]);
+}
+
+/** Drops `names` side by side, so that they share the checkpoints dropping waits for. */
+export async function dropDatabases(names: readonly string[]): Promise<void> {
+  if (names.length === 0) {
+    return;
+  }
+  await withMaintenanceConnection(
+    async (sql) => {
+      await Promise.all(
+        names.map((name) => sql`drop database if exists ${sql(name)} with (force)`),
+      );
+    },
+    { connections: Math.min(names.length, DROP_CONNECTIONS) },
+  );
 }
 
 /** Drops then creates an empty database, e.g. for a fresh end-to-end run. */
@@ -105,7 +123,9 @@ export async function recreateDatabase(name: string): Promise<void> {
 
 async function isReachable(): Promise<boolean> {
   try {
-    await withMaintenanceConnection((sql) => sql`select 1`, PROBE_CONNECT_TIMEOUT);
+    await withMaintenanceConnection((sql) => sql`select 1`, {
+      connectTimeout: PROBE_CONNECT_TIMEOUT,
+    });
     return true;
   } catch {
     return false;

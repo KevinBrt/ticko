@@ -4,6 +4,7 @@ export {
   createEmptyTestDatabase,
   createTestDatabase,
   prepareTemplateDatabase,
+  removeTestDatabases,
   type TemplateOptions,
   type TestDatabase,
 } from './test-database.ts';

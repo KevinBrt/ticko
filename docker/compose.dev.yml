@@ -1,5 +1,5 @@
-# Local development and test database. Not meant for production: see docker-compose.yml.
-# Started by `npm run db:up` (and automatically by integration tests when it is not running).
+# Local development and test databases. Not meant for production: see docker-compose.yml.
+# Started by `npm run db:up` (and `test-db` automatically by tests when it is not running).
 name: toppo-dev
 
 services:
@@ -16,6 +16,27 @@ services:
       - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U toppo -d toppo"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # Tests only (integration and end-to-end): in memory and without fsync, so that each test file
+  # creating and dropping its own database stays fast. Nothing in it outlives the container.
+  test-db:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_USER: toppo
+      POSTGRES_PASSWORD: toppo
+      POSTGRES_DB: toppo_test
+    command:
+      ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    ports:
+      # Bound to localhost only, like the development database.
+      - "127.0.0.1:54330:5432"
+    tmpfs:
+      - /var/lib/postgresql:size=2g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toppo -d toppo_test"]
       interval: 2s
       timeout: 5s
       retries: 30

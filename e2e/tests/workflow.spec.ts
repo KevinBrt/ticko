@@ -3,10 +3,10 @@ import { expect, expectAccessible, test } from './fixtures.ts';
 
 test.use({ locale: 'en-US' });
 
-// The instance's workflow is shared by every test: only the desktop browser changes it, and it
-// puts it back as it was.
+// The instance's workflow is shared by every test: changed alone, once the other tests are done,
+// and put back as it was.
 test('an administrator adds a status to the workflow, issues may move to it, then it goes', {
-  tag: '@desktop-only',
+  tag: '@instance',
 }, async ({ page, baseURL }) => {
   const suffix = randomInt(36 ** 5)
     .toString(36)

@@ -1,11 +1,12 @@
 import { fileURLToPath } from 'node:url';
-import { prepareTemplateDatabase } from '@toppo/testing';
+import { prepareTemplateDatabase, removeTestDatabases } from '@toppo/testing';
 import type { TestProject } from 'vitest/node';
 import { createDatabase } from './src/database.ts';
 
 export const MIGRATIONS_FOLDER = fileURLToPath(new URL('./migrations', import.meta.url));
 
-export async function setup(project: TestProject): Promise<void> {
+/** Prepares the template each test file clones; the teardown it hands back drops them all. */
+export async function setup(project: TestProject): Promise<() => Promise<void>> {
   const template = await prepareTemplateDatabase({
     name: 'toppo_test_db',
     migrate: async (url) => {
@@ -18,4 +19,5 @@ export async function setup(project: TestProject): Promise<void> {
     },
   });
   project.provide('testTemplateDatabase', template);
+  return () => removeTestDatabases(template);
 }

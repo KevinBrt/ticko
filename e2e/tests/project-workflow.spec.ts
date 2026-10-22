@@ -48,9 +48,12 @@ test('a project gets a workflow of its own, an issue moves to its status, then i
 
   await page.goto(`/issues/${key}-1`);
   await status('New').click();
-  // Exactly: another test may lend the organization a "Review …" status meanwhile.
   await page.getByRole('menuitemradio', { name: 'Review', exact: true }).click();
   await expect(status('Review')).toBeVisible();
+  // Shown at once, saved once the activity lists it: leaving earlier would cancel the request.
+  await expect(
+    page.getByRole('region', { name: 'Activity' }).getByRole('listitem').first(),
+  ).toContainText('changed the status New to Review');
 
   await page.goto(`/projects/${key}/statuses`);
   await page.getByRole('button', { name: 'Go back to the organization’s workflow' }).click();

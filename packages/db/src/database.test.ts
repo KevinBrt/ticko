@@ -1,19 +1,16 @@
-import { createTestDatabase, type TestDatabase } from '@toppo/testing';
+import { createTestDatabase } from '@toppo/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from './database.ts';
 
 describe('createDatabase (PostgreSQL)', () => {
-  let testDatabase: TestDatabase;
   let database: Database;
 
   beforeAll(async () => {
-    testDatabase = await createTestDatabase();
-    database = createDatabase({ url: testDatabase.url, maxConnections: 2 });
+    database = createDatabase({ url: (await createTestDatabase()).url, maxConnections: 2 });
   });
 
   afterAll(async () => {
     await database.close();
-    await testDatabase.drop();
   });
 
   it('answers a ping', async () => {

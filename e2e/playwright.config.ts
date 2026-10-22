@@ -41,14 +41,24 @@ export default defineConfig({
     {
       name: 'desktop',
       dependencies: ['setup'],
-      grepInvert: /@mobile-only/,
+      grepInvert: /@mobile-only|@instance/,
       use: { ...devices['Desktop Chrome'], storageState: ADMIN_STORAGE_STATE },
     },
     {
       name: 'mobile',
       dependencies: ['setup'],
-      grepInvert: /@desktop-only/,
+      grepInvert: /@desktop-only|@instance/,
       use: { ...devices['Pixel 7'], storageState: ADMIN_STORAGE_STATE },
+    },
+    // Tests that change what every other test reads (the instance's workflow, its default
+    // category) run once the others are done, one at a time: an issue created meanwhile would
+    // get their temporary status or category.
+    {
+      name: 'instance',
+      dependencies: ['desktop', 'mobile'],
+      grep: /@instance/,
+      workers: 1,
+      use: { ...devices['Desktop Chrome'], storageState: ADMIN_STORAGE_STATE },
     },
   ],
   ...(externalBaseUrl
