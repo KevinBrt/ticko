@@ -1,7 +1,10 @@
 import { type ReactNode, useEffect } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
 
-/** Standard page frame: a single `h1`, the browser tab title, and a width that stays readable. */
+/**
+ * Standard page frame: a single `h1` and the browser tab title. Lists and tables take the whole
+ * width; forms keep a readable width of their own.
+ */
 export function Page({
   title,
   description,
@@ -22,7 +25,7 @@ export function Page({
   }, [t, title]);
 
   return (
-    <div className="w-full max-w-6xl">
+    <div className="w-full">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
