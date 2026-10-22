@@ -18,6 +18,7 @@ export { PALETTE_COLORS, type PaletteColor } from './colors.ts';
 export { CSP_NONCE_PLACEHOLDER } from './csp.ts';
 export { type HealthResponse, healthResponseSchema } from './health.ts';
 export {
+  type HistoryType,
   ISSUE_ACTIVITY_PAYLOADS,
   type IssueActivitiesResponse,
   type IssueActivity,
@@ -39,6 +40,18 @@ export {
   categoryDraftSchema,
   categoryNameSchema,
 } from './issues/categories.ts';
+export {
+  addCommentResponseSchema,
+  COMMENT_ACTIONS,
+  COMMENT_BODY_MAX_LENGTH,
+  type CommentAction,
+  type CommentRequest,
+  commentBodySchema,
+  commentParamsSchema,
+  commentRequestSchema,
+  type IssueComment,
+  issueCommentSchema,
+} from './issues/comments.ts';
 export {
   ISSUE_DESCRIPTION_MAX_LENGTH,
   ISSUE_TITLE_MAX_LENGTH,

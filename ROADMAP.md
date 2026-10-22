@@ -106,7 +106,7 @@ _Done when an issue is found in under 3 seconds._
 
 ## Step 4: collaboration
 
-- [ ] Comments in Markdown, sanitized (no raw HTML); edit and delete one's own; moderation permission.
+- [x] Comments in plain text, shown as written with their line breaks; edit and delete one's own; moderation permission.
 - [ ] Attachments: size limits, type sniffed server-side, stored under `/data/uploads` with random keys, downloads authorized and served as attachments.
 - [ ] Labels: one list for the instance, edited in the settings; no project labels.
 - [ ] Properties (Version, Team…), replacing custom fields: defined for the instance; a project adds its own, hides one or replaces its options; each shown in the issue list or not, asked at creation or not, then required or not. List type first, then multi-select, text, number, date, user, checkbox; visibility to requesters. Priority and Category join the same page as global properties: a project may hide them or require them at creation, their options staying one list for the instance (after the mockups).

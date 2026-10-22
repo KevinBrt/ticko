@@ -31,6 +31,24 @@ describe('groupHistory', () => {
     ]);
   });
 
+  it('never groups a comment, even with what was changed at the same moment', () => {
+    const comment: IssueActivity = {
+      id: '01a1569b-9900-7000-8000-000000000990',
+      type: 'issue.commented',
+      actor: ADA,
+      createdAt: '2026-10-22T09:21:00.000Z',
+      payload: { comment: { id: ADA.id, body: 'Done', editedAt: null, actions: [] } },
+    };
+
+    const entries = groupHistory([
+      change('01', ADA, '2026-10-22T09:21:00.000Z'),
+      comment,
+      change('02', ADA, '2026-10-22T09:21:00.000Z'),
+    ]);
+
+    expect(entries.map(({ changes }) => changes.length)).toStrictEqual([1, 1, 1]);
+  });
+
   it('has nothing to show without activities', () => {
     expect(groupHistory([])).toStrictEqual([]);
   });

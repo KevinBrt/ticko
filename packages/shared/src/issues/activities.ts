@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { issueCommentSchema } from './comments.ts';
 import { PRIORITY_LEVELS } from './fields.ts';
 import { userRefSchema } from './issues.ts';
 
@@ -22,6 +23,10 @@ export const ISSUE_ACTIVITY_PAYLOADS = {
   'issue.priorityChanged': z.object({ from: prioritySchema, to: prioritySchema }),
   'issue.statusChanged': z.object({ from: namedSchema, to: namedSchema }),
   'issue.assigneeChanged': z.object({ from: z.uuid().nullable(), to: z.uuid().nullable() }),
+  // A comment is kept by id only: deleted, its words leave no trace.
+  'issue.commented': z.object({ commentId: z.uuid() }),
+  'issue.commentEdited': z.object({ commentId: z.uuid() }),
+  'issue.commentDeleted': z.object({ commentId: z.uuid() }),
   /** Recorded without an issue, which is gone: its key says which it was. */
   'issue.deleted': z.object({ key: z.string() }),
 } as const;
@@ -32,11 +37,17 @@ export type IssueActivityPayload<T extends IssueActivityType> = z.infer<
   (typeof ISSUE_ACTIVITY_PAYLOADS)[T]
 >;
 
+/**
+ * What an issue's history shows: not its deletion, recorded once it is gone, nor what happens to
+ * a comment after it is written, which the comment itself shows (edited) or no longer does.
+ */
+export type HistoryType = Exclude<
+  IssueActivityType,
+  'issue.deleted' | 'issue.commentEdited' | 'issue.commentDeleted'
+>;
+
 /** One change in an issue's history, as `GET /api/v1/issues/:issueKey/activities` shows it. */
-const entry = <T extends Exclude<IssueActivityType, 'issue.deleted'>, P extends z.ZodType>(
-  type: T,
-  payload: P,
-) =>
+const entry = <T extends HistoryType, P extends z.ZodType>(type: T, payload: P) =>
   z.object({
     id: z.uuid(),
     type: z.literal(type),
@@ -58,6 +69,8 @@ export const issueActivitySchema = z.discriminatedUnion('type', [
     'issue.assigneeChanged',
     z.object({ from: userRefSchema.nullable(), to: userRefSchema.nullable() }),
   ),
+  // The comment as it is now; a deleted one leaves the history.
+  entry('issue.commented', z.object({ comment: issueCommentSchema })),
 ]);
 
 export type IssueActivity = z.infer<typeof issueActivitySchema>;

@@ -48,6 +48,7 @@ export const ISSUE_ACTIONS = [
   'changeStatus',
   'assign',
   'delete',
+  'comment',
 ] as const;
 
 export type IssueAction = (typeof ISSUE_ACTIONS)[number];

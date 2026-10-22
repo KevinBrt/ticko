@@ -7,6 +7,7 @@ import {
   FilePlusIcon,
   FlagIcon,
   type LucideIcon,
+  MessageSquareTextIcon,
   PencilIcon,
   SlidersHorizontalIcon,
   TagIcon,
@@ -41,6 +42,8 @@ function iconOf(activity: IssueActivity): LucideIcon {
       return CircleDotIcon;
     case 'issue.assigneeChanged':
       return activity.payload.to ? UserPlusIcon : UserXIcon;
+    case 'issue.commented':
+      return MessageSquareTextIcon;
   }
 }
 
@@ -168,6 +171,8 @@ function describe(activity: IssueActivity, t: Translate, statusColors: StatusCol
             name: activity.payload.to.name ?? t('issues.deletedUser'),
           })
         : t('issues.activity.unassigned');
+    case 'issue.commented':
+      return t('issues.activity.commented');
   }
 }
 
@@ -226,6 +231,9 @@ function field(activity: IssueActivity, t: Translate, statusColors: StatusColors
           t={t}
         />,
       );
+    // Never grouped with other changes: shown on its own, by `CommentItem`.
+    case 'issue.commented':
+      return t('issues.activity.commented');
   }
 }
 

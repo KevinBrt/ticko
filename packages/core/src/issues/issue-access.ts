@@ -33,6 +33,7 @@ export function issueActionsOf(
     changeStatus: editsAny,
     assign: can(permissions, 'issue.assign'),
     delete: can(permissions, 'issue.delete'),
+    comment: can(permissions, 'comment.create'),
   };
   return (Object.keys(granted) as IssueAction[]).filter((action) => granted[action]);
 }

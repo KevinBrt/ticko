@@ -18,17 +18,17 @@ describe('issue visibility', () => {
 
 describe('issueActionsOf', () => {
   it('gives every action to whoever holds every permission', () => {
-    expect(issueActionsOf(['issue.update', 'issue.assign', 'issue.delete'], false)).toStrictEqual([
-      'editText',
-      'editFields',
-      'changeStatus',
-      'assign',
-      'delete',
-    ]);
+    expect(
+      issueActionsOf(['issue.update', 'issue.assign', 'issue.delete', 'comment.create'], false),
+    ).toStrictEqual(['editText', 'editFields', 'changeStatus', 'assign', 'delete', 'comment']);
   });
 
   it('lets a reporter fix the words of their issue, nothing more', () => {
     expect(issueActionsOf(['issue.read.own', 'issue.create'], true)).toStrictEqual(['editText']);
+    expect(issueActionsOf(['issue.read.own', 'comment.create'], true)).toStrictEqual([
+      'editText',
+      'comment',
+    ]);
     expect(issueActionsOf(['issue.read'], false)).toStrictEqual([]);
   });
 });

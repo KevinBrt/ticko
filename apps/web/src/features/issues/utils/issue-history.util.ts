@@ -11,13 +11,18 @@ export interface HistoryEntry {
 
 /**
  * The history as sentences: changes made together (same person, same moment, one request) are
- * grouped, as in "Sarah set the category to Bug and the priority to High".
+ * grouped, as in "Sarah set the category to Bug and the priority to High". A comment always
+ * stands alone.
  */
 export function groupHistory(activities: readonly IssueActivity[]): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
   for (const activity of activities) {
     const last = entries.at(-1);
-    if (last && last.actor.id === activity.actor.id && last.createdAt === activity.createdAt) {
+    const together =
+      last?.actor.id === activity.actor.id &&
+      last.createdAt === activity.createdAt &&
+      ![activity, ...last.changes].some((one) => one.type === 'issue.commented');
+    if (last && together) {
       last.changes.push(activity);
     } else {
       entries.push({

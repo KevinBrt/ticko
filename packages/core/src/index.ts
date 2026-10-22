@@ -11,6 +11,7 @@ export {
   parseIssueKey,
 } from './issue-key.ts';
 export { type CategoriesPlan, planCategories } from './issues/categories.ts';
+export { commentActionsOf } from './issues/comments.ts';
 export {
   DEFAULT_CATEGORIES,
   DEFAULT_FIELD_NAMES,

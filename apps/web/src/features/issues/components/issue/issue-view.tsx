@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IssueResponse } from '@toppo/shared';
+import type { IssueResponse, UserRef } from '@toppo/shared';
 import { Alert } from '@toppo/ui';
 import { useState } from 'react';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
@@ -46,9 +46,12 @@ function send(key: string, edit: IssueEdit): Promise<void> {
  */
 export function IssueView({
   issue,
+  replyTo,
   onDeleted,
 }: {
   issue: IssueResponse;
+  /** Whom comments answer: the reporter, unless it is the reader. */
+  replyTo: UserRef | null;
   onDeleted: () => Promise<void> | void;
 }) {
   const { t } = useI18n();
@@ -96,7 +99,12 @@ export function IssueView({
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="flex min-w-0 flex-col gap-8">
           <IssueRequest issue={issue} onEdit={(change) => edit.mutate(change)} />
-          <IssueHistory issueKey={issue.key} statuses={fields.data?.statuses ?? []} />
+          <IssueHistory
+            issueKey={issue.key}
+            canComment={issue.actions.includes('comment')}
+            replyTo={replyTo}
+            statuses={fields.data?.statuses ?? []}
+          />
         </div>
         <IssueProperties
           issue={issue}

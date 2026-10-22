@@ -7,6 +7,7 @@ import {
   canGiveProjectRole,
   canMoveTo,
   canSeeIssue,
+  commentActionsOf,
   DEFAULT_CATEGORIES,
   DEFAULT_PRIORITIES,
   DEFAULT_ROLE_IDS,
@@ -30,6 +31,7 @@ import {
 import {
   type CurrentUser,
   categoriesRequestSchema,
+  commentRequestSchema,
   ISSUE_SEARCH_LIMIT,
   ISSUE_SORT_ORDERS,
   ISSUES_PAGE_SIZE,
@@ -1677,7 +1679,8 @@ function createIssue(
   );
 }
 
-const ISSUE_PATH = /^\/api\/v1\/issues\/([^/]+)(?:\/(status|assignee|activities))?$/;
+const ISSUE_PATH =
+  /^\/api\/v1\/issues\/([^/]+)(?:\/(status|assignee|activities|comments)(?:\/([^/]+))?)?$/;
 
 /** An issue the signed-in user sees, with its project and what they may do there. */
 interface SeenIssue {
@@ -1696,7 +1699,9 @@ function seenIssue(state: FakeServerState, key: string): SeenIssue | Response {
   if (!(issue && project && permissions && canSeeIssue(permissions, reported))) {
     return asSignedIn(state) ?? apiError(404, 'ISSUE_NOT_FOUND');
   }
-  return { issue, project, permissions, actions: issueActionsOf(permissions, reported) };
+  // Read-only while archived: nothing to offer.
+  const actions = project.archived ? [] : issueActionsOf(permissions, reported);
+  return { issue, project, permissions, actions };
 }
 
 /** `/api/v1/issues/:key` and what hangs off it, with the server's rules. */
@@ -1711,7 +1716,7 @@ function issueRequest(
   if (!match) {
     return undefined;
   }
-  const [, key = '', part = ''] = match;
+  const [, key = '', part = '', commentId] = match;
   const seen = seenIssue(state, key);
   if (seen instanceof Response) {
     return seen;
@@ -1747,7 +1752,9 @@ function issueRequest(
         return NO_CONTENT();
       });
     case 'GET activities': {
-      const history = state.activities.get(key) ?? [];
+      const history = (state.activities.get(key) ?? []).map((entry) =>
+        withCommentActions(state, entry, seen),
+      );
       return json({
         // Newest first; a stable sort keeps changes made together in the order they were made.
         rows: history.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -1756,9 +1763,89 @@ function issueRequest(
         pageSize: 50,
       });
     }
+    case 'POST comments':
+    case 'PATCH comments':
+    case 'DELETE comments':
+      return commentRequest(state, key, method, commentId, fields, seen);
     default:
       return apiError(404, 'NOT_FOUND');
   }
+}
+
+/** A comment of the history with what the signed-in user may do on it, as the server says. */
+function withCommentActions(
+  state: FakeServerState,
+  entry: IssueActivity,
+  { project, permissions }: SeenIssue,
+): IssueActivity {
+  if (entry.type !== 'issue.commented') {
+    return entry;
+  }
+  const actions = project.archived
+    ? []
+    : commentActionsOf(permissions, entry.actor.id === state.user?.id);
+  return { ...entry, payload: { comment: { ...entry.payload.comment, actions } } };
+}
+
+/**
+ * `/api/v1/issues/:key/comments[/:commentId]`: kept in the history, as the server reads them.
+ * Its author edits a comment; its author or a moderator deletes it, leaving no trace.
+ */
+function commentRequest(
+  state: FakeServerState,
+  key: string,
+  method: string,
+  commentId: string | undefined,
+  fields: Record<string, unknown>,
+  { permissions }: SeenIssue,
+): Response {
+  const history = state.activities.get(key) ?? [];
+  if (method === 'POST') {
+    const body = commentRequestSchema.safeParse(fields);
+    if (!can(permissions, 'comment.create')) {
+      return apiError(403, 'FORBIDDEN');
+    }
+    if (!body.success) {
+      return apiError(400, 'VALIDATION_FAILED');
+    }
+    const id = `01a1569b-9900-7000-8000-0000000009${String(history.length).padStart(2, '0')}`;
+    record(state, key, {
+      type: 'issue.commented',
+      payload: { comment: { id, body: body.data.body, editedAt: null, actions: [] } },
+    });
+    return json({ id }, 201);
+  }
+  const entry = history.find(
+    (candidate) =>
+      candidate.type === 'issue.commented' && candidate.payload.comment.id === commentId,
+  );
+  if (entry?.type !== 'issue.commented') {
+    return apiError(404, 'COMMENT_NOT_FOUND');
+  }
+  const allowed = commentActionsOf(permissions, entry.actor.id === state.user?.id);
+  if (method === 'DELETE') {
+    if (!allowed.includes('delete')) {
+      return apiError(403, 'FORBIDDEN');
+    }
+    state.activities.set(
+      key,
+      history.filter((candidate) => candidate !== entry),
+    );
+    return NO_CONTENT();
+  }
+  const body = commentRequestSchema.safeParse(fields);
+  if (!allowed.includes('edit')) {
+    return apiError(403, 'FORBIDDEN');
+  }
+  if (!body.success) {
+    return apiError(400, 'VALIDATION_FAILED');
+  }
+  entry.payload.comment = {
+    ...entry.payload.comment,
+    body: body.data.body,
+    editedAt: new Date().toISOString(),
+  };
+  return NO_CONTENT();
 }
 
 function assignIssue(state: FakeServerState, issue: FakeIssue, to: string | null): Response {

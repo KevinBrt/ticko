@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { IssueView } from '../../../features/issues/components/issue/issue-view.tsx';
 import { IssuesQueries } from '../../../features/issues/queries/issues.queries.ts';
 import { rememberProject } from '../../../features/issues/utils/last-project.util.ts';
+import { SessionQueries } from '../../../features/session/queries/session.queries.ts';
 import { ApiRequestError } from '../../../shared/api/http.client.ts';
 import { requestErrorMessage } from '../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../shared/i18n/i18n-provider.tsx';
@@ -38,6 +39,7 @@ function IssueScreen() {
   const navigate = useNavigate();
   const { issueKey } = issueRoute.useParams();
   const issue = useQuery(IssuesQueries.detail(issueKey));
+  const { data: user } = useQuery(SessionQueries.currentUser);
   useDocumentTitle(issue.data ? `${issue.data.key} ${issue.data.title}` : issueKey);
 
   // Back on the list, it is this issue's project that shows.
@@ -69,6 +71,8 @@ function IssueScreen() {
   return (
     <IssueView
       issue={issue.data}
+      // Comments answer whoever reported the issue, unless one reported it oneself.
+      replyTo={issue.data.reporter.id === user?.id ? null : issue.data.reporter}
       onDeleted={() =>
         navigate({ to: '/issues', search: { project: issue.data.project.key }, replace: true })
       }

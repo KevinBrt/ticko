@@ -58,7 +58,10 @@ export const getIssue = defineQuery({
       project: { key: project.key, name: row.projectName },
       description: row.description,
       closedAt: row.closedAt?.toISOString() ?? null,
-      actions: issueActionsOf(project.permissions, project.issue.reportedByActor),
+      // Read-only while archived: nothing to offer.
+      actions: project.archived
+        ? []
+        : issueActionsOf(project.permissions, project.issue.reportedByActor),
     };
   },
 });

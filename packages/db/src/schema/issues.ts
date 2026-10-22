@@ -159,3 +159,32 @@ export const activities = pgTable(
     index('activities_actor_id_idx').on(table.actorId),
   ],
 );
+
+/**
+ * What people write on an issue, in plain text. Its author edits it; its author or a moderator
+ * deletes it, for good: the activities about it keep its id only. Gone with its issue.
+ */
+export const comments = pgTable(
+  'comments',
+  {
+    id: id(),
+    issueId: uuid('issue_id')
+      .notNull()
+      .references(() => issues.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    /** Plain text, its line breaks kept. */
+    body: text('body').notNull(),
+    /** Set when its author last changed it. */
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    check('comments_body_not_blank', sql`btrim(${table.body}) <> ''`),
+    // Mirrors COMMENT_BODY_MAX_LENGTH (`@toppo/shared`).
+    check('comments_body_length', sql`char_length(${table.body}) <= 20000`),
+    index('comments_issue_id_created_at_idx').on(table.issueId, table.createdAt),
+    index('comments_author_id_idx').on(table.authorId),
+  ],
+);
