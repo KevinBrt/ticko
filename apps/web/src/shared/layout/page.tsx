@@ -1,6 +1,15 @@
 import { type ReactNode, useEffect } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
 
+/** Names the browser tab after the page, for pages that draw their own heading. */
+export function useDocumentTitle(title: string): void {
+  const { t } = useI18n();
+
+  useEffect(() => {
+    document.title = t('app.pageTitle', { page: title });
+  }, [t, title]);
+}
+
 /**
  * Standard page frame: a single `h1` and the browser tab title. Lists and tables take the whole
  * width; forms keep a readable width of their own.
@@ -18,11 +27,7 @@ export function Page({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const { t } = useI18n();
-
-  useEffect(() => {
-    document.title = t('app.pageTitle', { page: title });
-  }, [t, title]);
+  useDocumentTitle(title);
 
   return (
     <div className="w-full">

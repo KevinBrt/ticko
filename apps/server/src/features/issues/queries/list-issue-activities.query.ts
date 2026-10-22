@@ -8,7 +8,7 @@ import {
   issueKeyParamsSchema,
   type UserRef,
 } from '@toppo/shared';
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 import { userRefOf } from '../utils/issue-rows.util.ts';
 
@@ -27,7 +27,7 @@ interface ActivityRow {
   actor: { id: string; name: string; deletedAt: Date | null };
 }
 
-/** One page of an issue's history, oldest first, each change checked against its type. */
+/** One page of an issue's history, newest first, each change checked against its type. */
 export const listIssueActivities = defineQuery({
   name: 'issue.listActivities',
   access: { project: 'issueKey' },
@@ -48,7 +48,8 @@ export const listIssueActivities = defineQuery({
       .from(activities)
       .innerJoin(users, eq(users.id, activities.actorId))
       .where(ofIssue)
-      .orderBy(asc(activities.createdAt), asc(activities.id))
+      // Changes made in one request share its time: they keep the order they were made in.
+      .orderBy(desc(activities.createdAt), asc(activities.id))
       .limit(ISSUE_ACTIVITIES_PAGE_SIZE)
       .offset((page - 1) * ISSUE_ACTIVITIES_PAGE_SIZE);
     const [total] = await db.select({ count: count() }).from(activities).where(ofIssue);

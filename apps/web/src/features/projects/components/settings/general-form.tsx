@@ -8,12 +8,12 @@ import {
   type UpdateProjectRequest,
   updateProjectRequestSchema,
 } from '@toppo/shared';
-import { Alert, Button, cn, Field, Input, Textarea } from '@toppo/ui';
+import { Alert, Button, cn, Field, Input, swatchClassName, Textarea } from '@toppo/ui';
 import { type FormEvent, useId, useState } from 'react';
 import { fieldErrors, requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { Projects } from '../../api/projects.api.ts';
-import { PROJECT_COLORS, SWATCH_CLASSES } from '../../constants/project-colors.constants.ts';
+import { PROJECT_COLORS } from '../../constants/project-colors.constants.ts';
 import { ProjectsQueries } from '../../queries/projects.queries.ts';
 
 const KNOWN_ERRORS = {
@@ -187,7 +187,7 @@ function ColorChoice({
               aria-hidden="true"
               className={cn(
                 'size-5 rounded-full ring-offset-2 ring-offset-surface peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-ring',
-                SWATCH_CLASSES[color],
+                swatchClassName(color),
               )}
             />
             <span className="sr-only">{t(`colors.${color}`)}</span>

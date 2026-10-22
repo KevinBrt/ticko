@@ -67,7 +67,7 @@ export const issueActivitiesQuerySchema = z.object({
 });
 
 export const issueActivitiesResponseSchema = z.object({
-  /** One page, oldest first. */
+  /** One page, newest first. */
   rows: z.array(issueActivitySchema),
   matching: z.number().int(),
   page: z.number().int(),

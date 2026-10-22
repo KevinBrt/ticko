@@ -1,4 +1,5 @@
 import {
+  assignedIssuesResponseSchema,
   assigneesResponseSchema,
   assignIssueRequestSchema,
   changeIssueStatusRequestSchema,
@@ -25,6 +26,7 @@ import { deleteIssue } from './commands/delete-issue.command.ts';
 import { updateIssue } from './commands/update-issue.command.ts';
 import { getIssue } from './queries/get-issue.query.ts';
 import { getIssueFields } from './queries/get-issue-fields.query.ts';
+import { listAssignedIssues } from './queries/list-assigned-issues.query.ts';
 import { listAssignees } from './queries/list-assignees.query.ts';
 import { listIssueActivities } from './queries/list-issue-activities.query.ts';
 import { listIssues } from './queries/list-issues.query.ts';
@@ -33,11 +35,21 @@ import { listIssues } from './queries/list-issues.query.ts';
 const NO_CONTENT = { 204: z.void() };
 
 /**
- * A project's issues, and each issue by its key (`/api/v1/issues/WEB-42`). An issue the caller
- * does not see answers 404, like a project out of reach.
+ * A project's issues, those assigned to the caller, and each issue by its key
+ * (`/api/v1/issues/WEB-42`). An issue the caller does not see answers 404, like a project out of
+ * reach.
  */
 export function registerIssueRoutes(app: FastifyInstance): void {
   const routes = app.withTypeProvider<ZodTypeProvider>();
+
+  routes.get(
+    '/api/v1/issues/assigned',
+    {
+      config: { access: listAssignedIssues.access },
+      schema: { querystring: issuesQuerySchema, response: { 200: assignedIssuesResponseSchema } },
+    },
+    (request) => listAssignedIssues.execute(request.executionContext, request.query),
+  );
 
   routes.get(
     '/api/v1/projects/:projectKey/issues',

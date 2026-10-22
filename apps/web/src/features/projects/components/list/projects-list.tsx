@@ -5,6 +5,7 @@ import { Alert, Avatar, cn, Input } from '@toppo/ui';
 import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
+import { formatRelativeTime } from '../../../../shared/i18n/dates.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { pluralForm } from '../../../../shared/i18n/plural.util.ts';
 import { Pager } from '../../../../shared/layout/pager.tsx';
@@ -63,6 +64,8 @@ export function ProjectsList({
     }
     return state === 'archived' ? t('projects.noArchived') : t('projects.emptyDescription');
   };
+  // The counts of issues come only on the projects screen, for those who manage the projects.
+  const withIssues = rows.some((project) => project.issues !== null);
   const tabs = [
     { value: 'active', label: t('projects.active'), count: counts.active },
     { value: 'archived', label: t('projects.archived'), count: counts.archived },
@@ -126,6 +129,16 @@ export function ProjectsList({
               <th scope="col" className="hidden w-52 px-2 py-2.5 font-medium md:table-cell">
                 {t('projects.members')}
               </th>
+              {withIssues ? (
+                <>
+                  <th scope="col" className="hidden w-40 px-2 py-2.5 font-medium lg:table-cell">
+                    {t('projects.openIssues')}
+                  </th>
+                  <th scope="col" className="hidden w-36 px-2 py-2.5 font-medium xl:table-cell">
+                    {t('projects.activity')}
+                  </th>
+                </>
+              ) : null}
               <th scope="col" className="w-12 py-2.5 pr-4">
                 <span className="sr-only">{t('projects.actions')}</span>
               </th>
@@ -180,6 +193,7 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
       <td className="hidden px-2 py-3 md:table-cell">
         <MembersStack members={project.members} />
       </td>
+      {project.issues ? <IssueCells issues={project.issues} /> : null}
       <td className="py-3 pr-4">
         <SlidersHorizontalIcon
           aria-hidden="true"
@@ -187,6 +201,35 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
         />
       </td>
     </tr>
+  );
+}
+
+/** How many issues are open, urgent ones apart, and when the project last changed. */
+function IssueCells({ issues }: { issues: NonNullable<ProjectSummary['issues']> }) {
+  const { t, locale } = useI18n();
+
+  return (
+    <>
+      <td className="hidden px-2 py-3 lg:table-cell">
+        <span className="font-semibold text-foreground">{issues.open}</span>
+        {issues.urgent > 0 ? (
+          <span className="ml-2 text-xs font-medium text-danger">
+            {t(`projects.urgentIssues.${pluralForm(locale, issues.urgent)}`, {
+              count: issues.urgent,
+            })}
+          </span>
+        ) : null}
+      </td>
+      <td className="hidden px-2 py-3 text-muted-foreground xl:table-cell">
+        {issues.lastActivityAt ? (
+          <time dateTime={issues.lastActivityAt}>
+            {formatRelativeTime(issues.lastActivityAt, locale)}
+          </time>
+        ) : (
+          t('projects.noActivity')
+        )}
+      </td>
+    </>
   );
 }
 

@@ -3,8 +3,11 @@ import { createRouter, type RouterHistory } from '@tanstack/react-router';
 import type { ComponentType } from 'react';
 import { accountRoute } from './routes/protected/account/account.route.tsx';
 import { indexRoute } from './routes/protected/index.route.tsx';
+import { issuesIndexRoute } from './routes/protected/issues/index.route.tsx';
+import { issueRoute } from './routes/protected/issues/issue.route.tsx';
 import { issuesRoute } from './routes/protected/issues/issues.route.tsx';
 import { myIssuesRoute } from './routes/protected/issues/my-issues.route.tsx';
+import { newIssueRoute } from './routes/protected/issues/new-issue.route.tsx';
 import { notFoundRoute } from './routes/protected/not-found.route.tsx';
 import { projectsIndexRoute } from './routes/protected/projects/index.route.tsx';
 import { projectRoute } from './routes/protected/projects/project.route.tsx';
@@ -21,6 +24,7 @@ import { loginRoute } from './routes/public/login.route.tsx';
 import { setupRoute } from './routes/public/setup.route.tsx';
 import { rootRoute } from './routes/root.route.tsx';
 import type { PlainMessageKey } from './shared/i18n/i18n.types.ts';
+import type { CrumbProps } from './shared/layout/topbar.tsx';
 
 const routeTree = rootRoute.addChildren([
   // Reachable without a session.
@@ -30,7 +34,7 @@ const routeTree = rootRoute.addChildren([
   // Behind sign-in, inside the application frame.
   protectedRoute.addChildren([
     indexRoute,
-    issuesRoute,
+    issuesRoute.addChildren([issuesIndexRoute, newIssueRoute, issueRoute]),
     myIssuesRoute,
     projectsRoute.addChildren([
       projectsIndexRoute,
@@ -71,7 +75,7 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     /** Title shown in the top bar and the browser tab. */
     titleKey?: PlainMessageKey;
-    /** For a route about one record, what the top bar shows for it, e.g. the project's name. */
-    crumb?: ComponentType<{ params: Readonly<Record<string, string | undefined>> }>;
+    /** For a route about one record, its own step in the top bar, e.g. the project's name. */
+    crumb?: ComponentType<CrumbProps>;
   }
 }

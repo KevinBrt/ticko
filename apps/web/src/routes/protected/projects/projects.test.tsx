@@ -1,8 +1,11 @@
+import { DEFAULT_PRIORITIES } from '@toppo/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import {
   ADA,
+  defaultField,
   type FakeRole,
+  fakeIssue,
   fakeProject,
   fakeServer,
   GRACE,
@@ -93,6 +96,22 @@ describe('the projects screen', () => {
 
     await expect.element(screen.getByRole('link', { name: 'Old intranet' })).toBeVisible();
     await expect.element(screen.getByText('Website')).not.toBeInTheDocument();
+  });
+
+  it('counts the open issues of each project, the urgent ones apart', async () => {
+    const server = serverWith(ADA);
+    const urgent = defaultField(DEFAULT_PRIORITIES, 'urgent');
+    server.state.issues.push(
+      fakeIssue('WEB', 1, 'Broken link', { priorityId: urgent.id }),
+      fakeIssue('WEB', 2, 'Slow page'),
+      fakeIssue('WEB', 3, 'Fixed', { closedAt: '2026-10-22T10:00:00.000Z' }),
+    );
+    const { screen } = await renderApp({ path: '/projects' });
+
+    const website = screen.getByRole('row').filter({ hasText: 'Website' });
+    await expect.element(website.getByText('2', { exact: true })).toBeVisible();
+    await expect.element(website.getByText('incl. 1 urgent')).toBeVisible();
+    await expect.element(website.getByText('None yet')).toBeVisible();
   });
 
   it('has the server search, keeping the search in the address', async () => {

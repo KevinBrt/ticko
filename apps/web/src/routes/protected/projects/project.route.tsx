@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { createRoute, Outlet } from '@tanstack/react-router';
+import { createRoute, Link, Outlet } from '@tanstack/react-router';
 import { EmptyState } from '@toppo/ui';
 import { FolderXIcon } from 'lucide-react';
 import { ProjectIdentity } from '../../../features/projects/components/settings/project-identity.tsx';
@@ -12,13 +12,27 @@ import { AccessDenied } from '../../../shared/layout/access-denied.tsx';
 import { visibleSections } from '../../../shared/layout/navigation.util.ts';
 import { Page } from '../../../shared/layout/page.tsx';
 import { SectionLayout } from '../../../shared/layout/section-layout.tsx';
+import {
+  CRUMB_CURRENT_CLASS,
+  CRUMB_LINK_CLASS,
+  type CrumbProps,
+} from '../../../shared/layout/topbar.tsx';
 import { projectsRoute } from './projects.route.tsx';
 
 /** The project's name in the top bar, its key until the name is known. */
-function ProjectCrumb({ params }: { params: Readonly<Record<string, string | undefined>> }) {
+function ProjectCrumb({ params, current }: CrumbProps) {
   const key = params['projectKey'] ?? '';
   const { data: project } = useQuery(ProjectsQueries.detail(key));
-  return project?.name ?? key;
+  const name = project?.name ?? key;
+  return current ? (
+    <span aria-current="page" className={CRUMB_CURRENT_CLASS}>
+      {name}
+    </span>
+  ) : (
+    <Link to="/projects/$projectKey" params={{ projectKey: key }} className={CRUMB_LINK_CLASS}>
+      {name}
+    </Link>
+  );
 }
 
 /**

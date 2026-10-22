@@ -1,0 +1,114 @@
+import {
+  type AssignedIssuesResponse,
+  type AssigneesResponse,
+  assignedIssuesResponseSchema,
+  assigneesResponseSchema,
+  type CreateIssueRequest,
+  createIssueResponseSchema,
+  type IssueActivitiesResponse,
+  type IssueFieldsResponse,
+  type IssueResponse,
+  type IssuesQuery,
+  type IssuesResponse,
+  issueActivitiesResponseSchema,
+  issueFieldsResponseSchema,
+  issueResponseSchema,
+  issuesResponseSchema,
+  type UpdateIssueRequest,
+} from '@toppo/shared';
+import { z } from 'zod';
+import { apiRequest } from '../../../shared/api/http.client.ts';
+
+/** Commands answer `204 No Content`. */
+const noContent = z.null();
+
+const projectPath = (projectKey: string) => `/api/v1/projects/${encodeURIComponent(projectKey)}`;
+const issuePath = (key: string) => `/api/v1/issues/${encodeURIComponent(key)}`;
+
+/** `?page=2`, or nothing on the first page. */
+const pageQuery = (page: number | undefined) =>
+  page && page > 1 ? `?${new URLSearchParams({ page: String(page) })}` : '';
+
+/** Server calls about issues, each named by its key (`WEB-42`). One out of sight answers 404. */
+export const Issues = {
+  /** One page of a project's issues, newest first. */
+  async list(projectKey: string, { page }: IssuesQuery): Promise<IssuesResponse> {
+    return await apiRequest(`${projectPath(projectKey)}/issues${pageQuery(page)}`, {
+      schema: issuesResponseSchema,
+    });
+  },
+
+  /** One page of the issues assigned to the caller, in every project, the most urgent first. */
+  async assigned({ page }: IssuesQuery): Promise<AssignedIssuesResponse> {
+    return await apiRequest(`/api/v1/issues/assigned${pageQuery(page)}`, {
+      schema: assignedIssuesResponseSchema,
+    });
+  },
+
+  /** Reports an issue; answers its key. */
+  async create(projectKey: string, issue: CreateIssueRequest): Promise<string> {
+    return (
+      await apiRequest(`${projectPath(projectKey)}/issues`, {
+        method: 'POST',
+        body: issue,
+        schema: createIssueResponseSchema,
+      })
+    ).key;
+  },
+
+  async get(key: string): Promise<IssueResponse> {
+    return await apiRequest(issuePath(key), { schema: issueResponseSchema });
+  },
+
+  /** Changes only the fields given. */
+  async update(key: string, changes: UpdateIssueRequest): Promise<void> {
+    await apiRequest(issuePath(key), { method: 'PATCH', body: changes, schema: noContent });
+  },
+
+  /** Moves the issue to a status the workflow allows from the current one. */
+  async changeStatus(key: string, statusId: string): Promise<void> {
+    await apiRequest(`${issuePath(key)}/status`, {
+      method: 'PUT',
+      body: { statusId },
+      schema: noContent,
+    });
+  },
+
+  /** `null` leaves the issue to nobody. */
+  async assign(key: string, assigneeId: string | null): Promise<void> {
+    await apiRequest(`${issuePath(key)}/assignee`, {
+      method: 'PUT',
+      body: { assigneeId },
+      schema: noContent,
+    });
+  },
+
+  /** For good: its history goes with it, its number is never given again. */
+  async delete(key: string): Promise<void> {
+    await apiRequest(issuePath(key), { method: 'DELETE', schema: noContent });
+  },
+
+  /** One page of the issue's history, newest first. */
+  async activities(key: string, page: number): Promise<IssueActivitiesResponse> {
+    return await apiRequest(`${issuePath(key)}/activities${pageQuery(page)}`, {
+      schema: issueActivitiesResponseSchema,
+    });
+  },
+
+  /** The statuses, categories and priorities a project's issues take. */
+  async fields(projectKey: string): Promise<IssueFieldsResponse> {
+    return await apiRequest(`${projectPath(projectKey)}/issue-fields`, {
+      schema: issueFieldsResponseSchema,
+    });
+  },
+
+  /** People issues of the project can be given to, found by the server. */
+  async assignees(projectKey: string, search: string): Promise<AssigneesResponse['people']> {
+    const query = search ? `?${new URLSearchParams({ search })}` : '';
+    return (
+      await apiRequest(`${projectPath(projectKey)}/assignees${query}`, {
+        schema: assigneesResponseSchema,
+      })
+    ).people;
+  },
+};

@@ -35,6 +35,8 @@ const OPEN_API_ROUTES = [
   'POST /api/auth/sign-out',
   'POST /api/v1/invitations/accept',
   'POST /api/v1/invitations/preview',
+  // Lists only the issues the caller may read in each project, filtered in the query.
+  'GET /api/v1/issues/assigned',
   'GET /api/v1/me',
   'PATCH /api/v1/me',
   // Lists only the projects the caller reaches, filtered in the query.

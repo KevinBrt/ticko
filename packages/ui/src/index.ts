@@ -4,6 +4,7 @@ export {
   Badge,
   type BadgeTone,
   badgeClassName,
+  swatchClassName,
   toneClassName,
 } from './components/display/badge.tsx';
 export { Logo } from './components/display/logo.tsx';

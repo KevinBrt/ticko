@@ -1,7 +1,20 @@
 import { Link, useMatches } from '@tanstack/react-router';
 import { Button } from '@toppo/ui';
 import { MenuIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useI18n } from '../i18n/i18n-provider.tsx';
+
+/** What a route's own breadcrumb step gets, to show itself: a name, a link, a menu. */
+export interface CrumbProps {
+  params: Readonly<Record<string, string | undefined>>;
+  search: Readonly<Record<string, unknown>>;
+  /** The page being shown: the step is not a link then. */
+  current: boolean;
+}
+
+/** How steps of the path look: a link to a parent page, or the page being shown. */
+export const CRUMB_LINK_CLASS = 'text-muted-foreground hover:text-foreground';
+export const CRUMB_CURRENT_CLASS = 'truncate font-medium text-foreground';
 
 type RoutePath = ReturnType<typeof useMatches>[number]['fullPath'];
 /** Index routes (`/settings/`) never carry a title, so they are never a step of the path. */
@@ -11,16 +24,45 @@ function isStepPath(path: RoutePath): path is StepPath {
   return path === '/' || !path.endsWith('/');
 }
 
-export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
+/** A step of the path: a title, or a route's own way of showing itself. */
+type Crumb =
+  | { id: string; to: StepPath; label: string }
+  | { id: string; to: StepPath; own: (current: boolean) => ReactNode };
+
+/**
+ * Every matched route with a title is a step of the path: Projects / WEB / Settings. A route
+ * about one record shows its own step, e.g. a menu to switch projects.
+ */
+function useCrumbs(): Crumb[] {
   const { t } = useI18n();
-  // Every matched route with a title is a step of the path: Projects / WEB / Settings.
-  const crumbs = useMatches().flatMap((match) => {
+  return useMatches().flatMap((match): Crumb[] => {
     const path: RoutePath = match.fullPath;
     const { titleKey, crumb: Crumb } = match.staticData;
     const params: Readonly<Record<string, string | undefined>> = match.params;
-    const label = titleKey ? t(titleKey) : Crumb && <Crumb params={params} />;
-    return label && isStepPath(path) ? [{ id: match.id, to: path, label }] : [];
+    const search: Readonly<Record<string, unknown>> = match.search;
+    if (!isStepPath(path)) {
+      return [];
+    }
+    if (titleKey) {
+      return [{ id: match.id, to: path, label: t(titleKey) }];
+    }
+    return Crumb
+      ? [
+          {
+            id: match.id,
+            to: path,
+            own: (current: boolean): ReactNode => (
+              <Crumb params={params} search={search} current={current} />
+            ),
+          },
+        ]
+      : [];
   });
+}
+
+export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const { t } = useI18n();
+  const crumbs = useCrumbs();
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface pt-[env(safe-area-inset-top)]">
@@ -37,28 +79,15 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         {crumbs.length > 0 ? (
           <nav aria-label={t('nav.breadcrumb')} className="min-w-0">
             <ol className="flex items-center gap-1.5 text-sm">
-              {crumbs.map((crumb, index) =>
-                index === crumbs.length - 1 ? (
-                  <li key={crumb.id} className="flex min-w-0 items-center gap-1.5">
-                    {index > 0 ? <Separator /> : null}
-                    <span aria-current="page" className="truncate font-medium text-foreground">
-                      {crumb.label}
-                    </span>
-                  </li>
-                ) : (
-                  <li key={crumb.id} className="flex shrink-0 items-center gap-1.5">
-                    {index > 0 ? <Separator /> : null}
-                    {/* Every step is a parent of this page: the current parameters fill its path. */}
-                    <Link
-                      to={crumb.to}
-                      params={true}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      {crumb.label}
-                    </Link>
-                  </li>
-                ),
-              )}
+              {crumbs.map((crumb, index) => (
+                <li
+                  key={crumb.id}
+                  className={`flex items-center gap-1.5 ${index === crumbs.length - 1 || 'own' in crumb ? 'min-w-0' : 'shrink-0'}`}
+                >
+                  {index > 0 ? <CrumbSeparator /> : null}
+                  <CrumbStep crumb={crumb} current={index === crumbs.length - 1} />
+                </li>
+              ))}
             </ol>
           </nav>
         ) : null}
@@ -67,7 +96,28 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   );
 }
 
-function Separator() {
+/** One step: its own way of showing itself, the page being shown, or a link to a parent. */
+function CrumbStep({ crumb, current }: { crumb: Crumb; current: boolean }) {
+  if ('own' in crumb) {
+    return crumb.own(current);
+  }
+  if (current) {
+    return (
+      <span aria-current="page" className={CRUMB_CURRENT_CLASS}>
+        {crumb.label}
+      </span>
+    );
+  }
+  // Every step is a parent of this page: the current parameters fill its path.
+  return (
+    <Link to={crumb.to} params={true} className={CRUMB_LINK_CLASS}>
+      {crumb.label}
+    </Link>
+  );
+}
+
+/** The slash between two steps of the path. */
+export function CrumbSeparator() {
   return (
     <span aria-hidden="true" className="text-muted-foreground">
       /

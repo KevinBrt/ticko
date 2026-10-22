@@ -13,6 +13,7 @@ import { toIssueSummary } from '../utils/issue-rows.util.ts';
 
 const { issueCategories, issues, priorities, statuses, users } = schema;
 const assignees = alias(users, 'assignees');
+const reporters = alias(users, 'reporters');
 
 /**
  * One page of a project's issues, newest first: every one, or only those the caller reported
@@ -46,6 +47,7 @@ export const listIssues = defineQuery({
         },
         priority: { id: priorities.id, name: priorities.name, level: priorities.level },
         assignee: { id: assignees.id, name: assignees.name, deletedAt: assignees.deletedAt },
+        reporter: { id: reporters.id, name: reporters.name, deletedAt: reporters.deletedAt },
         createdAt: issues.createdAt,
         updatedAt: issues.updatedAt,
       })
@@ -53,6 +55,7 @@ export const listIssues = defineQuery({
       .innerJoin(statuses, eq(statuses.id, issues.statusId))
       .innerJoin(issueCategories, eq(issueCategories.id, issues.categoryId))
       .innerJoin(priorities, eq(priorities.id, issues.priorityId))
+      .innerJoin(reporters, eq(reporters.id, issues.reporterId))
       .leftJoin(assignees, eq(assignees.id, issues.assigneeId))
       .where(visible)
       .orderBy(desc(issues.number))

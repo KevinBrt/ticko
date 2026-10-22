@@ -5,7 +5,8 @@ test.use({ locale: 'en-US' });
 test('the home page redirects to the issues list', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page).toHaveURL(/\/issues$/);
+  // On the first project the person reaches, if any.
+  await expect(page).toHaveURL(/\/issues(\?project=\w+)?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Issues' })).toBeVisible();
   await expect(page).toHaveTitle('Issues · Toppo');
 });
@@ -33,7 +34,7 @@ test('unknown pages show a not-found page inside the app', async ({ page }) => {
 
   await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
   await page.getByRole('link', { name: 'Back to issues' }).click();
-  await expect(page).toHaveURL(/\/issues$/);
+  await expect(page).toHaveURL(/\/issues(\?project=\w+)?$/);
 });
 
 test.describe('in French', () => {

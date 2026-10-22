@@ -99,6 +99,18 @@ export const projectSummarySchema = z.object({
     /** The first few, by name. */
     shown: z.array(z.object({ userId: z.uuid(), name: z.string() })),
   }),
+  /**
+   * Its open issues, urgent ones among them, and when it last changed: only on the projects screen
+   * (`scope=managed`), where those who manage the project see them; `null` elsewhere.
+   */
+  issues: z
+    .object({
+      open: z.number().int(),
+      urgent: z.number().int(),
+      /** UTC ISO 8601, or `null` while nothing happened in the project. */
+      lastActivityAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
 });
 
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;

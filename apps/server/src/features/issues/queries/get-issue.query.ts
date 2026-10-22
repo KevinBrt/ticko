@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 import { HttpError } from '../../../platform/http/http-error.ts';
-import { toIssueSummary, userRefOf } from '../utils/issue-rows.util.ts';
+import { toIssueSummary } from '../utils/issue-rows.util.ts';
 
 const { issueCategories, issues, priorities, projects, statuses, users } = schema;
 const assignees = alias(users, 'assignees');
@@ -57,7 +57,6 @@ export const getIssue = defineQuery({
       id: project.issue.id,
       project: { key: project.key, name: row.projectName },
       description: row.description,
-      reporter: userRefOf(row.reporter),
       closedAt: row.closedAt?.toISOString() ?? null,
       actions: issueActionsOf(project.permissions, project.issue.reportedByActor),
     };

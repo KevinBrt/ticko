@@ -1,13 +1,23 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import {
+  actionsFor,
   can,
   canActOnProjectMember,
   canGiveProjectRole,
+  canMoveTo,
+  canSeeIssue,
+  DEFAULT_CATEGORIES,
+  DEFAULT_PRIORITIES,
   DEFAULT_ROLE_IDS,
   DEFAULT_ROLES,
+  DEFAULT_STATUSES,
+  DEFAULT_TRANSITIONS,
   type InstancePermission,
   instancePermissionsOf,
+  issueActionsOf,
+  issueChanges,
+  issueVisibilityOf,
   type ProjectPermission,
   permissionsOfRole,
   projectColorFor,
@@ -16,6 +26,10 @@ import {
 } from '@toppo/core';
 import {
   type CurrentUser,
+  ISSUES_PAGE_SIZE,
+  type IssueActivity,
+  type IssueResponse,
+  type IssueSummary,
   type Locale,
   MEMBERS_PAGE_SIZE,
   type MemberRow,
@@ -108,6 +122,58 @@ export interface FakeServerState {
   allProjects: Set<string>;
   /** The projects each invitation gives, by invitation id; none when absent. */
   invitationProjects: Map<string, { allProjects: boolean; projectKeys: string[] }>;
+  /** None unless a test adds some. */
+  issues: FakeIssue[];
+  /** Each issue's history, by issue key, oldest first. */
+  activities: Map<string, IssueActivity[]>;
+}
+
+/** An issue as the fake server keeps it, in the instance's default workflow and fields. */
+export interface FakeIssue {
+  projectKey: string;
+  number: number;
+  title: string;
+  description: string;
+  statusId: string;
+  categoryId: string;
+  priorityId: string;
+  assigneeId: string | null;
+  reporterId: string;
+  /** UTC ISO 8601. */
+  createdAt: string;
+  closedAt: string | null;
+}
+
+/** The default status, category or priority of `kind`. */
+export function defaultField<T extends { kind: string }>(list: readonly T[], kind: T['kind']): T {
+  const found = list.find((item) => item.kind === kind);
+  if (!found) {
+    throw new Error(`No default ${kind}`);
+  }
+  return found;
+}
+
+/** An issue for the fake server: new, a request of normal priority reported by Ada, unless said otherwise. */
+export function fakeIssue(
+  projectKey: string,
+  number: number,
+  title: string,
+  overrides: Partial<FakeIssue> = {},
+): FakeIssue {
+  return {
+    projectKey,
+    number,
+    title,
+    description: '',
+    statusId: defaultField(DEFAULT_STATUSES, 'new').id,
+    categoryId: defaultField(DEFAULT_CATEGORIES, 'request').id,
+    priorityId: defaultField(DEFAULT_PRIORITIES, 'normal').id,
+    assigneeId: null,
+    reporterId: ADA.id,
+    createdAt: '2026-10-22T09:14:00.000Z',
+    closedAt: null,
+    ...overrides,
+  };
 }
 
 /** A project as the fake server keeps it, with the members it lists and the role it gives them. */
@@ -183,6 +249,8 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       projects: [],
       allProjects: new Set(),
       invitationProjects: new Map(),
+      issues: [],
+      activities: new Map(),
       ...initial,
     },
     requests: [],
@@ -255,6 +323,8 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       asHolder(state, 'instance.roles.manage') ?? savePermissions(state, body),
     'POST /api/v1/invitations': (body) => asUserManager(state) ?? invite(state, body),
     'GET /api/v1/projects': (_body, search) => asSignedIn(state) ?? listProjects(state, search),
+    'GET /api/v1/issues/assigned': (_body, search) =>
+      asSignedIn(state) ?? listAssignedIssues(state, search),
     'POST /api/v1/projects': (body) =>
       asHolder(state, 'project.create') ?? createProject(state, body),
     'POST /api/v1/invitations/preview': (body) => {
@@ -285,6 +355,7 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     const answer = handler
       ? handler((body ?? {}) as Record<string, unknown>, url.searchParams)
       : (projectRequest(state, method, url.pathname, url.searchParams, body) ??
+        issueRequest(state, method, url.pathname, url.searchParams, body) ??
         userProjects(state, method, url.pathname, url.searchParams, body) ??
         changeUser(state, method, url.pathname, body) ??
         changeInvitation(state, method, url.pathname) ??
@@ -657,6 +728,7 @@ function listProjects(state: FakeServerState, search: URLSearchParams): Response
               .slice(0, PROJECT_MEMBERS_PREVIEW)
               .map((user) => ({ userId: user.id, name: user.name })),
           },
+          issues: managed ? issueStatsOf(state, key) : null,
         };
       }),
     matching: inState.length,
@@ -667,6 +739,17 @@ function listProjects(state: FakeServerState, search: URLSearchParams): Response
     page,
     pageSize: PROJECTS_PAGE_SIZE,
   });
+}
+
+/** A project's open and urgent issues, as the projects screen shows them. */
+function issueStatsOf(state: FakeServerState, projectKey: string) {
+  const urgent = defaultField(DEFAULT_PRIORITIES, 'urgent').id;
+  const open = state.issues.filter((issue) => issue.projectKey === projectKey && !issue.closedAt);
+  return {
+    open: open.length,
+    urgent: open.filter((issue) => issue.priorityId === urgent).length,
+    lastActivityAt: null,
+  };
 }
 
 /** `POST /api/v1/projects`: its creator gets access. */
@@ -690,7 +773,7 @@ function createProject(state: FakeServerState, body: Record<string, unknown>): R
 }
 
 const PROJECT_PATH =
-  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|access|members|invitations|candidates|roles))?(?:\/([^/]+))?$/;
+  /^\/api\/v1\/projects\/([^/]+)(?:\/(archive|unarchive|access|members|invitations|candidates|roles|issues|issue-fields|assignees))?(?:\/([^/]+))?$/;
 
 /** `/api/v1/projects/:key` and what hangs off it, with the server's rules. */
 function projectRequest(
@@ -764,6 +847,22 @@ function projectRequest(
           people: state.users
             .filter(({ id }) => !project.members.some((member) => member.userId === id))
             .filter((user) => accessReason(state, project, user) === null)
+            .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
+            .map(({ id, name, email }) => ({ id, name, email })),
+        });
+      });
+    case 'GET issues':
+      return listIssues(state, project, permissions, search);
+    case 'POST issues':
+      return unless('issue.create', () => createIssue(state, project, fields));
+    case 'GET issue-fields':
+      return json(issueFields());
+    case 'GET assignees':
+      return unless('issue.assign', () => {
+        const needle = fold(search.get('search') ?? '');
+        return json({
+          people: state.users
+            .filter((user) => !user.deactivatedAt && accessReason(state, project, user) !== null)
             .filter(({ name, email }) => [name, email].some((text) => fold(text).includes(needle)))
             .map(({ id, name, email }) => ({ id, name, email })),
         });
@@ -990,5 +1089,335 @@ function userProjects(
   if (method === 'DELETE') {
     project.members = project.members.filter((member) => member.userId !== userId);
   }
+  return NO_CONTENT();
+}
+
+/** Someone an issue names, as the server does: a deleted account loses its name. */
+function userRef(state: FakeServerState, id: string) {
+  const user = state.users.find((candidate) => candidate.id === id);
+  return { id, name: user?.name ?? null };
+}
+
+/** The response's shape of an issue's fields, from the instance's defaults. */
+function issueFields() {
+  const idOf = (kind: string) => DEFAULT_STATUSES.find((status) => status.kind === kind)?.id ?? '';
+  return {
+    statuses: DEFAULT_STATUSES.map(({ id, name, color, category, initial, kind }) => ({
+      id,
+      name,
+      color,
+      category,
+      isInitial: initial,
+      next: DEFAULT_TRANSITIONS.filter(({ from }) => from === kind).map(({ to }) => idOf(to)),
+    })),
+    categories: DEFAULT_CATEGORIES.map(({ id, name, color, isDefault }) => ({
+      id,
+      name,
+      color,
+      isDefault,
+    })),
+    priorities: DEFAULT_PRIORITIES.map(({ id, name, level, isDefault }) => ({
+      id,
+      name,
+      level,
+      isDefault,
+    })),
+  };
+}
+
+const keyOf = (issue: FakeIssue) => `${issue.projectKey}-${issue.number}`;
+
+function summaryOf(state: FakeServerState, issue: FakeIssue): IssueSummary {
+  const fields = issueFields();
+  const status = fields.statuses.find(({ id }) => id === issue.statusId);
+  const category = fields.categories.find(({ id }) => id === issue.categoryId);
+  const priority = fields.priorities.find(({ id }) => id === issue.priorityId);
+  if (!(status && category && priority)) {
+    throw new Error(`${keyOf(issue)} has a field the defaults do not know`);
+  }
+  return {
+    key: keyOf(issue),
+    title: issue.title,
+    status: { id: status.id, name: status.name, color: status.color, category: status.category },
+    category: { id: category.id, name: category.name, color: category.color },
+    priority: { id: priority.id, name: priority.name, level: priority.level },
+    assignee: issue.assigneeId ? userRef(state, issue.assigneeId) : null,
+    reporter: userRef(state, issue.reporterId),
+    createdAt: issue.createdAt,
+    updatedAt: issue.createdAt,
+  };
+}
+
+/** `GET /api/v1/projects/:key/issues`: newest first, only one's own when that is all one sees. */
+function listIssues(
+  state: FakeServerState,
+  project: FakeProject,
+  permissions: readonly ProjectPermission[],
+  search: URLSearchParams,
+): Response {
+  const page = Number(search.get('page') ?? '1');
+  const visibility = issueVisibilityOf(permissions);
+  const visible = state.issues
+    .filter((issue) => issue.projectKey === project.key)
+    .filter(
+      (issue) =>
+        visibility === 'all' || (visibility === 'own' && issue.reporterId === state.user?.id),
+    )
+    .sort((left, right) => right.number - left.number);
+  return json({
+    rows: visible
+      .slice((page - 1) * ISSUES_PAGE_SIZE, page * ISSUES_PAGE_SIZE)
+      .map((issue) => summaryOf(state, issue)),
+    matching: visible.length,
+    page,
+    pageSize: ISSUES_PAGE_SIZE,
+  });
+}
+
+/**
+ * `GET /api/v1/issues/assigned`: the signed-in user's issues they may still read, out of archived
+ * projects, the most urgent first, then the newest.
+ */
+function listAssignedIssues(state: FakeServerState, search: URLSearchParams): Response {
+  const page = Number(search.get('page') ?? '1');
+  const visible = state.issues
+    .filter((issue) => issue.assigneeId === state.user?.id)
+    .flatMap((issue) => {
+      const project = state.projects.find((candidate) => candidate.key === issue.projectKey);
+      const permissions = project ? projectPermissionsFor(state, project) : null;
+      const reported = issue.reporterId === state.user?.id;
+      return project && !project.archived && permissions && canSeeIssue(permissions, reported)
+        ? [
+            {
+              ...summaryOf(state, issue),
+              project: { key: project.key, name: project.name, color: project.color },
+            },
+          ]
+        : [];
+    })
+    .sort(
+      (left, right) =>
+        right.priority.level - left.priority.level || right.createdAt.localeCompare(left.createdAt),
+    );
+  return json({
+    rows: visible.slice((page - 1) * ISSUES_PAGE_SIZE, page * ISSUES_PAGE_SIZE),
+    matching: visible.length,
+    page,
+    pageSize: ISSUES_PAGE_SIZE,
+  });
+}
+
+function record(
+  state: FakeServerState,
+  key: string,
+  change: Omit<IssueActivity, 'id' | 'actor' | 'createdAt'>,
+) {
+  const history = state.activities.get(key) ?? [];
+  history.push({
+    id: `01a1569b-9900-7000-8000-0000000008${String(history.length).padStart(2, '0')}`,
+    actor: userRef(state, state.user?.id ?? ''),
+    createdAt: new Date().toISOString(),
+    ...change,
+  } as IssueActivity);
+  state.activities.set(key, history);
+}
+
+/** `POST /api/v1/projects/:key/issues`: the next number, the defaults, its reporter the caller. */
+function createIssue(
+  state: FakeServerState,
+  project: FakeProject,
+  fields: Record<string, unknown>,
+): Response {
+  const number =
+    Math.max(
+      0,
+      ...state.issues
+        .filter((issue) => issue.projectKey === project.key)
+        .map((issue) => issue.number),
+    ) + 1;
+  const issue = fakeIssue(project.key, number, String(fields['title']).trim(), {
+    description: String(fields['description'] ?? ''),
+    ...(fields['categoryId'] ? { categoryId: String(fields['categoryId']) } : {}),
+    ...(fields['priorityId'] ? { priorityId: String(fields['priorityId']) } : {}),
+    reporterId: state.user?.id ?? '',
+    createdAt: new Date().toISOString(),
+  });
+  state.issues.push(issue);
+  record(state, keyOf(issue), { type: 'issue.created', payload: {} });
+  return json(
+    {
+      id: `01a1569b-9900-7000-8000-0000000007${String(number).padStart(2, '0')}`,
+      key: keyOf(issue),
+    },
+    201,
+  );
+}
+
+const ISSUE_PATH = /^\/api\/v1\/issues\/([^/]+)(?:\/(status|assignee|activities))?$/;
+
+/** An issue the signed-in user sees, with its project and what they may do there. */
+interface SeenIssue {
+  issue: FakeIssue;
+  project: FakeProject;
+  permissions: ProjectPermission[];
+  actions: ReturnType<typeof issueActionsOf>;
+}
+
+/** The issue with `key` as the server finds it, or its refusal: one out of sight does not exist. */
+function seenIssue(state: FakeServerState, key: string): SeenIssue | Response {
+  const issue = state.issues.find((candidate) => keyOf(candidate) === key);
+  const project = state.projects.find((candidate) => candidate.key === issue?.projectKey);
+  const permissions = project ? projectPermissionsFor(state, project) : null;
+  const reported = issue?.reporterId === state.user?.id;
+  if (!(issue && project && permissions && canSeeIssue(permissions, reported))) {
+    return asSignedIn(state) ?? apiError(404, 'ISSUE_NOT_FOUND');
+  }
+  return { issue, project, permissions, actions: issueActionsOf(permissions, reported) };
+}
+
+/** `/api/v1/issues/:key` and what hangs off it, with the server's rules. */
+function issueRequest(
+  state: FakeServerState,
+  method: string,
+  path: string,
+  search: URLSearchParams,
+  body: unknown,
+): Response | undefined {
+  const match = ISSUE_PATH.exec(path);
+  if (!match) {
+    return undefined;
+  }
+  const [, key = '', part = ''] = match;
+  const seen = seenIssue(state, key);
+  if (seen instanceof Response) {
+    return seen;
+  }
+  if (method !== 'GET' && seen.project.archived) {
+    return apiError(409, 'PROJECT_ARCHIVED');
+  }
+  const fields = (body ?? {}) as Record<string, unknown>;
+  const { issue, project, permissions, actions } = seen;
+  const unless = (permission: ProjectPermission, answer: () => Response) =>
+    can(permissions, permission) ? answer() : apiError(403, 'FORBIDDEN');
+  switch (`${method} ${part}`) {
+    case 'GET ':
+      return json({
+        ...summaryOf(state, issue),
+        id: '01a1569b-9900-7000-8000-000000000700',
+        project: { key: project.key, name: project.name },
+        description: issue.description,
+        closedAt: issue.closedAt,
+        actions,
+      } satisfies IssueResponse);
+    case 'PATCH ':
+      return updateIssue(state, issue, actions, fields);
+    case 'PUT status':
+      return unless('issue.update', () => moveIssue(state, issue, String(fields['statusId'])));
+    case 'PUT assignee':
+      return unless('issue.assign', () =>
+        assignIssue(state, issue, (fields['assigneeId'] as string | null | undefined) ?? null),
+      );
+    case 'DELETE ':
+      return unless('issue.delete', () => {
+        state.issues = state.issues.filter((candidate) => candidate !== issue);
+        return NO_CONTENT();
+      });
+    case 'GET activities': {
+      const history = state.activities.get(key) ?? [];
+      return json({
+        // Newest first; a stable sort keeps changes made together in the order they were made.
+        rows: history.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        matching: history.length,
+        page: Number(search.get('page') ?? '1'),
+        pageSize: 50,
+      });
+    }
+    default:
+      return apiError(404, 'NOT_FOUND');
+  }
+}
+
+function assignIssue(state: FakeServerState, issue: FakeIssue, to: string | null): Response {
+  record(state, keyOf(issue), {
+    type: 'issue.assigneeChanged',
+    payload: {
+      from: issue.assigneeId ? userRef(state, issue.assigneeId) : null,
+      to: to ? userRef(state, to) : null,
+    },
+  });
+  issue.assigneeId = to;
+  return NO_CONTENT();
+}
+
+function updateIssue(
+  state: FakeServerState,
+  issue: FakeIssue,
+  actions: readonly string[],
+  fields: Record<string, unknown>,
+): Response {
+  const text = (name: string) => (typeof fields[name] === 'string' ? fields[name] : undefined);
+  const changes = issueChanges(issue, {
+    title: text('title'),
+    description: text('description'),
+    categoryId: text('categoryId'),
+    priorityId: text('priorityId'),
+  });
+  if (actionsFor(changes).some((action) => !actions.includes(action))) {
+    return apiError(403, 'FORBIDDEN');
+  }
+  const named = issueFields();
+  for (const { field, from, to } of changes) {
+    issue[field] = to;
+    const key = keyOf(issue);
+    if (field === 'title' || field === 'description') {
+      record(state, key, {
+        type: field === 'title' ? 'issue.titleChanged' : 'issue.descriptionChanged',
+        payload: { from, to },
+      });
+    } else if (field === 'categoryId') {
+      const name = (id: string) => ({
+        id,
+        name: named.categories.find((category) => category.id === id)?.name ?? '',
+      });
+      record(state, key, {
+        type: 'issue.categoryChanged',
+        payload: { from: name(from), to: name(to) },
+      });
+    } else {
+      const level = (id: string) => named.priorities.find((priority) => priority.id === id);
+      const ref = (id: string) => ({
+        id,
+        name: level(id)?.name ?? '',
+        level: level(id)?.level ?? 2,
+      });
+      record(state, key, {
+        type: 'issue.priorityChanged',
+        payload: { from: ref(from), to: ref(to) },
+      });
+    }
+  }
+  return NO_CONTENT();
+}
+
+/** `PUT /api/v1/issues/:key/status`: only where the workflow goes from the current status. */
+function moveIssue(state: FakeServerState, issue: FakeIssue, statusId: string): Response {
+  const statuses = issueFields().statuses;
+  const transitions = statuses.flatMap(({ id, next }) =>
+    next.map((to) => ({ fromStatusId: id, toStatusId: to })),
+  );
+  if (!canMoveTo(transitions, issue.statusId, statusId)) {
+    return apiError(409, 'STATUS_NOT_ALLOWED');
+  }
+  const from = statuses.find(({ id }) => id === issue.statusId);
+  const to = statuses.find(({ id }) => id === statusId);
+  record(state, keyOf(issue), {
+    type: 'issue.statusChanged',
+    payload: {
+      from: { id: issue.statusId, name: from?.name ?? '' },
+      to: { id: statusId, name: to?.name ?? '' },
+    },
+  });
+  issue.statusId = statusId;
+  issue.closedAt = to?.category === 'done' ? (issue.closedAt ?? new Date().toISOString()) : null;
   return NO_CONTENT();
 }

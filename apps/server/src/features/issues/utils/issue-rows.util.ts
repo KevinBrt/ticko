@@ -19,6 +19,7 @@ export interface IssueSummaryRow {
   category: IssueSummary['category'];
   priority: { id: string; name: string; level: number };
   assignee: { id: string; name: string; deletedAt: Date | null } | null;
+  reporter: { id: string; name: string; deletedAt: Date | null };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +33,7 @@ export function toIssueSummary(projectKey: string, row: IssueSummaryRow): IssueS
     category: row.category,
     priority: { ...row.priority, level: priorityLevelOf(row.priority.level) },
     assignee: row.assignee ? userRefOf(row.assignee) : null,
+    reporter: userRefOf(row.reporter),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

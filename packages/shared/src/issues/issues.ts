@@ -91,7 +91,7 @@ export const changeIssueStatusRequestSchema = z.object({ statusId: z.uuid() });
 /** Body of `PUT /api/v1/issues/:issueKey/assignee`: someone who reaches the project, or nobody. */
 export const assignIssueRequestSchema = z.object({ assigneeId: z.uuid().nullable() });
 
-/** Query of `GET /api/v1/projects/:projectKey/issues`. */
+/** Query of `GET /api/v1/projects/:projectKey/issues` and `GET /api/v1/issues/assigned`. */
 export const issuesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
@@ -107,6 +107,7 @@ export const issueSummarySchema = z.object({
   category: issueCategorySchema,
   priority: issuePrioritySchema,
   assignee: userRefSchema.nullable(),
+  reporter: userRefSchema,
   /** UTC ISO 8601. */
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -124,13 +125,30 @@ export const issuesResponseSchema = z.object({
 
 export type IssuesResponse = z.infer<typeof issuesResponseSchema>;
 
+/** An issue assigned to the caller, with the project it belongs to. */
+export const assignedIssueSchema = issueSummarySchema.extend({
+  project: z.object({ key: z.string(), name: z.string(), color: z.enum(PALETTE_COLORS) }),
+});
+
+export type AssignedIssue = z.infer<typeof assignedIssueSchema>;
+
+/** Body of `GET /api/v1/issues/assigned`: the caller's issues, open or closed, in every project. */
+export const assignedIssuesResponseSchema = z.object({
+  /** One page, the most urgent first, then the newest. */
+  rows: z.array(assignedIssueSchema),
+  matching: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
+export type AssignedIssuesResponse = z.infer<typeof assignedIssuesResponseSchema>;
+
 /** Body of `GET /api/v1/issues/:issueKey`. */
 export const issueResponseSchema = issueSummarySchema.extend({
   id: z.uuid(),
   project: z.object({ key: z.string(), name: z.string() }),
   /** Markdown. */
   description: z.string(),
-  reporter: userRefSchema,
   /** UTC ISO 8601 date the issue was closed, or `null` while it is open. */
   closedAt: z.iso.datetime().nullable(),
   /** What the caller may do on it, to hide the rest. */

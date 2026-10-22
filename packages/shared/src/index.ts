@@ -38,7 +38,11 @@ export {
   type StatusCategory,
 } from './issues/fields.ts';
 export {
+  type AssignedIssue,
+  type AssignedIssuesResponse,
   type AssigneesResponse,
+  assignedIssueSchema,
+  assignedIssuesResponseSchema,
   assigneesResponseSchema,
   assignIssueRequestSchema,
   type CreateIssueRequest,

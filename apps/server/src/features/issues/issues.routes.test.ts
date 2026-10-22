@@ -7,12 +7,14 @@ import {
 import { schema } from '@toppo/db';
 import {
   apiErrorSchema,
+  assignedIssuesResponseSchema,
   assigneesResponseSchema,
   createIssueResponseSchema,
   issueActivitiesResponseSchema,
   issueFieldsResponseSchema,
   issueResponseSchema,
   issuesResponseSchema,
+  projectsResponseSchema,
 } from '@toppo/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
@@ -88,8 +90,12 @@ async function signIn(email: string): Promise<string> {
   return cookieHeader(response);
 }
 
-async function report(cookie: string, body: object = { title: 'Broken link' }): Promise<string> {
-  const response = await call('POST', '/api/v1/projects/WEB/issues', cookie, body);
+async function report(
+  cookie: string,
+  body: object = { title: 'Broken link' },
+  projectKey = 'WEB',
+): Promise<string> {
+  const response = await call('POST', `/api/v1/projects/${projectKey}/issues`, cookie, body);
   expect(response.statusCode).toBe(201);
   return createIssueResponseSchema.parse(response.json()).key;
 }
@@ -253,6 +259,20 @@ describe('seeing issues', () => {
     expect(await listKeys(requesterCookie)).toStrictEqual(['WEB-9']);
   });
 
+  it('counts open and urgent issues on the projects screen, for those who manage them', async () => {
+    await context.database.db
+      .update(schema.issues)
+      .set({ priorityId: idOf(DEFAULT_PRIORITIES, 'urgent') })
+      .where(eq(schema.issues.number, 3));
+    const managed = await call('GET', '/api/v1/projects?scope=managed', adminCookie);
+    const reachable = await call('GET', '/api/v1/projects', teamCookie);
+
+    const web = projectsResponseSchema.parse(managed.json()).rows.find(({ key }) => key === 'WEB');
+    expect(web?.issues).toMatchObject({ open: 9, urgent: 1 });
+    expect(web?.issues?.lastActivityAt).not.toBeNull();
+    expect(projectsResponseSchema.parse(reachable.json()).rows[0]?.issues).toBeNull();
+  });
+
   it('hides the issues of others from a requester, as if they did not exist', async () => {
     const hidden = await call('GET', '/api/v1/issues/WEB-1', requesterCookie);
     const missing = await call('GET', '/api/v1/issues/WEB-999', teamCookie);
@@ -304,13 +324,14 @@ describe('changing an issue', () => {
       title: 'Broken link on /about',
       priority: { id: HIGH },
     });
+    // Newest first; changes made together keep the order they were made in.
     const changes = await history('WEB-1');
     expect(changes.map(({ type }) => type)).toStrictEqual([
-      'issue.created',
       'issue.titleChanged',
       'issue.priorityChanged',
+      'issue.created',
     ]);
-    expect(changes[2]).toMatchObject({
+    expect(changes[1]).toMatchObject({
       actor: { id: teamId, name: 'Grace Hopper' },
       payload: { from: { name: 'Normal', level: 2 }, to: { name: 'High', level: 3 } },
     });
@@ -319,7 +340,7 @@ describe('changing an issue', () => {
   it('keeps the old and the new description', async () => {
     await call('PATCH', '/api/v1/issues/WEB-2', teamCookie, { description: '# Steps\n1. Open' });
 
-    expect((await history('WEB-2')).at(-1)).toMatchObject({
+    expect((await history('WEB-2')).at(0)).toMatchObject({
       type: 'issue.descriptionChanged',
       payload: { from: '# Steps', to: '# Steps\n1. Open' },
     });
@@ -361,7 +382,7 @@ describe('moving an issue through the workflow', () => {
     expect(skipping.statusCode).toBe(409);
     expect(errorCode(skipping)).toBe('STATUS_NOT_ALLOWED');
     expect(allowed.statusCode).toBe(204);
-    expect((await history('WEB-1')).at(-1)).toMatchObject({
+    expect((await history('WEB-1')).at(0)).toMatchObject({
       type: 'issue.statusChanged',
       payload: { from: { name: 'New' }, to: { name: 'In progress' } },
     });
@@ -393,9 +414,9 @@ describe('assigning an issue', () => {
     expect((await assign('WEB-2', null)).statusCode).toBe(204);
 
     const changes = await history('WEB-2');
-    expect(changes.slice(-2).map(({ payload }) => payload)).toStrictEqual([
-      { from: null, to: { id: requesterId, name: 'Rita Client' } },
+    expect(changes.slice(0, 2).map(({ payload }) => payload)).toStrictEqual([
       { from: { id: requesterId, name: 'Rita Client' }, to: null },
+      { from: null, to: { id: requesterId, name: 'Rita Client' } },
     ]);
   });
 
@@ -452,5 +473,88 @@ describe('an archived project', () => {
     expect(change.statusCode).toBe(409);
     expect(errorCode(change)).toBe('PROJECT_ARCHIVED');
     expect(another.statusCode).toBe(409);
+  });
+});
+
+describe('issues assigned to me', () => {
+  const URGENT = idOf(DEFAULT_PRIORITIES, 'urgent');
+
+  async function assigned(cookie: string) {
+    const response = await call('GET', '/api/v1/issues/assigned', cookie);
+    expect(response.statusCode).toBe(200);
+    return assignedIssuesResponseSchema.parse(response.json());
+  }
+
+  const keysAssigned = async (cookie: string) =>
+    (await assigned(cookie)).rows.map(({ key }) => key);
+
+  it('lists them in every project, open or closed, the most urgent first', async () => {
+    expect(
+      (await call('POST', '/api/v1/projects', adminCookie, { key: 'APP', name: 'Mobile app' }))
+        .statusCode,
+    ).toBe(201);
+    const added = await call('POST', '/api/v1/projects/APP/members', adminCookie, {
+      userIds: [teamId],
+      roleId: null,
+    });
+    expect(added.statusCode).toBe(204);
+    await report(adminCookie, { title: 'Site down', priorityId: URGENT, assigneeId: teamId });
+    await report(adminCookie, { title: 'Nobody’s yet', priorityId: URGENT });
+    await report(adminCookie, { title: 'Typo on the home screen', assigneeId: teamId }, 'APP');
+    await report(
+      adminCookie,
+      { title: 'Sign-in fails', priorityId: HIGH, assigneeId: teamId },
+      'APP',
+    );
+    const resolved = await call('PUT', '/api/v1/issues/APP-2/status', adminCookie, {
+      statusId: STATUS.resolved,
+    });
+    expect(resolved.statusCode).toBe(204);
+    // Given in a project archived since: nothing is left to do there.
+    const [old] = await context.database.db
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(eq(schema.projects.key, 'OLD'));
+    if (!old) {
+      throw new Error('No project OLD');
+    }
+    await context.database.db
+      .insert(schema.projectMembers)
+      .values({ projectId: old.id, userId: teamId });
+    await context.database.db
+      .update(schema.issues)
+      .set({ assigneeId: teamId })
+      .where(eq(schema.issues.projectId, old.id));
+
+    const mine = await assigned(teamCookie);
+    expect(mine.rows.map(({ key }) => key)).toStrictEqual(['WEB-11', 'APP-2', 'WEB-8', 'APP-1']);
+    expect(mine.matching).toBe(4);
+    expect(mine.rows[1]).toMatchObject({
+      project: { key: 'APP', name: 'Mobile app' },
+      status: { id: STATUS.resolved, category: 'done' },
+      assignee: { id: teamId, name: 'Grace Hopper' },
+    });
+    expect(await keysAssigned(adminCookie)).toStrictEqual([]);
+  });
+
+  it('leaves out what the caller may no longer read', async () => {
+    const removed = await call('DELETE', `/api/v1/projects/APP/members/${teamId}`, adminCookie);
+    const assign = (key: string) =>
+      call('PUT', `/api/v1/issues/${key}/assignee`, teamCookie, { assigneeId: requesterId });
+
+    expect(removed.statusCode).toBe(204);
+    expect(await keysAssigned(teamCookie)).toStrictEqual(['WEB-11', 'WEB-8']);
+    // A requester reads only the issues they reported, even when given someone else's.
+    expect((await assign('WEB-1')).statusCode).toBe(204);
+    expect((await assign('WEB-9')).statusCode).toBe(204);
+    expect(await keysAssigned(requesterCookie)).toStrictEqual(['WEB-9']);
+  });
+
+  it('needs a session and a page that exists', async () => {
+    const anonymous = await call('GET', '/api/v1/issues/assigned', '');
+    const page = await call('GET', '/api/v1/issues/assigned?page=0', teamCookie);
+
+    expect(anonymous.statusCode).toBe(401);
+    expect(page.statusCode).toBe(400);
   });
 });

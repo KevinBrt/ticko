@@ -74,12 +74,17 @@ const MANAGING: readonly ProjectPermission[] = [
   'project.members.manage',
 ];
 
-/**
- * The projects whose settings or access `actorId` manages, as a condition on `projects`: the
- * system role manages them all; anyone else through the role they have there (`projectPermissionsOf`
- * in `@toppo/core`, in SQL).
- */
+/** The projects whose settings or access `actorId` manages, as a condition on `projects`. */
 export function managedBy(actorId: string): SQL {
+  return grantedIn(actorId, MANAGING);
+}
+
+/**
+ * The projects where `actorId` holds at least one of `permissions`, as a condition on `projects`:
+ * the system role holds them all; anyone else through the role they have there
+ * (`projectPermissionsOf` in `@toppo/core`, in SQL).
+ */
+export function grantedIn(actorId: string, permissions: readonly ProjectPermission[]): SQL {
   // In a raw template Drizzle names an alias without its table: the joins spell both out.
   return sql`exists (
     select 1 from ${users}
@@ -93,7 +98,7 @@ export function managedBy(actorId: string): SQL {
         coalesce(${projectRoles.grantsAll}, false)
         or coalesce(${projectRoles.permissions}, ${ownRoles.permissions})
           && array[${sql.join(
-            MANAGING.map((permission) => sql`${permission}`),
+            permissions.map((permission) => sql`${permission}`),
             sql`, `,
           )}]::text[]
       ))

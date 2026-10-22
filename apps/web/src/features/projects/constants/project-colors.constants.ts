@@ -11,15 +11,3 @@ export const PROJECT_COLORS = [
   'cyan',
   'gray',
 ] as const satisfies readonly PaletteColor[];
-
-/** Static class names, so Tailwind generates every swatch. */
-export const SWATCH_CLASSES: Readonly<Record<PaletteColor, string>> = {
-  gray: 'bg-status-gray',
-  blue: 'bg-status-blue',
-  green: 'bg-status-green',
-  amber: 'bg-status-amber',
-  violet: 'bg-status-violet',
-  cyan: 'bg-status-cyan',
-  orange: 'bg-status-orange',
-  pink: 'bg-status-pink',
-};

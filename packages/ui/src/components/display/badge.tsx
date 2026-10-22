@@ -15,6 +15,23 @@ const TONES = {
 
 export type BadgeTone = keyof typeof TONES;
 
+/** Static class names of the saturated color of each tone: dots and swatches. */
+const SWATCHES: Readonly<Record<BadgeTone, string>> = {
+  gray: 'bg-status-gray',
+  blue: 'bg-status-blue',
+  green: 'bg-status-green',
+  amber: 'bg-status-amber',
+  violet: 'bg-status-violet',
+  cyan: 'bg-status-cyan',
+  orange: 'bg-status-orange',
+  pink: 'bg-status-pink',
+};
+
+/** The background of a tone's dot or swatch, e.g. a status before its name. */
+export function swatchClassName(tone: BadgeTone): string {
+  return SWATCHES[tone];
+}
+
 /** The background and text colors of a tone, for marks that are not badges (a project's initials). */
 export function toneClassName(tone: BadgeTone): string {
   return TONES[tone];
