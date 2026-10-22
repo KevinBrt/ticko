@@ -10,10 +10,13 @@ import {
   issueFieldsResponseSchema,
   issueKeyParamsSchema,
   issueResponseSchema,
+  issueSearchQuerySchema,
+  issueSearchResponseSchema,
   issuesQuerySchema,
   issuesResponseSchema,
   pickerQuerySchema,
   projectIssuesParamsSchema,
+  projectIssuesQuerySchema,
   updateIssueRequestSchema,
 } from '@toppo/shared';
 import type { FastifyInstance } from 'fastify';
@@ -30,6 +33,7 @@ import { listAssignedIssues } from './queries/list-assigned-issues.query.ts';
 import { listAssignees } from './queries/list-assignees.query.ts';
 import { listIssueActivities } from './queries/list-issue-activities.query.ts';
 import { listIssues } from './queries/list-issues.query.ts';
+import { searchIssues } from './queries/search-issues.query.ts';
 
 /** Commands answer `204 No Content`: the client refetches what it shows. */
 const NO_CONTENT = { 204: z.void() };
@@ -52,12 +56,21 @@ export function registerIssueRoutes(app: FastifyInstance): void {
   );
 
   routes.get(
+    '/api/v1/issues/search',
+    {
+      config: { access: searchIssues.access },
+      schema: { querystring: issueSearchQuerySchema, response: { 200: issueSearchResponseSchema } },
+    },
+    (request) => searchIssues.execute(request.executionContext, request.query),
+  );
+
+  routes.get(
     '/api/v1/projects/:projectKey/issues',
     {
       config: { access: listIssues.access },
       schema: {
         params: projectIssuesParamsSchema,
-        querystring: issuesQuerySchema,
+        querystring: projectIssuesQuerySchema,
         response: { 200: issuesResponseSchema },
       },
     },

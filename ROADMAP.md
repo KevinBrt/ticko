@@ -55,7 +55,7 @@ _Done when no route answers without a verified permission._
 
 _Done when an issue can be created and closed._
 
-Nine tasks, each committed on its own. The first issue can be created and closed at task 6, with the seeded defaults; the settings screens come after. Reference mockups: the project's issue list and the issue page.
+Nine tasks. The first issue can be created and closed at task 6, with the seeded defaults; the settings screens come after. Reference mockups: the project's issue list and the issue page.
 
 1. **Schema and defaults** (reviewed by hand before the migration)
    - [x] `projects` (`next_issue_number`: the counter, locked by the creating transaction), `project_members`, `statuses`, `workflows`, `workflow_statuses`, `priorities` (four fixed levels), `issue_categories`, `issues` (`UNIQUE (project_id, number)`), `activities` (outliving a deleted issue); project access on users and invitations.
@@ -91,7 +91,7 @@ Nine tasks, each committed on its own. The first issue can be created and closed
    - [x] "Customize for this project" (a copy of its own, transitions and mode included, the instance’s statuses shared and edited in the settings only); "revert to the global workflow" with the status mapping step, in one transaction, one activity per moved issue.
 9. **End-to-end and docs**
    - [x] Create a project, report its first issue, move it through the workflow, close it, on desktop and phone (`e2e/tests/issues.spec.ts`).
-   - [ ] `ARCHITECTURE.md` and this roadmap reviewed once tasks 7 and 8 are done.
+   - [x] `ARCHITECTURE.md` and this roadmap reviewed once tasks 7 and 8 are done.
 
 ## Step 3: views
 
@@ -157,3 +157,4 @@ Known compromises to revisit, not blocking:
 - The Docker image weighs about 280 MB, largely Better Auth adapters Toppo does not use (MongoDB, Prisma, Kysely): try the `better-auth/minimal` entry point.
 - OpenAPI description of `/api/v1`, generated from the Zod schemas (`z.toJSONSchema`), is not published yet.
 - Dark theme: possible later by redefining the tokens in `packages/ui/src/theme.css`.
+- Statuses on phones: the “Closes the issue” column has no visible header (its boxes are labelled for screen readers only).

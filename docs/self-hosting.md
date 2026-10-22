@@ -53,7 +53,7 @@ toppo.example.com {
 
 ## Using an existing PostgreSQL
 
-Remove the `db` service from `docker-compose.yml` and set `TOPPO_DATABASE_URL`, for example `postgres://toppo:password@db.example.com:5432/toppo?sslmode=require`. The user needs to own the database: Toppo creates and migrates its tables at startup.
+Remove the `db` service from `docker-compose.yml` and set `TOPPO_DATABASE_URL`, for example `postgres://toppo:password@db.example.com:5432/toppo?sslmode=require`. The user needs to own the database: Toppo creates and migrates its tables at startup, and installs `pg_trgm`, an extension that ships with PostgreSQL and that the owner of a database may install. On a managed service, check that `pg_trgm` is allowed (on Azure, in the `azure.extensions` parameter).
 
 ## Backups
 

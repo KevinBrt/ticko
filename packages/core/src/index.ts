@@ -3,7 +3,13 @@ export {
   invitationExpiry,
   isInvitationExpired,
 } from './invitations.ts';
-export { formatIssueKey, type IssueKeyParts, parseIssueKey } from './issue-key.ts';
+export {
+  formatIssueKey,
+  type IssueKeyParts,
+  type IssueReference,
+  issueReferenceIn,
+  parseIssueKey,
+} from './issue-key.ts';
 export { type CategoriesPlan, planCategories } from './issues/categories.ts';
 export {
   DEFAULT_CATEGORIES,

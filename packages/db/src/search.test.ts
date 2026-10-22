@@ -1,12 +1,12 @@
 import { DEFAULT_ROLE_IDS } from '@toppo/core';
-import { createTestDatabase, type TestDatabase } from '@toppo/testing';
+import { createTestDatabase } from '@toppo/testing';
+import { desc, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from './database.ts';
 import { users } from './schema/index.ts';
-import { containsText, escapeLike } from './search.ts';
+import { containsText, escapeLike, matchesWords, wordsRank } from './search.ts';
 import { uuidv7 } from './uuid.ts';
 
-let testDatabase: TestDatabase;
 let database: Database;
 
 const NAMES = [
@@ -26,8 +26,7 @@ async function namesMatching(term: string): Promise<string[]> {
 }
 
 beforeAll(async () => {
-  testDatabase = await createTestDatabase();
-  database = createDatabase({ url: testDatabase.url, maxConnections: 2 });
+  database = createDatabase({ url: (await createTestDatabase()).url, maxConnections: 2 });
   await database.db.insert(users).values(
     NAMES.map((name, index) => ({
       id: uuidv7(),
@@ -40,7 +39,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await database.close();
-  await testDatabase.drop();
 });
 
 describe('containsText', () => {
@@ -72,5 +70,48 @@ describe('containsText', () => {
 describe('escapeLike', () => {
   it('escapes the backslash, then the wildcards', () => {
     expect(escapeLike('a\\b%c_d')).toBe('a\\\\b\\%c\\_d');
+  });
+});
+
+/** The words of a person, as issues keep theirs: the name weighs more than the email. */
+const personWords = sql`setweight(to_tsvector('simple', fold_text(${users.name})), 'A') || setweight(to_tsvector('simple', fold_text(${users.email})), 'B')`;
+
+async function namesWithWords(term: string): Promise<string[]> {
+  const rows = await database.db
+    .select({ name: users.name })
+    .from(users)
+    .where(matchesWords(personWords, term))
+    .orderBy(desc(wordsRank(personWords, term)));
+  return rows.map(({ name }) => name);
+}
+
+describe('matchesWords', () => {
+  it('finds words by their start, ignoring case and accents', async () => {
+    expect(await namesWithWords('ELO')).toStrictEqual(['Éloïse Martin']);
+    expect(await namesWithWords('mart éloï')).toStrictEqual(['Éloïse Martin']);
+  });
+
+  it('needs every word typed', async () => {
+    expect(await namesWithWords('sale off')).toStrictEqual(['Sale 50% off']);
+    expect(await namesWithWords('sale martin')).toStrictEqual([]);
+  });
+
+  it('reads only letters and digits, never full-text syntax', async () => {
+    expect(await namesWithWords("50%! & | :* ' off")).toStrictEqual(['Sale 50% off']);
+    expect(matchesWords(personWords, ' %& ')).toBeUndefined();
+  });
+
+  it('ranks the heavier words first', async () => {
+    await database.db.insert(users).values({
+      id: uuidv7(),
+      name: 'Person Zero',
+      email: 'zero@example.com',
+      instanceRoleId: DEFAULT_ROLE_IDS.team,
+    });
+
+    const [named, ...emailed] = await namesWithWords('person');
+
+    expect(named).toBe('Person Zero');
+    expect(emailed.toSorted()).toStrictEqual(NAMES.toSorted());
   });
 });

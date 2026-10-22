@@ -1,35 +1,96 @@
-import { issueVisibilityOf } from '@toppo/core';
-import { schema } from '@toppo/db';
+import { effectiveWorkflow, issueReferenceIn, issueVisibilityOf } from '@toppo/core';
+import { type Db, schema } from '@toppo/db';
 import {
   ISSUES_PAGE_SIZE,
+  type IssueGrouping,
+  type IssueSort,
+  type IssueState,
   type IssuesResponse,
-  issuesQuerySchema,
+  type ProjectIssuesQuery,
   projectIssuesParamsSchema,
+  projectIssuesQuerySchema,
 } from '@toppo/shared';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
+import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 import { toIssueSummary } from '../utils/issue-rows.util.ts';
+import { textMatching } from '../utils/issue-search.util.ts';
 
-const { issueCategories, issues, priorities, statuses, users } = schema;
+const { issueCategories, issues, priorities, statuses, users, workflowStatuses, workflows } =
+  schema;
 const assignees = alias(users, 'assignees');
 const reporters = alias(users, 'reporters');
 
+/** Each sort ends with the newest first, so that pages never overlap. */
+const SORTS: Readonly<Record<IssueSort, SQL[]>> = {
+  newest: [desc(issues.number)],
+  oldest: [asc(issues.number)],
+  updated: [desc(issues.updatedAt), desc(issues.number)],
+  priority: [desc(priorities.level), desc(issues.number)],
+  status: [asc(workflowStatuses.position), desc(issues.number)],
+};
+
+/** What groups issues, the order of the groups, and the columns that order needs. */
+const GROUPINGS: Readonly<
+  Record<IssueGrouping, { key: PgColumn; order: SQL[]; columns: PgColumn[] }>
+> = {
+  // In the order of the workflow the project follows.
+  status: {
+    key: issues.statusId,
+    order: [asc(workflowStatuses.position), asc(issues.statusId)],
+    columns: [issues.statusId, workflowStatuses.position],
+  },
+  // The most urgent first.
+  priority: {
+    key: issues.priorityId,
+    order: [desc(priorities.level), asc(issues.priorityId)],
+    columns: [issues.priorityId, priorities.level],
+  },
+  // By name, those assigned to no one last.
+  assignee: {
+    key: issues.assigneeId,
+    order: [sql`${assignees.name} asc nulls last`, asc(issues.assigneeId)],
+    columns: [issues.assigneeId, assignees.name],
+  },
+};
+
 /**
- * One page of a project's issues, newest first: every one, or only those the caller reported
- * when that is all they may see, filtered in the query.
+ * One page of a project's issues, searched, filtered, sorted and maybe grouped, all in the query: every
+ * issue, or only those the caller reported when that is all they may see. Grouped, the page
+ * comes with the size of every group.
  */
 export const listIssues = defineQuery({
   name: 'issue.list',
   access: { project: 'projectKey' },
-  input: projectIssuesParamsSchema.extend(issuesQuerySchema.shape),
-  async handler({ db, actor, project }, { page }): Promise<IssuesResponse> {
+  input: projectIssuesParamsSchema.extend(projectIssuesQuerySchema.shape),
+  async handler({ db, actor, project }, query): Promise<IssuesResponse> {
     const visibility = issueVisibilityOf(project.permissions);
-    const visible = and(
+    const matching = and(
       eq(issues.projectId, project.id),
       visibility === 'own' ? eq(issues.reporterId, actor.id) : undefined,
       visibility === 'none' ? sql`false` : undefined,
+      ...filtersOf(query, actor.id),
+      query.search ? searched(query.search, project.key) : undefined,
     );
+    // Where each issue's status stands in the workflow the project follows.
+    const step = and(
+      eq(workflowStatuses.workflowId, await followedWorkflowId(db, project.id)),
+      eq(workflowStatuses.statusId, issues.statusId),
+    );
+    const grouping = query.group ? GROUPINGS[query.group] : null;
+
     const rows = await db
       .select({
         number: issues.number,
@@ -57,17 +118,83 @@ export const listIssues = defineQuery({
       .innerJoin(priorities, eq(priorities.id, issues.priorityId))
       .innerJoin(reporters, eq(reporters.id, issues.reporterId))
       .leftJoin(assignees, eq(assignees.id, issues.assigneeId))
-      .where(visible)
-      .orderBy(desc(issues.number))
+      .leftJoin(workflowStatuses, step)
+      .where(matching)
+      .orderBy(...(grouping?.order ?? []), ...SORTS[query.sort])
       .limit(ISSUES_PAGE_SIZE)
-      .offset((page - 1) * ISSUES_PAGE_SIZE);
-    const [total] = await db.select({ count: count() }).from(issues).where(visible);
+      .offset((query.page - 1) * ISSUES_PAGE_SIZE);
+    const [total] = await db.select({ count: count() }).from(issues).where(matching);
+    const groups = grouping
+      ? await db
+          .select({ key: sql<string | null>`${grouping.key}`, count: count() })
+          .from(issues)
+          .innerJoin(priorities, eq(priorities.id, issues.priorityId))
+          .leftJoin(assignees, eq(assignees.id, issues.assigneeId))
+          .leftJoin(workflowStatuses, step)
+          .where(matching)
+          .groupBy(...grouping.columns)
+          .orderBy(...grouping.order)
+      : null;
 
     return {
       rows: rows.map((row) => toIssueSummary(project.key, row)),
       matching: total?.count ?? 0,
-      page,
+      page: query.page,
       pageSize: ISSUES_PAGE_SIZE,
+      groups,
     };
   },
 });
+
+/** The conditions the filters set, `me` standing for the caller. */
+function filtersOf(query: ProjectIssuesQuery, actorId: string): (SQL | undefined)[] {
+  const people = (values: readonly string[] = []) =>
+    values.map((value) => (value === 'me' ? actorId : value));
+  return [
+    stateOf(query.state),
+    anyOf(issues.statusId, query.status),
+    anyOf(issues.priorityId, query.priority),
+    anyOf(issues.categoryId, query.category),
+    assignedTo(people(query.assignee)),
+    anyOf(issues.reporterId, people(query.reporter)),
+  ];
+}
+
+/** Issues a search finds by their text, and the one it names: `WEB-42`, or `42` in this project. */
+function searched(search: string, projectKey: string): SQL | undefined {
+  const reference = issueReferenceIn(search);
+  const named = (reference?.projectKey ?? projectKey) === projectKey ? reference : null;
+  return or(textMatching(search), named ? eq(issues.number, named.number) : undefined);
+}
+
+/** Issues whose `column` is one of `values`; no condition when there are none. */
+function anyOf(column: PgColumn, values: readonly string[] = []): SQL | undefined {
+  return values.length > 0 ? inArray(column, values) : undefined;
+}
+
+function stateOf(state: IssueState | undefined): SQL | undefined {
+  if (state === 'open') {
+    return isNull(issues.closedAt);
+  }
+  return state === 'closed' ? isNotNull(issues.closedAt) : undefined;
+}
+
+/** Issues assigned to one of `people`, or to no one when they include `none`. */
+function assignedTo(people: readonly string[]): SQL | undefined {
+  return or(
+    people.includes('none') ? isNull(issues.assigneeId) : undefined,
+    anyOf(
+      issues.assigneeId,
+      people.filter((person) => person !== 'none'),
+    ),
+  );
+}
+
+/** The workflow a project's issues follow: its own copy, else the instance's. */
+async function followedWorkflowId(db: Db, projectId: string): Promise<string> {
+  const candidates = await db
+    .select({ id: workflows.id, projectId: workflows.projectId })
+    .from(workflows)
+    .where(or(isNull(workflows.projectId), eq(workflows.projectId, projectId)));
+  return effectiveWorkflow(candidates, projectId).id;
+}

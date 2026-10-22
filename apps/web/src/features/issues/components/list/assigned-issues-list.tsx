@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { AssignedIssue, IssuesQuery } from '@toppo/shared';
+import type { IssuesQuery, IssueWithProject } from '@toppo/shared';
 import { cn, swatchClassName } from '@toppo/ui';
 import type { ReactNode } from 'react';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
@@ -36,7 +36,7 @@ export function AssignedIssuesList({
   );
 }
 
-function ProjectName({ project }: { project: AssignedIssue['project'] }) {
+function ProjectName({ project }: { project: IssueWithProject['project'] }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span

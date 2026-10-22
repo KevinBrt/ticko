@@ -5,10 +5,56 @@ import {
   createIssueRequestSchema,
   issueKeySchema,
   issuesQuerySchema,
+  projectIssuesQuerySchema,
   updateIssueRequestSchema,
 } from './issues.ts';
 
 const ID = '01a1569b-9900-7000-8000-000000000001';
+const OTHER = '01a1569b-9900-7000-8000-000000000002';
+
+describe('projectIssuesQuerySchema', () => {
+  it('reads lists joined by commas, the caller as me and no one as none', () => {
+    expect(
+      projectIssuesQuerySchema.parse({
+        status: `${ID},${OTHER}`,
+        assignee: 'me,none',
+        reporter: 'me',
+        state: 'open',
+        sort: 'priority',
+        group: 'status',
+      }),
+    ).toStrictEqual({
+      page: 1,
+      status: [ID, OTHER],
+      assignee: ['me', 'none'],
+      reporter: ['me'],
+      state: 'open',
+      sort: 'priority',
+      group: 'status',
+    });
+  });
+
+  it('reads lists already split, so that a parsed query parses again the same', () => {
+    const query = projectIssuesQuerySchema.parse({ category: `${ID},${OTHER}`, assignee: 'none' });
+
+    expect(projectIssuesQuerySchema.parse(query)).toStrictEqual(query);
+  });
+
+  it('lists the newest first, ungrouped, by default', () => {
+    expect(projectIssuesQuerySchema.parse({})).toStrictEqual({ page: 1, sort: 'newest' });
+  });
+
+  it.each([
+    { status: 'not-an-id' },
+    { reporter: 'none' },
+    { sort: 'title' },
+    { group: 'category' },
+    { state: 'archived' },
+    { priority: Array.from({ length: 51 }, () => ID).join(',') },
+  ])('refuses %j', (query) => {
+    expect(projectIssuesQuerySchema.safeParse(query).success).toBe(false);
+  });
+});
 
 describe('issueKeySchema', () => {
   it.each(['WEB-1', 'API2-42', 'A1-999999999'])('accepts %s', (key) => {

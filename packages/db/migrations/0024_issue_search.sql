@@ -1,0 +1,3 @@
+ALTER TABLE "issues" ADD COLUMN "search_vector" "tsvector" GENERATED ALWAYS AS (setweight(to_tsvector('simple', fold_text("title")), 'A') || setweight(to_tsvector('simple', fold_text("description")), 'B')) STORED NOT NULL;--> statement-breakpoint
+CREATE INDEX "issues_search_vector_idx" ON "issues" USING gin ("search_vector");--> statement-breakpoint
+CREATE INDEX "issues_title_trigram_idx" ON "issues" USING gin (fold_text("title") gin_trgm_ops);

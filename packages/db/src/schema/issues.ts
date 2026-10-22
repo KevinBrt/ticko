@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -17,6 +18,9 @@ import { users } from './auth.ts';
 import { id, timestamps } from './columns.ts';
 import { projects } from './projects.ts';
 import { statuses } from './workflows.ts';
+
+/** The words of a text, as PostgreSQL's full-text search reads them. */
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
 
 /** Exactly four levels, each with its own icon and color: the administrator only renames them. */
 export const priorities = pgTable(
@@ -91,8 +95,17 @@ export const issues = pgTable(
     reporterId: uuid('reporter_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
-    /** Set while the issue's status is in the done category. */
+    /** Set while the issue's status closes it. */
     closedAt: timestamp('closed_at', { withTimezone: true }),
+    /**
+     * The words of the title, weighing more, and of the description, folded by `fold_text()` so
+     * that search ignores case and accents. Computed by PostgreSQL, never written.
+     */
+    searchVector: tsvector('search_vector')
+      .notNull()
+      .generatedAlwaysAs(
+        sql`setweight(to_tsvector('simple', fold_text("title")), 'A') || setweight(to_tsvector('simple', fold_text("description")), 'B')`,
+      ),
     ...timestamps,
   },
   (table) => [
@@ -107,6 +120,9 @@ export const issues = pgTable(
     index('issues_priority_id_idx').on(table.priorityId),
     index('issues_assignee_id_idx').on(table.assigneeId),
     index('issues_reporter_id_idx').on(table.reporterId),
+    index('issues_search_vector_idx').using('gin', table.searchVector),
+    // Finds any part of a title, even inside a word or a path, through containsText().
+    index('issues_title_trigram_idx').using('gin', sql`fold_text(${table.title}) gin_trgm_ops`),
   ],
 );
 

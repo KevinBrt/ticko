@@ -162,6 +162,20 @@
       "when": 1792688130696,
       "tag": "0022_drop_status_category",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792690686044,
+      "tag": "0023_search_folding",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792690727899,
+      "tag": "0024_issue_search",
+      "breakpoints": true
     }
   ]
 }

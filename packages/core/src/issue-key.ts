@@ -7,6 +7,17 @@ export interface IssueKeyParts {
 
 const ISSUE_KEY_PATTERN = /^([^-]+)-([1-9]\d*)$/;
 
+/** A number alone, `42` or `#42`, up to nine digits like the keys `issueKeySchema` accepts. */
+const ISSUE_NUMBER_PATTERN = /^#?([1-9]\d{0,8})$/;
+
+const ISSUE_NUMBER_MAX = 999_999_999;
+
+/** An issue a search names: by its key, or by its number alone in the project at hand. */
+export interface IssueReference {
+  projectKey: ProjectKey | null;
+  number: number;
+}
+
 /** Builds the human-facing key of an issue, e.g. `WEB-42`. */
 export function formatIssueKey({ projectKey, number }: IssueKeyParts): string {
   if (!(Number.isSafeInteger(number) && number > 0)) {
@@ -31,4 +42,18 @@ export function parseIssueKey(input: string): IssueKeyParts | null {
     return null;
   }
   return { projectKey: projectKey.data, number };
+}
+
+/**
+ * The issue a search names, if it names one: `WEB-42` in any case, or `42` and `#42`, which mean
+ * that number in whichever project is searched (`projectKey` null). Numbers no issue can carry
+ * name nothing.
+ */
+export function issueReferenceIn(search: string): IssueReference | null {
+  const key = parseIssueKey(search);
+  if (key) {
+    return key.number <= ISSUE_NUMBER_MAX ? key : null;
+  }
+  const match = ISSUE_NUMBER_PATTERN.exec(search.trim());
+  return match ? { projectKey: null, number: Number(match[1]) } : null;
 }

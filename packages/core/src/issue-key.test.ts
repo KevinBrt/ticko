@@ -1,7 +1,7 @@
 import { PROJECT_KEY_MAX_LENGTH, type ProjectKey, projectKeySchema } from '@toppo/shared';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { formatIssueKey, parseIssueKey } from './issue-key.ts';
+import { formatIssueKey, issueReferenceIn, parseIssueKey } from './issue-key.ts';
 
 const key = (value: string): ProjectKey => projectKeySchema.parse(value);
 
@@ -71,6 +71,33 @@ describe('parseIssueKey', () => {
     fc.assert(
       fc.property(fc.string(), (input) => {
         expect(() => parseIssueKey(input)).not.toThrow();
+      }),
+    );
+  });
+});
+
+describe('issueReferenceIn', () => {
+  it.each([
+    ['WEB-42', { projectKey: 'WEB', number: 42 }],
+    [' web-42 ', { projectKey: 'WEB', number: 42 }],
+    ['42', { projectKey: null, number: 42 }],
+    ['#7', { projectKey: null, number: 7 }],
+    ['999999999', { projectKey: null, number: 999_999_999 }],
+  ])('reads %j', (search, reference) => {
+    expect(issueReferenceIn(search)).toStrictEqual(reference);
+  });
+
+  it.each(['', 'broken link', 'WEB', '0', '042', '#', '4 2', '1000000000', 'WEB-1000000000'])(
+    'finds no issue named in %j',
+    (search) => {
+      expect(issueReferenceIn(search)).toBeNull();
+    },
+  );
+
+  it('never throws, whatever the search', () => {
+    fc.assert(
+      fc.property(fc.string(), (search) => {
+        expect(() => issueReferenceIn(search)).not.toThrow();
       }),
     );
   });

@@ -87,13 +87,74 @@ export const changeIssueStatusRequestSchema = z.object({ statusId: z.uuid() });
 /** Body of `PUT /api/v1/issues/:issueKey/assignee`: someone who reaches the project, or nobody. */
 export const assignIssueRequestSchema = z.object({ assigneeId: z.uuid().nullable() });
 
-/** Query of `GET /api/v1/projects/:projectKey/issues` and `GET /api/v1/issues/assigned`. */
+/** Query of `GET /api/v1/issues/assigned`: a page. */
 export const issuesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
 
 export interface IssuesQuery {
   page?: number | undefined;
+}
+
+/** How a project's issues may be sorted; each sort ends with the newest first. */
+export const ISSUE_SORTS = ['newest', 'oldest', 'updated', 'priority', 'status'] as const;
+
+export type IssueSort = (typeof ISSUE_SORTS)[number];
+
+/** What a project's issues may be grouped by, each group headed with its count. */
+export const ISSUE_GROUPINGS = ['status', 'priority', 'assignee'] as const;
+
+export type IssueGrouping = (typeof ISSUE_GROUPINGS)[number];
+
+/** Whether an issue is still open, or closed by its status. */
+export const ISSUE_STATES = ['open', 'closed'] as const;
+
+export type IssueState = (typeof ISSUE_STATES)[number];
+
+/**
+ * A list, joined by commas in a query string (`?status=a,b`) or already split by a caller that
+ * is not HTTP: each item checked, at most 50.
+ */
+function listParameter<T extends z.ZodType<unknown, string>>(item: T) {
+  return z
+    .union([
+      z.string().transform((text) => text.split(',').filter((part) => part !== '')),
+      z.array(z.string()),
+    ])
+    .pipe(z.array(item).max(50))
+    .optional();
+}
+
+/**
+ * Query of `GET /api/v1/projects/:projectKey/issues`: one page, filtered, sorted and maybe
+ * grouped. Filters of one kind match any of their values; filters of different kinds all apply.
+ */
+export const projectIssuesQuerySchema = issuesQuerySchema.extend({
+  state: z.enum(ISSUE_STATES).optional(),
+  status: listParameter(z.uuid()),
+  priority: listParameter(z.uuid()),
+  category: listParameter(z.uuid()),
+  /** Someone, the caller (`me`), or no one (`none`). */
+  assignee: listParameter(z.union([z.uuid(), z.literal('me'), z.literal('none')])),
+  /** Someone, or the caller (`me`). */
+  reporter: listParameter(z.union([z.uuid(), z.literal('me')])),
+  sort: z.enum(ISSUE_SORTS).default('newest'),
+  group: z.enum(ISSUE_GROUPINGS).optional(),
+  /** Words of the title or description, part of the title, or the issue's key or number. */
+  search: z.string().trim().max(100).optional(),
+});
+
+/** A project's list as the screen asks for it; lists travel joined by commas. */
+export interface ProjectIssuesQuery extends IssuesQuery {
+  state?: IssueState | undefined;
+  status?: readonly string[] | undefined;
+  priority?: readonly string[] | undefined;
+  category?: readonly string[] | undefined;
+  assignee?: readonly string[] | undefined;
+  reporter?: readonly string[] | undefined;
+  sort?: IssueSort | undefined;
+  group?: IssueGrouping | undefined;
+  search?: string | undefined;
 }
 
 export const issueSummarySchema = z.object({
@@ -112,32 +173,55 @@ export const issueSummarySchema = z.object({
 export type IssueSummary = z.infer<typeof issueSummarySchema>;
 
 export const issuesResponseSchema = z.object({
-  /** One page, newest first. */
+  /** One page, in the order asked for, grouped first when asked. */
   rows: z.array(issueSummarySchema),
   matching: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
+  /**
+   * When grouped: every group of the matching issues, in order, its key (the status, priority
+   * or assignee's id, null for no one) and how many issues it holds, across every page.
+   */
+  groups: z.array(z.object({ key: z.uuid().nullable(), count: z.number().int() })).nullable(),
 });
 
 export type IssuesResponse = z.infer<typeof issuesResponseSchema>;
 
-/** An issue assigned to the caller, with the project it belongs to. */
-export const assignedIssueSchema = issueSummarySchema.extend({
+/** An issue with the project it belongs to, in lists across projects. */
+export const issueWithProjectSchema = issueSummarySchema.extend({
   project: z.object({ key: z.string(), name: z.string(), color: z.enum(PALETTE_COLORS) }),
 });
 
-export type AssignedIssue = z.infer<typeof assignedIssueSchema>;
+export type IssueWithProject = z.infer<typeof issueWithProjectSchema>;
 
 /** Body of `GET /api/v1/issues/assigned`: the caller's issues, open or closed, in every project. */
 export const assignedIssuesResponseSchema = z.object({
   /** One page, the most urgent first, then the newest. */
-  rows: z.array(assignedIssueSchema),
+  rows: z.array(issueWithProjectSchema),
   matching: z.number().int(),
   page: z.number().int(),
   pageSize: z.number().int(),
 });
 
 export type AssignedIssuesResponse = z.infer<typeof assignedIssuesResponseSchema>;
+
+/** How many issues a search across projects finds at most: the best ones. */
+export const ISSUE_SEARCH_LIMIT = 10;
+
+/** Query of `GET /api/v1/issues/search`. */
+export const issueSearchQuerySchema = z.object({
+  search: z.string().trim().min(1).max(100),
+});
+
+export type IssueSearchQuery = z.input<typeof issueSearchQuerySchema>;
+
+/** Body of `GET /api/v1/issues/search`: the issues found in every project the caller reaches. */
+export const issueSearchResponseSchema = z.object({
+  /** The issue named by its key first, then the best matches, then the latest changed. */
+  rows: z.array(issueWithProjectSchema).max(ISSUE_SEARCH_LIMIT),
+});
+
+export type IssueSearchResponse = z.infer<typeof issueSearchResponseSchema>;
 
 /** Body of `GET /api/v1/issues/:issueKey`. */
 export const issueResponseSchema = issueSummarySchema.extend({

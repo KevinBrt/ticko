@@ -1436,6 +1436,7 @@ function listIssues(
     matching: visible.length,
     page,
     pageSize: ISSUES_PAGE_SIZE,
+    groups: null,
   });
 }
 
