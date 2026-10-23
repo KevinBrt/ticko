@@ -37,7 +37,9 @@ describe('groupHistory', () => {
       type: 'issue.commented',
       actor: ADA,
       createdAt: '2026-10-22T09:21:00.000Z',
-      payload: { comment: { id: ADA.id, body: 'Done', editedAt: null, actions: [] } },
+      payload: {
+        comment: { id: ADA.id, body: 'Done', editedAt: null, attachments: [], actions: [] },
+      },
     };
 
     const entries = groupHistory([

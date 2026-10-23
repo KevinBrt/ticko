@@ -32,7 +32,9 @@ describe('a comment in the history', () => {
     type: 'issue.commented',
     actor: { id: ID, name: 'Ada' },
     createdAt: '2026-10-22T10:00:00.000Z',
-    payload: { comment: { id: ID, body: '**Fixed**', editedAt: null, actions: ['edit'] } },
+    payload: {
+      comment: { id: ID, body: '**Fixed**', editedAt: null, attachments: [], actions: ['edit'] },
+    },
   };
 
   it('shows the comment as it is now, with what the reader may do on it', () => {

@@ -16,13 +16,14 @@ import { formatDateTime } from '../../../../shared/i18n/dates.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { Comments } from '../../api/comments.api.ts';
 import { COMMENT_ERRORS } from '../../constants/comments.constants.ts';
+import { AttachmentList } from '../attachments/attachment-list.tsx';
 import { DeleteCommentDialog } from './delete-comment-dialog.tsx';
 
 type CommentActivity = Extract<IssueActivity, { type: 'issue.commented' }>;
 
 /**
- * A comment on the timeline: who wrote it and when, its words as written, and what the reader
- * may do on it, its author editing it in place.
+ * A comment on the timeline: who wrote it and when, its words as written, its files, and what the
+ * reader may do on it, its author editing it in place.
  */
 export function CommentItem({
   issueKey,
@@ -115,6 +116,16 @@ export function CommentItem({
               }}
             />
           )}
+          {comment.attachments.length > 0 ? (
+            <div className="mt-3">
+              <AttachmentList
+                issueKey={issueKey}
+                attachments={comment.attachments}
+                label={t('issues.attachments.title')}
+                onRemoved={onChanged}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
       <DeleteCommentDialog

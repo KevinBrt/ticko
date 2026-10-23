@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ATTACHMENTS_MAX,
   type CreateIssueRequest,
   createIssueRequestSchema,
   ISSUE_TITLE_MAX_LENGTH,
@@ -8,8 +9,13 @@ import { Alert, Button, cn, Field, Input, Select, swatchClassName } from '@toppo
 import { type FormEvent, useId, useState } from 'react';
 import { fieldErrors, requestErrorMessage } from '../../../../shared/forms/form-errors.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
+import { Attachments, type FailedUpload } from '../../api/attachments.api.ts';
 import { Issues } from '../../api/issues.api.ts';
+import type { FileDraft, RefusedFile } from '../../models/attachment-draft.model.ts';
 import { IssuesQueries } from '../../queries/issues.queries.ts';
+import { chooseFiles } from '../../utils/attachment-files.util.ts';
+import { DraftFiles, FailedUploads, RefusedFiles } from '../attachments/draft-files.tsx';
+import { FileDropZone } from '../attachments/file-drop-zone.tsx';
 import { MarkdownEditor } from '../markdown/markdown-editor.tsx';
 
 const KNOWN_ERRORS = {
@@ -18,9 +24,17 @@ const KNOWN_ERRORS = {
   PROJECT_ARCHIVED: 'projects.archivedNotice',
 } as const;
 
+/** How far the files of a new issue are sent. */
+interface Sending {
+  sent: number;
+  total: number;
+}
+
 /**
- * A new issue of a project: its subject and description, then its priority and category, the
- * project's defaults chosen. Whoever reports it is its requester. Reports the new issue's key.
+ * A new issue of a project: its subject, description and files, then its priority and category,
+ * the project's defaults chosen. Whoever reports it is its requester. The issue is created, then
+ * its files are sent one after the other. Reports the new issue's key; when a file could not be
+ * attached, says so first, the issue being there all the same.
  */
 export function NewIssueForm({
   projectKey,
@@ -40,14 +54,43 @@ export function NewIssueForm({
   const [priorityId, setPriorityId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const limits = useQuery(IssuesQueries.attachmentLimits);
+  const [drafts, setDrafts] = useState<FileDraft[]>([]);
+  const [refused, setRefused] = useState<RefusedFile[]>([]);
+  const [sending, setSending] = useState<Sending | null>(null);
+  const [created, setCreated] = useState<{ key: string; failed: FailedUpload[] } | null>(null);
 
   const create = useMutation({
-    mutationFn: (issue: CreateIssueRequest) => Issues.create(projectKey, issue),
-    onSuccess: async (key) => {
-      await queryClient.invalidateQueries({ queryKey: IssuesQueries.allOf(projectKey) });
-      await onCreated(key);
+    mutationFn: async ({ issue, files }: { issue: CreateIssueRequest; files: FileDraft[] }) => {
+      const key = await Issues.create(projectKey, issue);
+      setSending({ sent: 0, total: files.length });
+      const failed = await Attachments.addAll(key, files, {
+        onSent: (sent) => setSending({ sent, total: files.length }),
+      });
+      return { key, failed };
     },
+    onSuccess: async ({ key, failed }) => {
+      await queryClient.invalidateQueries({ queryKey: IssuesQueries.allOf(projectKey) });
+      if (failed.length === 0) {
+        await onCreated(key);
+      } else {
+        setCreated({ key, failed });
+      }
+    },
+    onSettled: () => setSending(null),
   });
+  const choose = (picked: File[]) => {
+    if (!limits.data) {
+      return;
+    }
+    const chosen = chooseFiles(picked, {
+      maxFileSize: limits.data.maxFileSize,
+      room: ATTACHMENTS_MAX - drafts.length,
+    });
+    setRefused(chosen.refused);
+    setDrafts([...drafts, ...chosen.drafts]);
+  };
+  const busy = create.isPending || created !== null;
 
   const defaultPriority = fields.data?.priorities.find(({ isDefault }) => isDefault)?.id ?? '';
   const defaultCategory = fields.data?.categories.find(({ isDefault }) => isDefault)?.id ?? '';
@@ -63,9 +106,16 @@ export function NewIssueForm({
       ...(chosenCategory ? { categoryId: chosenCategory } : {}),
     });
     setErrors(parsed.success ? {} : fieldErrors(parsed.error, t));
-    if (parsed.success) {
-      create.mutate(parsed.data);
+    if (parsed.success && !busy) {
+      create.mutate({ issue: parsed.data, files: drafts });
     }
+  }
+
+  function submitLabel(): string {
+    if (sending) {
+      return t('issues.attachments.sendingCount', sending);
+    }
+    return create.isPending ? t('issues.creating') : t('issues.create');
   }
 
   return (
@@ -79,6 +129,12 @@ export function NewIssueForm({
         <div className="flex flex-col gap-5 p-5 sm:p-6">
           {create.isError ? (
             <Alert tone="danger">{requestErrorMessage(create.error, t, KNOWN_ERRORS)}</Alert>
+          ) : null}
+          {created ? (
+            <FailedUploads
+              title={t('issues.attachments.createdWithout', { key: created.key })}
+              failed={created.failed}
+            />
           ) : null}
           <Field label={t('issues.subject')} required error={errors['title']}>
             {(control) => (
@@ -106,14 +162,42 @@ export function NewIssueForm({
               />
             )}
           </Field>
+          <fieldset className="flex min-w-0 flex-col gap-3">
+            <legend className="mb-1.5 text-sm font-medium text-foreground">
+              {t('issues.attachments.title')}
+            </legend>
+            {limits.data ? (
+              <FileDropZone
+                maxFileSize={limits.data.maxFileSize}
+                disabled={busy || drafts.length >= ATTACHMENTS_MAX}
+                onFiles={choose}
+              />
+            ) : null}
+            <RefusedFiles refused={refused} maxFileSize={limits.data?.maxFileSize ?? 0} />
+            <DraftFiles
+              drafts={drafts}
+              sending={create.isPending}
+              onRemove={
+                busy ? undefined : (id) => setDrafts(drafts.filter((draft) => draft.id !== id))
+              }
+            />
+          </fieldset>
         </div>
         <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-          <Button variant="secondary" onClick={onCancel}>
-            {t('issues.cancel')}
-          </Button>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending ? t('issues.creating') : t('issues.create')}
-          </Button>
+          {created ? (
+            <Button onClick={() => onCreated(created.key)}>
+              {t('issues.attachments.openIssue')}
+            </Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={onCancel}>
+                {t('issues.cancel')}
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {submitLabel()}
+              </Button>
+            </>
+          )}
         </div>
       </section>
       <aside className="flex flex-col gap-5 rounded-xl border border-border bg-surface p-5 shadow-xs sm:p-6">

@@ -9,6 +9,7 @@ import { useId, useState } from 'react';
 import { formatDateTime } from '../../../../shared/i18n/dates.util.ts';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import type { IssueEdit } from '../../models/issue-edit.model.ts';
+import { RequestAttachments } from '../attachments/request-attachments.tsx';
 import { PersonName } from '../fields/person-name.tsx';
 import { MarkdownEditor } from '../markdown/markdown-editor.tsx';
 import { MarkdownText } from '../markdown/markdown-text.tsx';
@@ -23,7 +24,7 @@ function RequestText({ description }: { description: string }) {
   return <MarkdownText>{description}</MarkdownText>;
 }
 
-/** What the reporter asked: the description, rendered from Markdown, edited in place. */
+/** What the reporter asked: the description, rendered from Markdown, edited in place, and its files. */
 export function IssueRequest({
   issue,
   onEdit,
@@ -100,6 +101,7 @@ export function IssueRequest({
             </div>
           </form>
         )}
+        <RequestAttachments issueKey={issue.key} canAttach={issue.actions.includes('attach')} />
       </div>
     </section>
   );

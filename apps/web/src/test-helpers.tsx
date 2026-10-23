@@ -1,24 +1,31 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import {
+  type AttachmentPlace,
   actionsFor,
+  attachmentActionsOf,
   can,
   canActOnProjectMember,
+  canAttachTo,
   canGiveProjectRole,
   canMoveTo,
   canSeeIssue,
+  cleanFileName,
   commentActionsOf,
+  createTextScan,
   DEFAULT_CATEGORIES,
   DEFAULT_PRIORITIES,
   DEFAULT_ROLE_IDS,
   DEFAULT_ROLES,
   DEFAULT_STATUSES,
   DEFAULT_TRANSITIONS,
+  FILE_HEAD_LENGTH,
   type InstancePermission,
   instancePermissionsOf,
   issueActionsOf,
   issueChanges,
   issueVisibilityOf,
+  mediaTypeOf,
   nextStatusesOf,
   type ProjectPermission,
   permissionsOfRole,
@@ -29,13 +36,17 @@ import {
   rolePermissionsFrom,
 } from '@toppo/core';
 import {
+  ATTACHMENTS_MAX,
+  type AttachmentMediaType,
   type CurrentUser,
   categoriesRequestSchema,
   commentRequestSchema,
+  FILE_NAME_HEADER,
   ISSUE_SEARCH_LIMIT,
   ISSUE_SORT_ORDERS,
   ISSUES_PAGE_SIZE,
   type IssueActivity,
+  type IssueAttachment,
   type IssueGrouping,
   type IssueResponse,
   type IssueSort,
@@ -152,6 +163,43 @@ export interface FakeServerState {
   workflow: FakeWorkflow;
   /** The projects' own workflows, by project key: none unless customized. */
   projectWorkflows: Map<string, FakeWorkflow>;
+  /** The files attached, oldest first: none unless a test adds some. */
+  attachments: FakeAttachment[];
+  /** The largest file taken, in bytes: 20 MB unless a test sets another. */
+  attachmentMaxSize: number;
+}
+
+/** A file as the fake server keeps it: on an issue's request, or on one of its comments. */
+export interface FakeAttachment {
+  id: string;
+  issueKey: string;
+  commentId: string | null;
+  fileName: string;
+  mediaType: AttachmentMediaType;
+  size: number;
+  uploaderId: string;
+  /** What it downloads as. */
+  content: BlobPart;
+}
+
+/** A file of WEB-1's request, uploaded by Ada unless said otherwise. */
+export function fakeAttachment(
+  seed: number,
+  fileName: string,
+  mediaType: AttachmentMediaType,
+  overrides: Partial<FakeAttachment> = {},
+): FakeAttachment {
+  return {
+    id: `01a1569b-9900-7000-8000-0000000010${String(seed).padStart(2, '0')}`,
+    issueKey: 'WEB-1',
+    commentId: null,
+    fileName,
+    mediaType,
+    size: 1200,
+    uploaderId: ADA.id,
+    content: 'file',
+    ...overrides,
+  };
 }
 
 /** The instance's workflow as the fake server keeps it: its statuses in order, and its moves. */
@@ -334,6 +382,8 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       })),
       workflow: defaultWorkflow(),
       projectWorkflows: new Map(),
+      attachments: [],
+      attachmentMaxSize: 20 * 1024 * 1024,
       ...initial,
     },
     requests: [],
@@ -345,6 +395,8 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
     (body: Record<string, unknown>, search: URLSearchParams) => Response
   > = {
     'GET /api/v1/setup': () => json({ required: state.setupRequired }),
+    'GET /api/v1/attachments/limits': () =>
+      asSignedIn(state) ?? json({ maxFileSize: state.attachmentMaxSize }),
     'GET /api/v1/me': () =>
       json({
         user: state.user && {
@@ -470,12 +522,13 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       window.location.origin,
     );
     const method = init?.method ?? 'GET';
-    const body: unknown = init?.body ? JSON.parse(String(init.body)) : undefined;
+    const body = requestBody(init);
     server.requests.push({ method, path: url.pathname + url.search, body });
     const handler = routes[`${method} ${url.pathname}`];
     const answer = handler
       ? handler((body ?? {}) as Record<string, unknown>, url.searchParams)
-      : (projectRequest(state, method, url.pathname, url.searchParams, body) ??
+      : (attachmentRequest(state, method, url.pathname, body, new Headers(init?.headers)) ??
+        projectRequest(state, method, url.pathname, url.searchParams, body) ??
         issueRequest(state, method, url.pathname, url.searchParams, body) ??
         userProjects(state, method, url.pathname, url.searchParams, body) ??
         changeUser(state, method, url.pathname, body) ??
@@ -486,6 +539,14 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
   });
 
   return server;
+}
+
+/** What a request sends: a file as it is, anything else as JSON. */
+function requestBody(init: RequestInit | undefined): unknown {
+  if (init?.body instanceof Blob) {
+    return init.body;
+  }
+  return init?.body ? JSON.parse(String(init.body)) : undefined;
 }
 
 /** The answer a caller without `permission` gets, or `undefined` to go on. */
@@ -1752,8 +1813,8 @@ function issueRequest(
         return NO_CONTENT();
       });
     case 'GET activities': {
-      const history = (state.activities.get(key) ?? []).map((entry) =>
-        withCommentActions(state, entry, seen),
+      const history = (state.activities.get(key) ?? []).flatMap((entry) =>
+        shownInHistory(state, entry, seen),
       );
       return json({
         // Newest first; a stable sort keeps changes made together in the order they were made.
@@ -1772,19 +1833,197 @@ function issueRequest(
   }
 }
 
-/** A comment of the history with what the signed-in user may do on it, as the server says. */
-function withCommentActions(
+/**
+ * A step of the history as the signed-in user sees it, as the server says: a comment with its
+ * files and what they may do on them; a file of the request while it is there.
+ */
+function shownInHistory(
   state: FakeServerState,
   entry: IssueActivity,
-  { project, permissions }: SeenIssue,
-): IssueActivity {
-  if (entry.type !== 'issue.commented') {
-    return entry;
+  seen: SeenIssue,
+): IssueActivity[] {
+  const { issue, project, permissions } = seen;
+  if (entry.type === 'issue.attachmentAdded') {
+    const file = state.attachments.find(({ id }) => id === entry.payload.attachment.id);
+    return file ? [{ ...entry, payload: { attachment: shownAttachment(state, file, seen) } }] : [];
   }
+  if (entry.type !== 'issue.commented') {
+    return [entry];
+  }
+  const { comment } = entry.payload;
   const actions = project.archived
     ? []
     : commentActionsOf(permissions, entry.actor.id === state.user?.id);
-  return { ...entry, payload: { comment: { ...entry.payload.comment, actions } } };
+  const attachments = state.attachments
+    .filter(({ issueKey, commentId }) => issueKey === keyOf(issue) && commentId === comment.id)
+    .map((file) => shownAttachment(state, file, seen));
+  return [{ ...entry, payload: { comment: { ...comment, attachments, actions } } }];
+}
+
+/** Where a file is, as the rights to it read it. */
+function placeOf(
+  state: FakeServerState,
+  file: FakeAttachment,
+  { issue }: SeenIssue,
+): AttachmentPlace {
+  if (file.commentId === null) {
+    return { on: 'request', reportedByThem: issue.reporterId === state.user?.id };
+  }
+  const comment = (state.activities.get(file.issueKey) ?? []).find(
+    (entry) => entry.type === 'issue.commented' && entry.payload.comment.id === file.commentId,
+  );
+  return { on: 'comment', writtenByThem: comment?.actor.id === state.user?.id };
+}
+
+/** A file with what the signed-in user may do on it. */
+function shownAttachment(
+  state: FakeServerState,
+  file: FakeAttachment,
+  seen: SeenIssue,
+): IssueAttachment {
+  const actions = seen.project.archived
+    ? []
+    : attachmentActionsOf(
+        seen.permissions,
+        placeOf(state, file, seen),
+        file.uploaderId === state.user?.id,
+      );
+  const { id, fileName, mediaType, size } = file;
+  return { id, fileName, mediaType, size, actions };
+}
+
+const ATTACHMENT_PATH =
+  /^\/api\/v1\/issues\/([^/]+)(?:\/comments\/([^/]+))?\/attachments(?:\/([^/]+)(?:\/(download|preview))?)?$/;
+
+/**
+ * `/api/v1/issues/:key[/comments/:commentId]/attachments[/:id]`: files listed, sent, removed,
+ * with the server's rules; the type a file's name announces is checked against its content.
+ */
+function attachmentRequest(
+  state: FakeServerState,
+  method: string,
+  path: string,
+  body: unknown,
+  headers: Headers,
+): Response | Promise<Response> | undefined {
+  const match = ATTACHMENT_PATH.exec(path);
+  if (!match) {
+    return undefined;
+  }
+  const [, key = '', commentId, attachmentId, file] = match;
+  const seen = seenIssue(state, key);
+  if (seen instanceof Response) {
+    return seen;
+  }
+  if (method !== 'GET' && seen.project.archived) {
+    return apiError(409, 'PROJECT_ARCHIVED');
+  }
+  const ofIssue = state.attachments.filter(({ issueKey }) => issueKey === key);
+  const found = ofIssue.find(({ id }) => id === attachmentId);
+  if (method === 'GET' && attachmentId === undefined) {
+    return json({
+      rows: ofIssue
+        .filter((attachment) => attachment.commentId === null)
+        .map((attachment) => shownAttachment(state, attachment, seen)),
+    });
+  }
+  if (method === 'POST' && attachmentId === undefined && body instanceof Blob) {
+    return addAttachment(state, seen, commentId ?? null, body, headers.get(FILE_NAME_HEADER));
+  }
+  if (!found) {
+    return apiError(404, 'ATTACHMENT_NOT_FOUND');
+  }
+  if (method === 'GET' && file) {
+    return new Response(new Blob([found.content]), { status: 200 });
+  }
+  if (method === 'DELETE' && !file) {
+    return removeAttachment(state, found, seen);
+  }
+  return apiError(404, 'NOT_FOUND');
+}
+
+/** `DELETE …/attachments/:id`: by whoever may remove that file, for good. */
+function removeAttachment(
+  state: FakeServerState,
+  found: FakeAttachment,
+  seen: SeenIssue,
+): Response {
+  const allowed = attachmentActionsOf(
+    seen.permissions,
+    placeOf(state, found, seen),
+    found.uploaderId === state.user?.id,
+  );
+  if (!allowed.includes('delete')) {
+    return apiError(403, 'FORBIDDEN');
+  }
+  state.attachments = state.attachments.filter((attachment) => attachment !== found);
+  return NO_CONTENT();
+}
+
+/** `POST …/attachments`: who may attach files there, the name cleaned, the content checked. */
+async function addAttachment(
+  state: FakeServerState,
+  seen: SeenIssue,
+  commentId: string | null,
+  content: Blob,
+  encodedName: string | null,
+): Promise<Response> {
+  const key = keyOf(seen.issue);
+  const comment = (state.activities.get(key) ?? []).find(
+    (entry) => entry.type === 'issue.commented' && entry.payload.comment.id === commentId,
+  );
+  if (commentId !== null && !comment) {
+    return apiError(404, 'COMMENT_NOT_FOUND');
+  }
+  const place: AttachmentPlace = comment
+    ? { on: 'comment', writtenByThem: comment.actor.id === state.user?.id }
+    : { on: 'request', reportedByThem: seen.issue.reporterId === state.user?.id };
+  if (!canAttachTo(seen.permissions, place)) {
+    return apiError(403, 'FORBIDDEN');
+  }
+  const fileName = cleanFileName(decodeURIComponent(encodedName ?? ''));
+  if (fileName === null) {
+    return apiError(400, 'INVALID_FILE_NAME');
+  }
+  if (content.size > state.attachmentMaxSize) {
+    return apiError(413, 'ATTACHMENT_TOO_LARGE');
+  }
+  const bytes = new Uint8Array(await content.arrayBuffer());
+  const textScan = createTextScan();
+  textScan.push(bytes);
+  const type = mediaTypeOf(fileName, {
+    head: bytes.subarray(0, FILE_HEAD_LENGTH),
+    text: textScan.end(),
+  });
+  if ('problem' in type) {
+    return apiError(
+      415,
+      type.problem === 'typeNotAllowed'
+        ? 'ATTACHMENT_TYPE_NOT_ALLOWED'
+        : 'ATTACHMENT_CONTENT_MISMATCH',
+    );
+  }
+  const held = state.attachments.filter(
+    (attachment) => attachment.issueKey === key && attachment.commentId === commentId,
+  );
+  if (held.length >= ATTACHMENTS_MAX) {
+    return apiError(409, 'TOO_MANY_ATTACHMENTS');
+  }
+  const attachment = fakeAttachment(state.attachments.length + 50, fileName, type.mediaType, {
+    issueKey: key,
+    commentId,
+    size: content.size,
+    uploaderId: state.user?.id ?? '',
+    content: bytes,
+  });
+  state.attachments.push(attachment);
+  if (commentId === null) {
+    record(state, key, {
+      type: 'issue.attachmentAdded',
+      payload: { attachment: shownAttachment(state, attachment, seen) },
+    });
+  }
+  return json({ id: attachment.id }, 201);
 }
 
 /**
@@ -1811,7 +2050,9 @@ function commentRequest(
     const id = `01a1569b-9900-7000-8000-0000000009${String(history.length).padStart(2, '0')}`;
     record(state, key, {
       type: 'issue.commented',
-      payload: { comment: { id, body: body.data.body, editedAt: null, actions: [] } },
+      payload: {
+        comment: { id, body: body.data.body, editedAt: null, attachments: [], actions: [] },
+      },
     });
     return json({ id }, 201);
   }

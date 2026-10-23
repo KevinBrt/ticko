@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Database } from '@toppo/db';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerAccountRoutes } from './features/account/account.routes.ts';
+import { registerAttachmentRoutes } from './features/attachments/attachments.routes.ts';
 import { registerCategoryRoutes } from './features/categories/categories.routes.ts';
 import { registerCommentRoutes } from './features/comments/comments.routes.ts';
 import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
@@ -27,6 +28,8 @@ import { enforceRouteContracts } from './platform/http/route-contracts.ts';
 import { registerSecurityHeaders } from './platform/http/security-headers.ts';
 import { registerWebApp } from './platform/http/web-app.ts';
 import { serializerCompiler, validatorCompiler } from './platform/http/zod.ts';
+import { registerFileRoutes } from './platform/uploads/file-routes.ts';
+import type { FileStorage } from './platform/uploads/file-storage.ts';
 
 export interface AppDependencies {
   config: Pick<Config, 'publicUrl' | 'logLevel' | 'trustProxy'>;
@@ -34,23 +37,31 @@ export interface AppDependencies {
   auth: Auth;
   /** First-run code accepted by the setup wizard. */
   setupCode: string;
+  /** Attached files, under `<dataDir>/uploads`. */
+  files: FileStorage;
   /** Directory of the compiled web app. Not configurable: it ships inside the image. */
   webRoot: string;
 }
 
 const BODY_LIMIT_BYTES = 1024 * 1024;
-const REQUEST_TIMEOUT_MS = 60_000;
+/**
+ * Long enough to attach 20 MB over a slow mobile connection; Node's own default. Slow headers
+ * are still cut after a minute (`headersTimeout`).
+ */
+const REQUEST_TIMEOUT_MS = 300_000;
 
 /** What commands and queries may use besides the database. */
 export function createServices({
   auth,
   setupCode,
+  files,
   publicUrl,
-}: Pick<AppDependencies, 'auth' | 'setupCode'> & { publicUrl: URL }): Services {
+}: Pick<AppDependencies, 'auth' | 'setupCode' | 'files'> & { publicUrl: URL }): Services {
   return {
     hashPassword: async (password) => (await auth.$context).password.hash(password),
     setupCode,
     publicUrl,
+    files,
   };
 }
 
@@ -60,6 +71,7 @@ export async function buildApp({
   database,
   auth,
   setupCode,
+  files,
   webRoot,
 }: AppDependencies): Promise<FastifyInstance> {
   const app = Fastify({
@@ -86,8 +98,9 @@ export async function buildApp({
   registerAccessControl(app, { auth, db: database.db });
   registerExecutionContext(app, {
     db: database.db,
-    services: createServices({ auth, setupCode, publicUrl: config.publicUrl }),
+    services: createServices({ auth, setupCode, files, publicUrl: config.publicUrl }),
   });
+  registerFileRoutes(app, { files });
   app.addHook('onRequest', (request, reply, done) => {
     reply.header('x-request-id', request.id);
     done();
@@ -106,6 +119,7 @@ export async function buildApp({
   registerProjectRoutes(app);
   registerIssueRoutes(app);
   registerCommentRoutes(app);
+  registerAttachmentRoutes(app);
   registerCategoryRoutes(app);
   registerPriorityRoutes(app);
   registerWorkflowRoutes(app);

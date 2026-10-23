@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ATTACHMENTS_MAX, issueAttachmentSchema } from './attachments.ts';
 import { issueKeyParamsSchema } from './issues.ts';
 
 /** Mirrors the `comments_body_length` check of the database. */
@@ -23,13 +24,15 @@ export const COMMENT_ACTIONS = ['edit', 'delete'] as const;
 
 export type CommentAction = (typeof COMMENT_ACTIONS)[number];
 
-/** A comment as the history shows it: as it is now, with what the reader may do on it. */
+/** A comment as the history shows it: as it is now, its files with it, with what the reader may do on it. */
 export const issueCommentSchema = z.object({
   id: z.uuid(),
   /** Plain text, as written. */
   body: z.string(),
   /** UTC ISO 8601 date its author last changed it, or `null`. */
   editedAt: z.iso.datetime().nullable(),
+  /** Oldest first. */
+  attachments: z.array(issueAttachmentSchema).max(ATTACHMENTS_MAX),
   actions: z.array(z.enum(COMMENT_ACTIONS)),
 });
 

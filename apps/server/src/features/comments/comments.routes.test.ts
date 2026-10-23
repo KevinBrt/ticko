@@ -134,6 +134,7 @@ describe('commenting', () => {
         id,
         body: 'Fixed in **1.2**.',
         editedAt: null,
+        attachments: [],
         actions: ['edit', 'delete'],
       },
     ]);

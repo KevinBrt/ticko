@@ -1,9 +1,10 @@
-import { PALETTE_COLORS } from '@toppo/shared';
+import { ATTACHMENT_MEDIA_TYPES, PALETTE_COLORS } from '@toppo/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
   customType,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -184,7 +185,61 @@ export const comments = pgTable(
     check('comments_body_not_blank', sql`btrim(${table.body}) <> ''`),
     // Mirrors COMMENT_BODY_MAX_LENGTH (`@toppo/shared`).
     check('comments_body_length', sql`char_length(${table.body}) <= 20000`),
+    // Lets an attachment name its comment and that comment's issue together.
+    unique('comments_id_issue_unique').on(table.id, table.issueId),
     index('comments_issue_id_created_at_idx').on(table.issueId, table.createdAt),
     index('comments_author_id_idx').on(table.authorId),
+  ],
+);
+
+/**
+ * Files attached to an issue's request or, with `comment_id`, to one of its comments (of the same
+ * issue: composite foreign key). The file lies on disk under a random key, never under its name.
+ * Gone with their issue or comment; the files no row names any more are swept from the disk.
+ */
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: id(),
+    issueId: uuid('issue_id')
+      .notNull()
+      .references(() => issues.id, { onDelete: 'cascade' }),
+    /** Set when the file came with a comment, rather than with the issue's request. */
+    commentId: uuid('comment_id'),
+    uploaderId: uuid('uploader_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    /** As its uploader named it, cleaned: no path, no control or bidirectional characters. */
+    fileName: text('file_name').notNull(),
+    /** Detected by the server from the content, never taken from the client. */
+    mediaType: text('media_type', { enum: ATTACHMENT_MEDIA_TYPES }).notNull(),
+    /** In bytes. */
+    size: integer('size').notNull(),
+    /** The file's name on disk: 64 random hexadecimal characters. Never leaves the server. */
+    storageKey: text('storage_key').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    foreignKey({
+      name: 'attachments_comment_fk',
+      columns: [table.commentId, table.issueId],
+      foreignColumns: [comments.id, comments.issueId],
+    }).onDelete('cascade'),
+    unique('attachments_storage_key_unique').on(table.storageKey),
+    check('attachments_file_name_not_blank', sql`btrim(${table.fileName}) <> ''`),
+    // Mirror ATTACHMENT_NAME_MAX_LENGTH, ATTACHMENT_MEDIA_TYPES and ATTACHMENT_SIZE_CEILING
+    // (`@toppo/shared`).
+    check('attachments_file_name_length', sql`char_length(${table.fileName}) <= 255`),
+    check(
+      'attachments_media_type_check',
+      sql`${table.mediaType} in ('image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain', 'text/csv', 'application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet', 'application/vnd.oasis.opendocument.presentation')`,
+    ),
+    check('attachments_size_check', sql`${table.size} between 1 and 1073741824`),
+    check('attachments_storage_key_check', sql`${table.storageKey} ~ '^[0-9a-f]{64}$'`),
+    index('attachments_issue_id_created_at_idx').on(table.issueId, table.createdAt),
+    index('attachments_comment_id_created_at_idx')
+      .on(table.commentId, table.createdAt)
+      .where(sql`${table.commentId} is not null`),
+    index('attachments_uploader_id_idx').on(table.uploaderId),
   ],
 );

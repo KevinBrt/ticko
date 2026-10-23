@@ -20,7 +20,7 @@ export function canSeeIssue(permissions: readonly string[], reportedByThem: bool
 
 /**
  * What someone may do on an issue they see. Whoever reported it may fix its title and
- * description; the rest needs the permission, on their own issues too.
+ * description, and attach files to it; the rest needs the permission, on their own issues too.
  */
 export function issueActionsOf(
   permissions: readonly string[],
@@ -29,6 +29,7 @@ export function issueActionsOf(
   const editsAny = can(permissions, 'issue.update');
   const granted: Record<IssueAction, boolean> = {
     editText: editsAny || reportedByThem,
+    attach: editsAny || reportedByThem,
     editFields: editsAny,
     changeStatus: editsAny,
     assign: can(permissions, 'issue.assign'),

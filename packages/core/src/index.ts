@@ -1,4 +1,20 @@
 export {
+  type AttachmentPlace,
+  attachmentActionsOf,
+  canAttachTo,
+} from './attachments/attachment-access.ts';
+export { cleanFileName, extensionOf } from './attachments/file-name.ts';
+export {
+  FILE_HEAD_LENGTH,
+  type FileContent,
+  type FileTypeCheck,
+  type FileTypeProblem,
+  isImage,
+  mediaTypeOf,
+  showsInline,
+} from './attachments/file-type.ts';
+export { createTextScan, type TextScan } from './attachments/text-scan.ts';
+export {
   INVITATION_LIFETIME_DAYS,
   invitationExpiry,
   isInvitationExpired,

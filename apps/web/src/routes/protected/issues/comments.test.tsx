@@ -44,6 +44,7 @@ function server(user = ADA, { archived = false } = {}) {
         id: COMMENT_ID,
         body: 'Seen on **Safari**.\nNot on Firefox.',
         editedAt: null,
+        attachments: [],
         actions: [],
       },
     },

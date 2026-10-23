@@ -1,5 +1,6 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 import type { IssuesQuery, ProjectIssuesQuery } from '@toppo/shared';
+import { Attachments } from '../api/attachments.api.ts';
 import { Issues } from '../api/issues.api.ts';
 
 /** Cached issues data. Keys start with `issues`. */
@@ -41,6 +42,25 @@ export const IssuesQueries = {
       queryFn: () => Issues.activities(key, page),
       placeholderData: keepPreviousData,
     }),
+  /** The files of an issue's request. */
+  attachments: (key: string) =>
+    queryOptions({
+      queryKey: ['issues', 'attachments', key],
+      queryFn: () => Attachments.list(key),
+    }),
+  /** The words of a text file: a file never changes. */
+  attachmentText: (key: string, attachmentId: string) =>
+    queryOptions({
+      queryKey: ['issues', 'attachmentText', key, attachmentId],
+      queryFn: () => Attachments.text(key, attachmentId),
+      staleTime: Number.POSITIVE_INFINITY,
+    }),
+  /** The instance's size limit: changed only by restarting the server. */
+  attachmentLimits: queryOptions({
+    queryKey: ['issues', 'attachmentLimits'],
+    queryFn: () => Attachments.limits(),
+    staleTime: Number.POSITIVE_INFINITY,
+  }),
   /** Short lists that change rarely: kept a while. */
   fields: (projectKey: string) =>
     queryOptions({

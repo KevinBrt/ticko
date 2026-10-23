@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_PRIORITIES,
@@ -7,6 +8,11 @@ import {
   DEFAULT_TRANSITIONS,
   DEFAULT_WORKFLOW_ID,
 } from '@toppo/core';
+import {
+  ATTACHMENT_MEDIA_TYPES,
+  ATTACHMENT_NAME_MAX_LENGTH,
+  ATTACHMENT_SIZE_CEILING,
+} from '@toppo/shared';
 import { createEmptyTestDatabase, createTestDatabase, type TestDatabase } from '@toppo/testing';
 import { eq, or, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -14,6 +20,8 @@ import { MIGRATIONS_FOLDER } from '../vitest.global-setup.ts';
 import { createDatabase, type Database } from './database.ts';
 import {
   activities,
+  attachments,
+  comments,
   instanceSettings,
   invitations,
   issueCategories,
@@ -642,5 +650,99 @@ describe('projects and issues', () => {
       .values({ projectId, userId: await createUser(), roleId });
 
     await expect(database.db.delete(roles).where(eq(roles.id, roleId))).rejects.toThrow();
+  });
+
+  async function createComment(issueId: string): Promise<string> {
+    const [comment] = await database.db
+      .insert(comments)
+      .values({ issueId, authorId: await createUser(), body: 'Here is the export' })
+      .returning({ id: comments.id });
+    return comment?.id ?? '';
+  }
+
+  async function attach(
+    issueId: string,
+    file: Partial<typeof attachments.$inferInsert> = {},
+  ): Promise<string> {
+    const [attachment] = await database.db
+      .insert(attachments)
+      .values({
+        issueId,
+        uploaderId: await createUser(),
+        fileName: 'export.csv',
+        mediaType: 'text/csv',
+        size: 1024,
+        storageKey: randomBytes(32).toString('hex'),
+        ...file,
+      })
+      .returning({ id: attachments.id });
+    return attachment?.id ?? '';
+  }
+
+  it('keeps a file on its issue, or on a comment of that very issue', async () => {
+    const projectId = await createProject();
+    const issueId = await createIssue(projectId, 1);
+    const otherIssueId = await createIssue(projectId, 2);
+    const commentId = await createComment(issueId);
+
+    await attach(issueId);
+    await attach(issueId, { commentId });
+
+    await expect(attach(otherIssueId, { commentId })).rejects.toThrow();
+  });
+
+  it('accepts the types of @toppo/shared only, of a sane size and name, under a random key', async () => {
+    const issueId = await createIssue(await createProject(), 1);
+    for (const mediaType of ATTACHMENT_MEDIA_TYPES) {
+      await attach(issueId, { mediaType });
+    }
+    await attach(issueId, {
+      fileName: 'x'.repeat(ATTACHMENT_NAME_MAX_LENGTH),
+      size: ATTACHMENT_SIZE_CEILING,
+    });
+
+    const fileId = await attach(issueId);
+    for (const mediaType of ['image/svg+xml', 'text/html', 'application/zip']) {
+      await expect(
+        database.db
+          .update(attachments)
+          .set({ mediaType: sql`${mediaType}` })
+          .where(eq(attachments.id, fileId)),
+      ).rejects.toThrow();
+    }
+    const refused: Partial<typeof attachments.$inferInsert>[] = [
+      { size: 0 },
+      { size: ATTACHMENT_SIZE_CEILING + 1 },
+      { fileName: '   ' },
+      { fileName: 'x'.repeat(ATTACHMENT_NAME_MAX_LENGTH + 1) },
+      { storageKey: '../../etc/passwd' },
+      { storageKey: randomBytes(32).toString('hex').toUpperCase() },
+    ];
+    for (const file of refused) {
+      await expect(attach(issueId, file)).rejects.toThrow();
+    }
+    const storageKey = randomBytes(32).toString('hex');
+    await attach(issueId, { storageKey });
+    await expect(attach(issueId, { storageKey })).rejects.toThrow();
+  });
+
+  it('removes files with their comment, and with their issue', async () => {
+    const projectId = await createProject();
+    const issueId = await createIssue(projectId, 1);
+    const commentId = await createComment(issueId);
+    const onRequest = await attach(issueId);
+    await attach(issueId, { commentId });
+
+    await database.db.delete(comments).where(eq(comments.id, commentId));
+    const left = await database.db
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(eq(attachments.issueId, issueId));
+    expect(left).toStrictEqual([{ id: onRequest }]);
+
+    await database.db.delete(issues).where(eq(issues.id, issueId));
+    expect(
+      await database.db.select().from(attachments).where(eq(attachments.issueId, issueId)),
+    ).toStrictEqual([]);
   });
 });

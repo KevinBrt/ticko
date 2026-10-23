@@ -51,6 +51,16 @@ toppo.example.com {
 }
 ```
 
+The proxy must let attachments through: nginx refuses request bodies over 1 MB unless told otherwise (`client_max_body_size 25m;` for the default 20 MB limit). Caddy sets no limit.
+
+## Attachments
+
+People attach files to issues and to comments: images (PNG, JPEG, WebP), PDF, text and logs, CSV, Word, Excel and PowerPoint files, and their OpenDocument counterparts.
+
+- **Size**: 20 MB per file by default; `TOPPO_ATTACHMENT_MAX_SIZE_MB` changes it (1 to 1024). At most 20 files on an issue's request, and on each comment.
+- **Checks**: the type a file's extension names must match its content, read by the server; anything else is refused (SVG, HTML, archives, executables…). Images and text files are shown in the app, PDFs open in the browser's own viewer, every other file is downloaded; the browser never runs anything of a file.
+- **Storage**: files are kept in the `/data` volume, under `uploads/`, named by random keys. Toppo stops accepting files while less than 1 GB is free there. Files removed, or left by deleted issues and projects, leave the disk within the hour.
+
 ## Using an existing PostgreSQL
 
 Remove the `db` service from `docker-compose.yml` and set `TOPPO_DATABASE_URL`, for example `postgres://toppo:password@db.example.com:5432/toppo?sslmode=require`. The user needs to own the database: Toppo creates and migrates its tables at startup, and installs `pg_trgm`, an extension that ships with PostgreSQL and that the owner of a database may install. On a managed service, check that `pg_trgm` is allowed (on Azure, in the `azure.extensions` parameter).

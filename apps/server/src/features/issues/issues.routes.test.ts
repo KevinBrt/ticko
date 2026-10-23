@@ -174,7 +174,7 @@ describe('reporting an issue', () => {
       assignee: null,
       reporter: { id: teamId, name: 'Grace Hopper' },
       closedAt: null,
-      actions: ['editText', 'editFields', 'changeStatus', 'assign', 'comment'],
+      actions: ['editText', 'attach', 'editFields', 'changeStatus', 'assign', 'comment'],
     });
     expect((await history(first)).map(({ type }) => type)).toStrictEqual(['issue.created']);
   });
@@ -281,7 +281,11 @@ describe('seeing issues', () => {
     expect(errorCode(hidden)).toBe('ISSUE_NOT_FOUND');
     expect(missing.statusCode).toBe(404);
     expect(errorCode(missing)).toBe('ISSUE_NOT_FOUND');
-    expect((await issue('WEB-9', requesterCookie)).actions).toStrictEqual(['editText', 'comment']);
+    expect((await issue('WEB-9', requesterCookie)).actions).toStrictEqual([
+      'editText',
+      'attach',
+      'comment',
+    ]);
   });
 
   it('names a deleted reporter by nothing but their id', async () => {

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { ATTACHMENT_SIZE_CEILING } from '@toppo/shared';
 import { z } from 'zod';
 
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
@@ -16,6 +17,8 @@ export interface Config {
   trustProxy: boolean;
   /** Persistent files: generated secret key, attachments. */
   dataDir: string;
+  /** Largest file people may attach, in bytes. */
+  attachmentMaxSize: number;
   /** Signs sessions. Generated into `dataDir` on first start unless provided. */
   secret: string | undefined;
   /** Preset first-run code for automated deployments; otherwise a random one is logged. */
@@ -24,6 +27,9 @@ export interface Config {
 
 export const SECRET_MIN_LENGTH = 32;
 export const SETUP_CODE_MIN_LENGTH = 12;
+
+/** Attachment sizes are set in mebibytes, as people read file sizes. */
+const MEBIBYTE = 1024 * 1024;
 
 const envSchema = z.object({
   TOPPO_URL: z
@@ -42,6 +48,12 @@ const envSchema = z.object({
   TOPPO_LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   TOPPO_TRUST_PROXY: z.stringbool().default(false),
   TOPPO_DATA_DIR: z.string().min(1).default('/data'),
+  TOPPO_ATTACHMENT_MAX_SIZE_MB: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(ATTACHMENT_SIZE_CEILING / MEBIBYTE)
+    .default(20),
   TOPPO_SECRET: z
     .string()
     .min(SECRET_MIN_LENGTH, `must be at least ${SECRET_MIN_LENGTH} characters`)
@@ -96,6 +108,7 @@ export function loadConfig(env: Env, readFile: ReadFile = readFileUtf8): Config 
     logLevel: parsed.TOPPO_LOG_LEVEL,
     trustProxy: parsed.TOPPO_TRUST_PROXY,
     dataDir: parsed.TOPPO_DATA_DIR,
+    attachmentMaxSize: parsed.TOPPO_ATTACHMENT_MAX_SIZE_MB * MEBIBYTE,
     secret: parsed.TOPPO_SECRET,
     setupCode: parsed.TOPPO_SETUP_CODE,
   };

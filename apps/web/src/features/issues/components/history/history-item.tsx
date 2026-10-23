@@ -8,6 +8,7 @@ import {
   FlagIcon,
   type LucideIcon,
   MessageSquareTextIcon,
+  PaperclipIcon,
   PencilIcon,
   SlidersHorizontalIcon,
   TagIcon,
@@ -44,6 +45,8 @@ function iconOf(activity: IssueActivity): LucideIcon {
       return activity.payload.to ? UserPlusIcon : UserXIcon;
     case 'issue.commented':
       return MessageSquareTextIcon;
+    case 'issue.attachmentAdded':
+      return PaperclipIcon;
   }
 }
 
@@ -173,6 +176,8 @@ function describe(activity: IssueActivity, t: Translate, statusColors: StatusCol
         : t('issues.activity.unassigned');
     case 'issue.commented':
       return t('issues.activity.commented');
+    case 'issue.attachmentAdded':
+      return t('issues.activity.attached', { name: activity.payload.attachment.fileName });
   }
 }
 
@@ -234,6 +239,8 @@ function field(activity: IssueActivity, t: Translate, statusColors: StatusColors
     // Never grouped with other changes: shown on its own, by `CommentItem`.
     case 'issue.commented':
       return t('issues.activity.commented');
+    case 'issue.attachmentAdded':
+      return t('issues.activity.attached', { name: activity.payload.attachment.fileName });
   }
 }
 

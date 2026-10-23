@@ -22,6 +22,7 @@ services:
       TOPPO_LOG_LEVEL: ${TOPPO_LOG_LEVEL:-info}
       TOPPO_SECRET: ${TOPPO_SECRET:-}
       TOPPO_SETUP_CODE: ${TOPPO_SETUP_CODE:-}
+      TOPPO_ATTACHMENT_MAX_SIZE_MB: ${TOPPO_ATTACHMENT_MAX_SIZE_MB:-}
     volumes:
       - toppo-data:/data
     depends_on:

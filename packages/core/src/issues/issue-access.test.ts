@@ -20,13 +20,25 @@ describe('issueActionsOf', () => {
   it('gives every action to whoever holds every permission', () => {
     expect(
       issueActionsOf(['issue.update', 'issue.assign', 'issue.delete', 'comment.create'], false),
-    ).toStrictEqual(['editText', 'editFields', 'changeStatus', 'assign', 'delete', 'comment']);
+    ).toStrictEqual([
+      'editText',
+      'attach',
+      'editFields',
+      'changeStatus',
+      'assign',
+      'delete',
+      'comment',
+    ]);
   });
 
-  it('lets a reporter fix the words of their issue, nothing more', () => {
-    expect(issueActionsOf(['issue.read.own', 'issue.create'], true)).toStrictEqual(['editText']);
+  it('lets a reporter fix the words of their issue and attach files to it, nothing more', () => {
+    expect(issueActionsOf(['issue.read.own', 'issue.create'], true)).toStrictEqual([
+      'editText',
+      'attach',
+    ]);
     expect(issueActionsOf(['issue.read.own', 'comment.create'], true)).toStrictEqual([
       'editText',
+      'attach',
       'comment',
     ]);
     expect(issueActionsOf(['issue.read'], false)).toStrictEqual([]);

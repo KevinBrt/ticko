@@ -41,7 +41,8 @@ export async function expectAccessible(page: Page): Promise<void> {
       .filter(
         (animation) => animation.effect?.getComputedTiming().endTime !== Number.POSITIVE_INFINITY,
       );
-    await Promise.all(ending.map((animation) => animation.finished));
+    // One cancelled meanwhile (a hover undone as a dialog opens) has ended too.
+    await Promise.all(ending.map((animation) => animation.finished.catch(() => animation)));
   });
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])

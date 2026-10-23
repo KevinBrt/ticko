@@ -17,6 +17,7 @@ import {
 } from '../auth/project-access.ts';
 import { HttpError } from '../http/http-error.ts';
 import { RequestValidationError } from '../http/zod.ts';
+import type { FileStorage } from '../uploads/file-storage.ts';
 
 /** The transaction a command runs in. */
 export type Transaction = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -29,6 +30,8 @@ export interface Services {
   setupCode: string;
   /** Where users reach Toppo (`TOPPO_URL`), to build links they open, such as invitations. */
   publicUrl: URL;
+  /** Attached files on disk: a command keeps a received file there, under a random key. */
+  files: Pick<FileStorage, 'keep' | 'maxFileSize'>;
 }
 
 /** What every command and query runs with: per HTTP request today, per plugin call later. */

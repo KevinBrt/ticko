@@ -44,6 +44,7 @@ export const issuePrioritySchema = z.object({
 /** What someone may do on an issue (`issueActionsOf` in `@toppo/core`); the server stays the judge. */
 export const ISSUE_ACTIONS = [
   'editText',
+  'attach',
   'editFields',
   'changeStatus',
   'assign',

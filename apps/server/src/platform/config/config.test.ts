@@ -27,6 +27,7 @@ describe('loadConfig', () => {
       logLevel: 'info',
       trustProxy: false,
       dataDir: '/data',
+      attachmentMaxSize: 20 * 1024 * 1024,
       secret: undefined,
       setupCode: undefined,
     });
@@ -42,6 +43,7 @@ describe('loadConfig', () => {
       TOPPO_LOG_LEVEL: 'warn',
       TOPPO_TRUST_PROXY: 'true',
       TOPPO_DATA_DIR: '/srv/toppo',
+      TOPPO_ATTACHMENT_MAX_SIZE_MB: '100',
       TOPPO_SECRET: 's'.repeat(32),
       TOPPO_SETUP_CODE: 'ABCD-EFGH-JKLM',
     });
@@ -53,6 +55,7 @@ describe('loadConfig', () => {
       logLevel: 'warn',
       trustProxy: true,
       dataDir: '/srv/toppo',
+      attachmentMaxSize: 100 * 1024 * 1024,
       secret: 's'.repeat(32),
       setupCode: 'ABCD-EFGH-JKLM',
     });
@@ -105,6 +108,12 @@ describe('loadConfig', () => {
       'TOPPO_SECRET: must be at least 32 characters',
       'TOPPO_SETUP_CODE: must be at least 12 characters',
     ]);
+  });
+
+  it.each(['0', '1025', '2.5', '20MB'])('refuses an attachment size limit of %s', (size) => {
+    expect(
+      issuesOf(() => loadConfig({ ...minimalEnv, TOPPO_ATTACHMENT_MAX_SIZE_MB: size })),
+    ).toStrictEqual([expect.stringContaining('TOPPO_ATTACHMENT_MAX_SIZE_MB')]);
   });
 
   it('treats empty variables as unset, as Docker Compose passes them', () => {

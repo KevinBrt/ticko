@@ -2,8 +2,12 @@ import { playwright } from '@vitest/browser-playwright';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import viteConfig from './vite.config.ts';
 
+// Tests reach no server: the fake one answers `fetch`, and nothing is proxied, not even an
+// image's address, whether a development server runs or not.
+const { server: _developmentServer, ...appConfig } = viteConfig;
+
 export default mergeConfig(
-  viteConfig,
+  appConfig,
   defineConfig({
     // The dev server's strict port must not apply to tests: browser suites run in parallel.
     server: { strictPort: false },

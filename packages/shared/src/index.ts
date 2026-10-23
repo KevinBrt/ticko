@@ -29,6 +29,27 @@ export {
   issueActivitySchema,
 } from './issues/activities.ts';
 export {
+  ATTACHMENT_ACTIONS,
+  ATTACHMENT_KINDS,
+  ATTACHMENT_MEDIA_TYPES,
+  ATTACHMENT_NAME_MAX_LENGTH,
+  ATTACHMENT_SIZE_CEILING,
+  ATTACHMENT_TYPES,
+  ATTACHMENTS_MAX,
+  type AttachmentAction,
+  type AttachmentKind,
+  type AttachmentLimitsResponse,
+  type AttachmentMediaType,
+  addAttachmentResponseSchema,
+  attachmentLimitsResponseSchema,
+  attachmentParamsSchema,
+  FILE_NAME_HEADER,
+  type IssueAttachment,
+  type IssueAttachmentsResponse,
+  issueAttachmentSchema,
+  issueAttachmentsResponseSchema,
+} from './issues/attachments.ts';
+export {
   CATEGORIES_MAX,
   CATEGORY_NAME_MAX_LENGTH,
   type CategoriesRequest,

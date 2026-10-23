@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDatabase, waitForDatabase } from '@toppo/db';
 import { buildApp, createServices } from './app.ts';
@@ -6,6 +7,8 @@ import { generateSetupCode } from './features/setup/utils/setup-code.util.ts';
 import { createAuth } from './platform/auth/auth.ts';
 import { type Config, ConfigError, loadConfig } from './platform/config/config.ts';
 import { resolveSecret } from './platform/config/secret.ts';
+import { createFileStorage } from './platform/uploads/file-storage.ts';
+import { startFileSweeper } from './platform/uploads/file-sweeper.ts';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -38,7 +41,12 @@ const auth = createAuth({
   publicUrl: config.publicUrl,
 });
 const setupCode = config.setupCode ?? generateSetupCode();
-const app = await buildApp({ config, database, auth, setupCode, webRoot: WEB_ROOT });
+const files = await createFileStorage({
+  root: join(config.dataDir, 'uploads'),
+  maxFileSize: config.attachmentMaxSize,
+});
+const app = await buildApp({ config, database, auth, setupCode, files, webRoot: WEB_ROOT });
+let stopSweeping: (() => void) | undefined;
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   app.log.info({ signal }, 'Shutting down');
@@ -48,6 +56,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   }, SHUTDOWN_TIMEOUT_MS);
   forceExit.unref();
 
+  stopSweeping?.();
   await app.close();
   await database.close();
   process.exit(0);
@@ -65,13 +74,14 @@ try {
   });
   await database.migrate(MIGRATIONS_FOLDER);
   await app.listen({ host: config.host, port: config.port });
+  stopSweeping = startFileSweeper({ db: database.db, files, log: app.log });
 
   const { required } = await getSetupStatus.execute(
     {
       db: database.db,
       actor: null,
       log: app.log,
-      services: createServices({ auth, setupCode, publicUrl: config.publicUrl }),
+      services: createServices({ auth, setupCode, files, publicUrl: config.publicUrl }),
     },
     {},
   );

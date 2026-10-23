@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { issueAttachmentSchema } from './attachments.ts';
 import { issueCommentSchema } from './comments.ts';
 import { PRIORITY_LEVELS } from './fields.ts';
 import { userRefSchema } from './issues.ts';
@@ -27,6 +28,9 @@ export const ISSUE_ACTIVITY_PAYLOADS = {
   'issue.commented': z.object({ commentId: z.uuid() }),
   'issue.commentEdited': z.object({ commentId: z.uuid() }),
   'issue.commentDeleted': z.object({ commentId: z.uuid() }),
+  // So is a file: removed, its name leaves no trace. One of a comment shows with the comment.
+  'issue.attachmentAdded': z.object({ attachmentId: z.uuid() }),
+  'issue.attachmentRemoved': z.object({ attachmentId: z.uuid() }),
   /** Recorded without an issue, which is gone: its key says which it was. */
   'issue.deleted': z.object({ key: z.string() }),
 } as const;
@@ -39,11 +43,11 @@ export type IssueActivityPayload<T extends IssueActivityType> = z.infer<
 
 /**
  * What an issue's history shows: not its deletion, recorded once it is gone, nor what happens to
- * a comment after it is written, which the comment itself shows (edited) or no longer does.
+ * a comment or a file after it is added, which it shows itself (edited) or no longer does.
  */
 export type HistoryType = Exclude<
   IssueActivityType,
-  'issue.deleted' | 'issue.commentEdited' | 'issue.commentDeleted'
+  'issue.deleted' | 'issue.commentEdited' | 'issue.commentDeleted' | 'issue.attachmentRemoved'
 >;
 
 /** One change in an issue's history, as `GET /api/v1/issues/:issueKey/activities` shows it. */
@@ -71,6 +75,8 @@ export const issueActivitySchema = z.discriminatedUnion('type', [
   ),
   // The comment as it is now; a deleted one leaves the history.
   entry('issue.commented', z.object({ comment: issueCommentSchema })),
+  // A file of the request, while it is there.
+  entry('issue.attachmentAdded', z.object({ attachment: issueAttachmentSchema })),
 ]);
 
 export type IssueActivity = z.infer<typeof issueActivitySchema>;

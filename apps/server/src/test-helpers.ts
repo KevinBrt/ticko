@@ -11,6 +11,7 @@ import { buildApp } from './app.ts';
 import type { Actor } from './platform/auth/actor.ts';
 import { createAuth } from './platform/auth/auth.ts';
 import type { ExecutionContext, Services } from './platform/cqrs/cqrs.ts';
+import { createFileStorage, type FileStorage } from './platform/uploads/file-storage.ts';
 
 export const TEST_SECRET = 'test-secret-that-is-long-enough-to-be-accepted';
 export const TEST_SETUP_CODE = 'TEST-SETU-PCDE';
@@ -21,30 +22,55 @@ export interface TestAppOptions {
   ping?: () => Promise<void>;
   publicUrl?: string;
   webRoot?: string;
+  /** Attached files; by default, an empty storage of its own in the temporary directory. */
+  files?: FileStorage;
 }
 
-export function buildTestApp({
+/** Largest attachment in tests unless a test chooses otherwise: small, to test the limit cheaply. */
+export const TEST_ATTACHMENT_MAX_SIZE = 64 * 1024;
+
+/** An empty file storage of its own, in the temporary directory, with plenty of room. */
+export function createTestFileStorage(
+  options: { maxFileSize?: number; freeSpace?: () => Promise<number> } = {},
+): Promise<FileStorage> {
+  return createFileStorage({
+    root: mkdtempSync(join(tmpdir(), 'toppo-uploads-')),
+    maxFileSize: options.maxFileSize ?? TEST_ATTACHMENT_MAX_SIZE,
+    freeSpace: options.freeSpace ?? (() => Promise.resolve(Number.MAX_SAFE_INTEGER)),
+  });
+}
+
+export async function buildTestApp({
   database = createDatabase({ url: 'postgres://toppo:toppo@127.0.0.1:1/unused' }),
   ping,
   publicUrl = 'http://localhost:3000',
   webRoot = join(tmpdir(), 'toppo-no-web-root'),
+  files,
 }: TestAppOptions = {}): Promise<FastifyInstance> {
   const url = new URL(publicUrl);
-  return buildApp({
+  return await buildApp({
     config: { publicUrl: url, logLevel: 'silent', trustProxy: false },
     database: { db: database.db, ping: ping ?? (() => Promise.resolve()) },
     auth: createAuth({ db: database.db, secret: TEST_SECRET, publicUrl: url }),
     setupCode: TEST_SETUP_CODE,
+    files: files ?? (await createTestFileStorage()),
     webRoot,
   });
 }
 
-/** Services for commands run directly in tests: passwords are "hashed" as themselves. */
+/**
+ * Services for commands run directly in tests: passwords are "hashed" as themselves; no file is
+ * kept unless a test gives a storage.
+ */
 export function testServices(overrides: Partial<Services> = {}): Services {
   return {
     hashPassword: (password) => Promise.resolve(password),
     setupCode: TEST_SETUP_CODE,
     publicUrl: new URL('http://localhost:3000'),
+    files: {
+      maxFileSize: TEST_ATTACHMENT_MAX_SIZE,
+      keep: () => Promise.reject(new Error('No file storage in this test')),
+    },
     ...overrides,
   };
 }

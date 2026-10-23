@@ -1,20 +1,23 @@
-import { commentActionsOf } from '@toppo/core';
+import { type AttachmentPlace, attachmentActionsOf, commentActionsOf } from '@toppo/core';
 import { type Db, schema } from '@toppo/db';
 import {
+  type AttachmentAction,
+  type AttachmentMediaType,
   type CommentAction,
   ISSUE_ACTIVITIES_PAGE_SIZE,
   ISSUE_ACTIVITY_PAYLOADS,
   type IssueActivitiesResponse,
   type IssueActivity,
+  type IssueAttachment,
   issueActivitiesQuerySchema,
   issueKeyParamsSchema,
   type UserRef,
 } from '@toppo/shared';
-import { and, asc, count, desc, eq, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 import { userRefOf } from '../utils/issue-rows.util.ts';
 
-const { activities, comments, users } = schema;
+const { activities, attachments, comments, users } = schema;
 
 /** The activities an issue's history shows: every type listed, so that none is forgotten. */
 const SHOWN: Readonly<Record<keyof typeof ISSUE_ACTIVITY_PAYLOADS, boolean>> = {
@@ -28,6 +31,8 @@ const SHOWN: Readonly<Record<keyof typeof ISSUE_ACTIVITY_PAYLOADS, boolean>> = {
   'issue.commented': true,
   'issue.commentEdited': false,
   'issue.commentDeleted': false,
+  'issue.attachmentAdded': true,
+  'issue.attachmentRemoved': false,
   'issue.deleted': false,
 };
 
@@ -42,11 +47,24 @@ interface ActivityRow {
   createdAt: Date;
   actor: { id: string; name: string; deletedAt: Date | null };
   comment: { id: string; body: string; editedAt: Date | null; authorId: string } | null;
+  attachment: AttachmentRow | null;
 }
+
+interface AttachmentRow {
+  id: string;
+  fileName: string;
+  mediaType: AttachmentMediaType;
+  size: number;
+  uploaderId: string;
+}
+
+/** What the caller may do on a file, where it is attached. */
+type FileActions = (file: AttachmentRow, place: AttachmentPlace) => AttachmentAction[];
 
 /**
  * One page of an issue's history, newest first, each change checked against its type. A comment
- * shows as it is now, with what the caller may do on it; a deleted one is left out.
+ * shows as it is now, its files with it, with what the caller may do on it; a deleted one is left
+ * out. So is a file of the request once removed.
  */
 export const listIssueActivities = defineQuery({
   name: 'issue.listActivities',
@@ -57,9 +75,15 @@ export const listIssueActivities = defineQuery({
       eq(activities.issueId, project.issue.id),
       inArray(activities.type, HISTORY_TYPES),
       or(ne(activities.type, 'issue.commented'), isNotNull(comments.id)),
+      // A file of a comment shows with the comment.
+      or(
+        ne(activities.type, 'issue.attachmentAdded'),
+        and(isNotNull(attachments.id), isNull(attachments.commentId)),
+      ),
     );
-    // The comment an activity is about, if any: its id is all the activity keeps.
+    // The comment or the file an activity is about, if any: its id is all the activity keeps.
     const about = eq(comments.id, sql`(${activities.payload} ->> 'commentId')::uuid`);
+    const aboutFile = eq(attachments.id, sql`(${activities.payload} ->> 'attachmentId')::uuid`);
     const rows = await db
       .select({
         id: activities.id,
@@ -73,10 +97,12 @@ export const listIssueActivities = defineQuery({
           editedAt: comments.editedAt,
           authorId: comments.authorId,
         },
+        attachment: ATTACHMENT_COLUMNS,
       })
       .from(activities)
       .innerJoin(users, eq(users.id, activities.actorId))
       .leftJoin(comments, about)
+      .leftJoin(attachments, aboutFile)
       .where(ofIssue)
       // Changes made in one request share its time: they keep the order they were made in.
       .orderBy(desc(activities.createdAt), asc(activities.id))
@@ -86,20 +112,71 @@ export const listIssueActivities = defineQuery({
       .select({ count: count() })
       .from(activities)
       .leftJoin(comments, about)
+      .leftJoin(attachments, aboutFile)
       .where(ofIssue);
     const people = await peopleNamedIn(db, rows);
+    const filesOfComments = await filesOfCommentsIn(db, rows);
     // Read-only while archived: nothing to offer.
     const actionsOn = (authorId: string) =>
       project.archived ? [] : commentActionsOf(project.permissions, authorId === actor.id);
+    const fileActions: FileActions = (file, place) =>
+      project.archived
+        ? []
+        : attachmentActionsOf(project.permissions, place, file.uploaderId === actor.id);
+    const shown = {
+      people,
+      filesOfComments,
+      actionsOn,
+      fileActions,
+      reportedByActor: project.issue.reportedByActor,
+      actorId: actor.id,
+    };
 
     return {
-      rows: rows.map((row) => toActivity(row, people, actionsOn)),
+      rows: rows.map((row) => toActivity(row, shown)),
       matching: total?.count ?? 0,
       page,
       pageSize: ISSUE_ACTIVITIES_PAGE_SIZE,
     };
   },
 });
+
+const ATTACHMENT_COLUMNS = {
+  id: attachments.id,
+  fileName: attachments.fileName,
+  mediaType: attachments.mediaType,
+  size: attachments.size,
+  uploaderId: attachments.uploaderId,
+};
+
+/** The files of the comments of a page, oldest first, in one query: at most 20 per comment. */
+async function filesOfCommentsIn(
+  db: Db,
+  rows: readonly ActivityRow[],
+): Promise<Map<string, AttachmentRow[]>> {
+  const commentIds = rows.flatMap(({ comment }) => (comment ? [comment.id] : []));
+  const files = new Map<string, AttachmentRow[]>();
+  if (commentIds.length === 0) {
+    return files;
+  }
+  const found = await db
+    .select({ ...ATTACHMENT_COLUMNS, commentId: attachments.commentId })
+    .from(attachments)
+    .where(inArray(attachments.commentId, commentIds))
+    .orderBy(asc(attachments.createdAt), asc(attachments.id));
+  for (const { commentId, ...file } of found) {
+    if (commentId) {
+      files.set(commentId, [...(files.get(commentId) ?? []), file]);
+    }
+  }
+  return files;
+}
+
+/** A file as the history shows it, with what the caller may do on it there. */
+function toAttachment(file: AttachmentRow, actions: AttachmentAction[]): IssueAttachment {
+  const { id, fileName, mediaType, size } = file;
+  return { id, fileName, mediaType, size, actions };
+}
 
 /** The people assignment changes name, by id, in one query: named as they are now. */
 async function peopleNamedIn(db: Db, rows: readonly ActivityRow[]): Promise<Map<string, UserRef>> {
@@ -124,12 +201,19 @@ async function peopleNamedIn(db: Db, rows: readonly ActivityRow[]): Promise<Map<
   return new Map(named.map((user) => [user.id, userRefOf(user)]));
 }
 
+/** What a page of history needs, besides its rows, to show them. */
+interface Shown {
+  people: ReadonlyMap<string, UserRef>;
+  filesOfComments: ReadonlyMap<string, AttachmentRow[]>;
+  actionsOn: (authorId: string) => CommentAction[];
+  fileActions: FileActions;
+  reportedByActor: boolean;
+  actorId: string;
+}
+
 /** A stored activity as the history shows it. */
-function toActivity(
-  row: ActivityRow,
-  people: ReadonlyMap<string, UserRef>,
-  actionsOn: (authorId: string) => CommentAction[],
-): IssueActivity {
+function toActivity(row: ActivityRow, shown: Shown): IssueActivity {
+  const { people, filesOfComments, actionsOn, fileActions } = shown;
   const base = { id: row.id, actor: userRefOf(row.actor), createdAt: row.createdAt.toISOString() };
   const { payload } = row;
   const payloads = ISSUE_ACTIVITY_PAYLOADS;
@@ -181,6 +265,7 @@ function toActivity(
         throw new Error(`The comment of activity ${row.id} is gone`);
       }
       const { id, body, editedAt, authorId } = row.comment;
+      const place = { on: 'comment', writtenByThem: authorId === shown.actorId } as const;
       return {
         ...base,
         type: 'issue.commented',
@@ -189,9 +274,23 @@ function toActivity(
             id,
             body,
             editedAt: editedAt?.toISOString() ?? null,
+            attachments: (filesOfComments.get(id) ?? []).map((file) =>
+              toAttachment(file, fileActions(file, place)),
+            ),
             actions: actionsOn(authorId),
           },
         },
+      };
+    }
+    case 'issue.attachmentAdded': {
+      if (!row.attachment) {
+        throw new Error(`The file of activity ${row.id} is gone`);
+      }
+      const place = { on: 'request', reportedByThem: shown.reportedByActor } as const;
+      return {
+        ...base,
+        type: 'issue.attachmentAdded',
+        payload: { attachment: toAttachment(row.attachment, fileActions(row.attachment, place)) },
       };
     }
     default:
