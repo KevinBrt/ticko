@@ -223,7 +223,8 @@ describe('the files of an issue', () => {
   it('takes files dropped on the request, and tells it in the activity', async () => {
     const fake = server(ADA, { attachments: [] });
     await renderApp({ path: '/issues/WEB-1' });
-    await expect.element(request().getByText('Attachments')).toBeVisible();
+    // Files are taken once the size limit is known.
+    await expect.element(request().getByRole('button', { name: 'Attach files' })).toBeEnabled();
 
     // Dropped anywhere on the files' area: the event reaches it.
     dropFiles(request().getByText('Attachments').element(), [csv('dropped.csv')]);

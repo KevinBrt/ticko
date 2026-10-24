@@ -11,6 +11,9 @@ export default mergeConfig(
   defineConfig({
     // The dev server's strict port must not apply to tests: browser suites run in parallel.
     server: { strictPort: false },
+    // Found by Vite only once tests run: optimizing them then reloads the browser, and a test file
+    // loading at that moment never starts (seen on a cold cache, as in CI).
+    optimizeDeps: { include: ['get-nonce', 'react-dom/client'] },
     test: {
       include: ['src/**/*.test.{ts,tsx}'],
       setupFiles: ['src/test-setup.ts'],
