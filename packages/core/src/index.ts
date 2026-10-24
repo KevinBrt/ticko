@@ -55,6 +55,8 @@ export {
   type IssueFields,
   issueChanges,
 } from './issues/issue-changes.ts';
+export { type LabelsChange, labelsChange } from './issues/labels.ts';
+export { type OptionsPlan, planOptions } from './issues/options-plan.ts';
 export { priorityLevelOf } from './issues/priority-level.ts';
 export {
   canMoveTo,

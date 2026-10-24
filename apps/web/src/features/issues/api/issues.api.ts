@@ -41,6 +41,7 @@ function listQuery(query: ProjectIssuesQuery): string {
     status: query.status?.join(','),
     priority: query.priority?.join(','),
     category: query.category?.join(','),
+    label: query.label?.join(','),
     assignee: query.assignee?.join(','),
     reporter: query.reporter?.join(','),
     sort: query.sort,
@@ -110,6 +111,15 @@ export const Issues = {
     await apiRequest(`${issuePath(key)}/assignee`, {
       method: 'PUT',
       body: { assigneeId },
+      schema: noContent,
+    });
+  },
+
+  /** Gives the issue exactly these labels. */
+  async setLabels(key: string, labelIds: string[]): Promise<void> {
+    await apiRequest(`${issuePath(key)}/labels`, {
+      method: 'PUT',
+      body: { labelIds },
       schema: noContent,
     });
   },

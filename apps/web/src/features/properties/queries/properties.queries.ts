@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { Categories } from '../api/categories.api.ts';
+import { Labels } from '../api/labels.api.ts';
 import { Priorities } from '../api/priorities.api.ts';
 
 /** Cached settings of the issues' properties. Keys start with `properties`. */
@@ -13,5 +14,9 @@ export const PropertiesQueries = {
   priorities: queryOptions({
     queryKey: ['properties', 'priorities'],
     queryFn: () => Priorities.list(),
+  }),
+  labels: queryOptions({
+    queryKey: ['properties', 'labels'],
+    queryFn: () => Labels.list(),
   }),
 };

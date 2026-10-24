@@ -52,6 +52,12 @@ export function IssuesToolbar({
     { filter: 'status', label: t('issues.status'), shown: true },
     { filter: 'priority', label: t('issues.priority'), shown: true },
     { filter: 'category', label: t('issues.category'), shown: true },
+    // Once the instance has labels, or while the address still filters by one.
+    {
+      filter: 'label',
+      label: t('issues.labels'),
+      shown: filters.options.label.length > 0 || Boolean(query.label?.length),
+    },
     { filter: 'assignee', label: t('issues.assignee'), shown: true },
     { filter: 'reporter', label: t('issues.reporter'), shown: seesEveryIssue },
   ];
@@ -199,6 +205,11 @@ function useFilterOptions(projectKey: string, canListPeople: boolean) {
       label: <Badge tone={category.color}>{category.name}</Badge>,
       text: category.name,
     })),
+    label: (fields.data?.labels ?? []).map((label) => ({
+      value: label.id,
+      label: <Badge tone={label.color}>{label.name}</Badge>,
+      text: label.name,
+    })),
     assignee: [
       me,
       { value: 'none', label: t('issues.unassigned'), text: t('issues.unassigned') },
@@ -211,6 +222,7 @@ function useFilterOptions(projectKey: string, canListPeople: boolean) {
     status: fields.isPending,
     priority: fields.isPending,
     category: fields.isPending,
+    label: fields.isPending,
     assignee: loadingPeople,
     reporter: loadingPeople,
   };

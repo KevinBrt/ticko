@@ -17,6 +17,7 @@ const WORDS: Readonly<Record<IssueListFilter, readonly string[]>> = {
   status: [],
   priority: [],
   category: [],
+  label: [],
   assignee: ['me', 'none'],
   reporter: ['me'],
 };
@@ -45,6 +46,7 @@ export function issuesQueryOf(search: IssueListSearch): ProjectIssuesQuery {
     status: valuesIn(search.status, 'status'),
     priority: valuesIn(search.priority, 'priority'),
     category: valuesIn(search.category, 'category'),
+    label: valuesIn(search.label, 'label'),
     assignee: valuesIn(search.assignee, 'assignee'),
     reporter: valuesIn(search.reporter, 'reporter'),
     sort: search.sort,
@@ -65,6 +67,7 @@ export function searchOf(query: ProjectIssuesQuery): Omit<IssueListSearch, 'proj
     status: joined(query.status),
     priority: joined(query.priority),
     category: joined(query.category),
+    label: joined(query.label),
     assignee: joined(query.assignee),
     reporter: joined(query.reporter),
     sort: query.sort === 'key' ? undefined : query.sort,

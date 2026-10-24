@@ -16,5 +16,7 @@ export function applyEdit(issue: IssueResponse, edit: IssueEdit): IssueResponse 
       return { ...issue, status: edit.status };
     case 'assignee':
       return { ...issue, assignee: edit.assignee };
+    case 'labels':
+      return { ...issue, labels: edit.labels };
   }
 }

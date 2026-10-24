@@ -130,6 +130,50 @@ export const issues = pgTable(
 );
 
 /**
+ * Labels issues are tagged with, any number each: one list for the whole instance, edited in the
+ * settings. Deleting one takes it off its issues; their history keeps its name.
+ */
+export const labels = pgTable(
+  'labels',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    color: text('color', { enum: PALETTE_COLORS }).notNull().default('gray'),
+    ...timestamps,
+  },
+  (table) => [
+    check('labels_name_not_blank', sql`btrim(${table.name}) <> ''`),
+    // Mirrors LABEL_NAME_MAX_LENGTH (`@toppo/shared`).
+    check('labels_name_length', sql`char_length(${table.name}) <= 40`),
+    check(
+      'labels_color_check',
+      sql`${table.color} in ('gray', 'blue', 'green', 'amber', 'violet', 'cyan', 'orange', 'pink')`,
+    ),
+    uniqueIndex('labels_name_unique').on(sql`lower(${table.name})`),
+  ],
+);
+
+/** The labels of each issue: gone with the issue, or with the label. */
+export const issueLabels = pgTable(
+  'issue_labels',
+  {
+    id: id(),
+    issueId: uuid('issue_id')
+      .notNull()
+      .references(() => issues.id, { onDelete: 'cascade' }),
+    labelId: uuid('label_id')
+      .notNull()
+      .references(() => labels.id, { onDelete: 'cascade' }),
+    ...timestamps,
+  },
+  (table) => [
+    // Also finds an issue's labels, and whether it has one, from the index alone.
+    unique('issue_labels_unique').on(table.issueId, table.labelId),
+    index('issue_labels_label_id_idx').on(table.labelId),
+  ],
+);
+
+/**
  * What happened to issues, written in the same transaction as each change: the one source of
  * history, notifications, webhooks and plugins. Never updated.
  */

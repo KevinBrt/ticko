@@ -12,6 +12,7 @@ import { Pager } from '../../../../shared/layout/pager.tsx';
 import { SORT_LABELS } from '../../constants/issue-list.constants.ts';
 import type { IssueSection } from '../../models/issue-list.model.ts';
 import { sectionsOf } from '../../utils/issue-groups.util.ts';
+import { LabelChips } from '../fields/label-chips.tsx';
 import { PersonName } from '../fields/person-name.tsx';
 import { PriorityLabel } from '../fields/priority-label.tsx';
 import { StatusLabel } from '../fields/status-label.tsx';
@@ -108,13 +109,21 @@ export function IssuesTable<Issue extends IssueSummary>({
       sort: 'title',
       className: '',
       cell: (issue) => (
-        <Link
-          to="/issues/$issueKey"
-          params={{ issueKey: issue.key }}
-          className="line-clamp-1 font-medium break-words text-foreground outline-none after:absolute after:inset-0 hover:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
-        >
-          {issue.title}
-        </Link>
+        <span className="flex min-w-0 items-center gap-2">
+          <Link
+            to="/issues/$issueKey"
+            params={{ issueKey: issue.key }}
+            className="line-clamp-1 min-w-0 font-medium break-words text-foreground outline-none after:absolute after:inset-0 hover:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+          >
+            {issue.title}
+          </Link>
+          {/* Beside the subject while there is room for both. */}
+          <LabelChips
+            labels={issue.labels}
+            max={2}
+            className="hidden shrink-0 flex-nowrap lg:flex"
+          />
+        </span>
       ),
     },
     {

@@ -18,6 +18,7 @@ const KNOWN_ERRORS = {
   INVALID_ASSIGNEE: 'issues.invalidAssignee',
   INVALID_CATEGORY: 'issues.invalidCategory',
   INVALID_PRIORITY: 'issues.invalidPriority',
+  INVALID_LABEL: 'issues.invalidLabel',
   ISSUE_NOT_FOUND: 'issues.notFound',
   PROJECT_ARCHIVED: 'projects.archivedNotice',
 } as const;
@@ -37,6 +38,11 @@ function send(key: string, edit: IssueEdit): Promise<void> {
       return Issues.changeStatus(key, edit.status.id);
     case 'assignee':
       return Issues.assign(key, edit.assignee?.id ?? null);
+    case 'labels':
+      return Issues.setLabels(
+        key,
+        edit.labels.map(({ id }) => id),
+      );
   }
 }
 

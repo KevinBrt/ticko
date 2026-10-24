@@ -9,7 +9,7 @@ import { and, desc, eq, isNull, or, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { grantedIn } from '../../../platform/auth/project-access.ts';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
-import { toIssueSummary } from '../utils/issue-rows.util.ts';
+import { labelsOfIssue, toIssueSummary } from '../utils/issue-rows.util.ts';
 import { textMatching, textRank } from '../utils/issue-search.util.ts';
 
 const { issueCategories, issues, priorities, projects, statuses, users } = schema;
@@ -75,6 +75,7 @@ export const searchIssues = defineQuery({
         priority: { id: priorities.id, name: priorities.name, level: priorities.level },
         assignee: { id: assignees.id, name: assignees.name, deletedAt: assignees.deletedAt },
         reporter: { id: reporters.id, name: reporters.name, deletedAt: reporters.deletedAt },
+        labels: labelsOfIssue,
         createdAt: issues.createdAt,
         updatedAt: issues.updatedAt,
       })

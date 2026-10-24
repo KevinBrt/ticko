@@ -1,11 +1,18 @@
 import { effectiveWorkflow, nextStatusesOf, priorityLevelOf } from '@toppo/core';
 import { schema } from '@toppo/db';
 import { type IssueFieldsResponse, projectIssuesParamsSchema } from '@toppo/shared';
-import { asc, eq, isNull, or } from 'drizzle-orm';
+import { asc, eq, isNull, or, sql } from 'drizzle-orm';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
 
-const { issueCategories, priorities, statuses, workflowStatuses, workflowTransitions, workflows } =
-  schema;
+const {
+  issueCategories,
+  labels,
+  priorities,
+  statuses,
+  workflowStatuses,
+  workflowTransitions,
+  workflows,
+} = schema;
 
 /**
  * The short lists issue forms offer in a project: the statuses of its workflow and the moves
@@ -21,7 +28,7 @@ export const getIssueFields = defineQuery({
       .from(workflows)
       .where(or(isNull(workflows.projectId), eq(workflows.projectId, project.id)));
     const workflow = effectiveWorkflow(candidates, project.id);
-    const [steps, transitions, categories, levels] = await Promise.all([
+    const [steps, transitions, categories, levels, tags] = await Promise.all([
       db
         .select({
           id: statuses.id,
@@ -59,6 +66,10 @@ export const getIssueFields = defineQuery({
         })
         .from(priorities)
         .orderBy(asc(priorities.level)),
+      db
+        .select({ id: labels.id, name: labels.name, color: labels.color })
+        .from(labels)
+        .orderBy(sql`lower(${labels.name})`, asc(labels.id)),
     ]);
     const moves = { mode: workflow.mode, statusIds: steps.map(({ id }) => id), transitions };
 
@@ -69,6 +80,7 @@ export const getIssueFields = defineQuery({
         ...priority,
         level: priorityLevelOf(priority.level),
       })),
+      labels: tags,
     };
   },
 });

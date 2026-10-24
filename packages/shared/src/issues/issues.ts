@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PALETTE_COLORS } from '../colors.ts';
 import { projectKeySchema } from '../project-key.ts';
 import { issueDescriptionSchema, issueTitleSchema, PRIORITY_LEVELS } from './fields.ts';
+import { labelRefSchema } from './labels.ts';
 
 /** Rows per page of a project's issues. */
 export const ISSUES_PAGE_SIZE = 50;
@@ -168,6 +169,8 @@ export const projectIssuesQuerySchema = issuesQuerySchema.extend({
   status: listParameter(z.uuid()),
   priority: listParameter(z.uuid()),
   category: listParameter(z.uuid()),
+  /** Issues with any of these labels. */
+  label: listParameter(z.uuid()),
   /** Someone, the caller (`me`), or no one (`none`). */
   assignee: listParameter(z.union([z.uuid(), z.literal('me'), z.literal('none')])),
   /** Someone, or the caller (`me`). */
@@ -186,6 +189,7 @@ export interface ProjectIssuesQuery extends IssuesQuery {
   status?: readonly string[] | undefined;
   priority?: readonly string[] | undefined;
   category?: readonly string[] | undefined;
+  label?: readonly string[] | undefined;
   assignee?: readonly string[] | undefined;
   reporter?: readonly string[] | undefined;
   sort?: IssueSort | undefined;
@@ -202,6 +206,8 @@ export const issueSummarySchema = z.object({
   priority: issuePrioritySchema,
   assignee: userRefSchema.nullable(),
   reporter: userRefSchema,
+  /** By name. */
+  labels: z.array(labelRefSchema),
   /** UTC ISO 8601. */
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -284,6 +290,8 @@ export const issueFieldsResponseSchema = z.object({
   categories: z.array(issueCategorySchema.extend({ isDefault: z.boolean() })),
   /** Lowest first. */
   priorities: z.array(issuePrioritySchema.extend({ isDefault: z.boolean() })),
+  /** Every label of the instance, by name. */
+  labels: z.array(labelRefSchema),
 });
 
 export type IssueFieldsResponse = z.infer<typeof issueFieldsResponseSchema>;

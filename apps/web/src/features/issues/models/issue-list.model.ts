@@ -16,6 +16,7 @@ export const issueListSearchSchema = z.object({
   status: listInAddress,
   priority: listInAddress,
   category: listInAddress,
+  label: listInAddress,
   assignee: listInAddress,
   reporter: listInAddress,
   sort: z.enum(ISSUE_SORTS).optional().catch(undefined),
@@ -35,6 +36,7 @@ export const ISSUE_LIST_FILTERS = [
   'status',
   'priority',
   'category',
+  'label',
   'assignee',
   'reporter',
 ] as const;

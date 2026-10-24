@@ -28,6 +28,7 @@ const SHOWN: Readonly<Record<keyof typeof ISSUE_ACTIVITY_PAYLOADS, boolean>> = {
   'issue.priorityChanged': true,
   'issue.statusChanged': true,
   'issue.assigneeChanged': true,
+  'issue.labelsChanged': true,
   'issue.commented': true,
   'issue.commentEdited': false,
   'issue.commentDeleted': false,
@@ -260,6 +261,12 @@ function toActivity(row: ActivityRow, shown: Shown): IssueActivity {
         payload: { from: person(from), to: person(to) },
       };
     }
+    case 'issue.labelsChanged':
+      return {
+        ...base,
+        type: 'issue.labelsChanged',
+        payload: payloads['issue.labelsChanged'].parse(payload),
+      };
     case 'issue.commented': {
       if (!row.comment) {
         throw new Error(`The comment of activity ${row.id} is gone`);

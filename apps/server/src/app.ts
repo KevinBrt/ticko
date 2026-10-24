@@ -7,6 +7,7 @@ import { registerCategoryRoutes } from './features/categories/categories.routes.
 import { registerCommentRoutes } from './features/comments/comments.routes.ts';
 import { registerInvitationRoutes } from './features/invitations/invitations.routes.ts';
 import { registerIssueRoutes } from './features/issues/issues.routes.ts';
+import { registerLabelRoutes } from './features/labels/labels.routes.ts';
 import { registerPriorityRoutes } from './features/priorities/priorities.routes.ts';
 import { registerProjectRoutes } from './features/projects/projects.routes.ts';
 import { registerRoleRoutes } from './features/roles/roles.routes.ts';
@@ -122,6 +123,7 @@ export async function buildApp({
   registerAttachmentRoutes(app);
   registerCategoryRoutes(app);
   registerPriorityRoutes(app);
+  registerLabelRoutes(app);
   registerWorkflowRoutes(app);
 
   const servesWebApp = await registerWebApp(app, webRoot);

@@ -17,6 +17,7 @@ function issue(key: string, statusId: string, assigneeId: string | null = null):
     assignee: assigneeId ? { id: assigneeId, name: 'Grace' } : null,
     reporter: { id: GRACE, name: 'Grace' },
     createdAt: '2026-10-22T09:14:00.000Z',
+    labels: [],
     updatedAt: '2026-10-22T09:14:00.000Z',
   };
 }

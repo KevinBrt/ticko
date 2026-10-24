@@ -12,6 +12,8 @@ import {
   ATTACHMENT_MEDIA_TYPES,
   ATTACHMENT_NAME_MAX_LENGTH,
   ATTACHMENT_SIZE_CEILING,
+  LABEL_NAME_MAX_LENGTH,
+  PALETTE_COLORS,
 } from '@toppo/shared';
 import { createEmptyTestDatabase, createTestDatabase, type TestDatabase } from '@toppo/testing';
 import { eq, or, sql } from 'drizzle-orm';
@@ -25,7 +27,9 @@ import {
   instanceSettings,
   invitations,
   issueCategories,
+  issueLabels,
   issues,
+  labels,
   priorities,
   projectMembers,
   projects,
@@ -744,5 +748,53 @@ describe('projects and issues', () => {
     expect(
       await database.db.select().from(attachments).where(eq(attachments.issueId, issueId)),
     ).toStrictEqual([]);
+  });
+
+  async function createLabel(name: string, color?: (typeof PALETTE_COLORS)[number]) {
+    const [label] = await database.db
+      .insert(labels)
+      .values({ name, ...(color ? { color } : {}) })
+      .returning({ id: labels.id });
+    return label?.id ?? '';
+  }
+
+  it('names labels once whatever the case, briefly, in a color of the palette', async () => {
+    for (const color of PALETTE_COLORS) {
+      await createLabel(`Regression ${color}`, color);
+    }
+    await createLabel('x'.repeat(LABEL_NAME_MAX_LENGTH));
+
+    await expect(createLabel('regression GRAY')).rejects.toThrow();
+    await expect(createLabel('   ')).rejects.toThrow();
+    await expect(createLabel('x'.repeat(LABEL_NAME_MAX_LENGTH + 1))).rejects.toThrow();
+    const label = await createLabel('Security');
+    await expect(
+      database.db.update(labels).set({ color: sql`'red'` }).where(eq(labels.id, label)),
+    ).rejects.toThrow();
+  });
+
+  it('tags an issue once with a label, until the issue or the label goes', async () => {
+    const projectId = await createProject();
+    const issueId = await createIssue(projectId, 1);
+    const other = await createIssue(projectId, 2);
+    const mobile = await createLabel('Mobile');
+    const billing = await createLabel('Billing');
+    await database.db.insert(issueLabels).values([
+      { issueId, labelId: mobile },
+      { issueId, labelId: billing },
+      { issueId: other, labelId: mobile },
+    ]);
+
+    await expect(
+      database.db.insert(issueLabels).values({ issueId, labelId: mobile }),
+    ).rejects.toThrow();
+    await database.db.delete(labels).where(eq(labels.id, billing));
+    await database.db.delete(issues).where(eq(issues.id, other));
+
+    const left = await database.db
+      .select({ issueId: issueLabels.issueId, labelId: issueLabels.labelId })
+      .from(issueLabels)
+      .where(or(eq(issueLabels.issueId, issueId), eq(issueLabels.issueId, other)));
+    expect(left).toStrictEqual([{ issueId, labelId: mobile }]);
   });
 });

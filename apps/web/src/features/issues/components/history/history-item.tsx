@@ -1,4 +1,4 @@
-import type { IssueActivity, PaletteColor } from '@toppo/shared';
+import type { IssueActivity, Locale, PaletteColor } from '@toppo/shared';
 import { cn, StatusBadge } from '@toppo/ui';
 import {
   ArrowRightIcon,
@@ -12,6 +12,7 @@ import {
   PencilIcon,
   SlidersHorizontalIcon,
   TagIcon,
+  TagsIcon,
   UserPlusIcon,
   UserXIcon,
 } from 'lucide-react';
@@ -47,6 +48,8 @@ function iconOf(activity: IssueActivity): LucideIcon {
       return MessageSquareTextIcon;
     case 'issue.attachmentAdded':
       return PaperclipIcon;
+    case 'issue.labelsChanged':
+      return TagsIcon;
   }
 }
 
@@ -82,7 +85,7 @@ export function HistoryItem({
       <div className="min-w-0 flex-1 pt-1.5 text-sm text-muted-foreground">
         {single ? (
           <p>
-            {who} {describe(single, t, statusColors)} · {when}
+            {who} {describe(single, t, locale, statusColors)} · {when}
           </p>
         ) : (
           <ChangesTogether entry={entry} statusColors={statusColors} who={who} when={when} />
@@ -136,7 +139,7 @@ function ChangesTogether({
       >
         {entry.changes.map((change) => (
           <li key={change.id} className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            {field(change, t, statusColors)}
+            {field(change, t, locale, statusColors)}
           </li>
         ))}
       </ul>
@@ -144,8 +147,37 @@ function ChangesTogether({
   );
 }
 
+/** "added the labels Mobile and Billing and removed the label Docs", in the reader's language. */
+function labelsChanged(
+  { added, removed }: { added: { name: string }[]; removed: { name: string }[] },
+  t: Translate,
+  locale: Locale,
+): string {
+  const names = (labels: { name: string }[]) =>
+    new Intl.ListFormat(locale, { type: 'conjunction' }).format(labels.map(({ name }) => name));
+  const addedText = t(`issues.activity.labelsAdded.${pluralForm(locale, added.length)}`, {
+    names: names(added),
+  });
+  if (removed.length === 0) {
+    return addedText;
+  }
+  const form = pluralForm(locale, removed.length);
+  if (added.length === 0) {
+    return t(`issues.activity.labelsRemoved.${form}`, { names: names(removed) });
+  }
+  return t('issues.activity.labelsBoth', {
+    added: addedText,
+    removed: t(`issues.activity.labelsRemovedToo.${form}`, { names: names(removed) }),
+  });
+}
+
 /** One change as the words that follow who made it. */
-function describe(activity: IssueActivity, t: Translate, statusColors: StatusColors): ReactNode {
+function describe(
+  activity: IssueActivity,
+  t: Translate,
+  locale: Locale,
+  statusColors: StatusColors,
+): ReactNode {
   switch (activity.type) {
     case 'issue.created':
       return t('issues.activity.created');
@@ -178,11 +210,18 @@ function describe(activity: IssueActivity, t: Translate, statusColors: StatusCol
       return t('issues.activity.commented');
     case 'issue.attachmentAdded':
       return t('issues.activity.attached', { name: activity.payload.attachment.fileName });
+    case 'issue.labelsChanged':
+      return labelsChanged(activity.payload, t, locale);
   }
 }
 
 /** One change of several, as its field and where it went: "Priority: Normal → High". */
-function field(activity: IssueActivity, t: Translate, statusColors: StatusColors): ReactNode {
+function field(
+  activity: IssueActivity,
+  t: Translate,
+  locale: Locale,
+  statusColors: StatusColors,
+): ReactNode {
   const labelled = (label: string, value: ReactNode) => (
     <>
       <span>{t('issues.activity.field', { label })}</span> {value}
@@ -241,6 +280,8 @@ function field(activity: IssueActivity, t: Translate, statusColors: StatusColors
       return t('issues.activity.commented');
     case 'issue.attachmentAdded':
       return t('issues.activity.attached', { name: activity.payload.attachment.fileName });
+    case 'issue.labelsChanged':
+      return labelsChanged(activity.payload, t, locale);
   }
 }
 

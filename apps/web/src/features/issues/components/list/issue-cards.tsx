@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import type { IssueGrouping, IssueSummary } from '@toppo/shared';
 import type { IssueSection } from '../../models/issue-list.model.ts';
+import { LabelChips } from '../fields/label-chips.tsx';
 import { PriorityLabel } from '../fields/priority-label.tsx';
 import { StatusLabel } from '../fields/status-label.tsx';
 import { GroupTitle } from './group-title.tsx';
@@ -66,6 +67,7 @@ function IssueCard<Issue extends IssueSummary>({
       >
         {issue.title}
       </Link>
+      <LabelChips labels={issue.labels} max={3} />
       <span className="flex min-h-6 items-center justify-between gap-3 text-xs text-muted-foreground">
         <PriorityLabel priority={issue.priority} />
         <span className="min-w-0">{last.cell(issue)}</span>

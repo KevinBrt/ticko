@@ -137,7 +137,23 @@ export {
   updateIssueRequestSchema,
   userRefSchema,
 } from './issues/issues.ts';
-export { checkOptions, OPTION_PROBLEMS } from './issues/options.ts';
+export {
+  type IssueLabelsRequest,
+  issueLabelsRequestSchema,
+  LABEL_NAME_MAX_LENGTH,
+  LABELS_MAX,
+  type LabelDraft,
+  type LabelRef,
+  type LabelRow,
+  type LabelsRequest,
+  type LabelsResponse,
+  labelDraftSchema,
+  labelNameSchema,
+  labelRefSchema,
+  labelsRequestSchema,
+  labelsResponseSchema,
+} from './issues/labels.ts';
+export { checkDistinctOptions, checkOptions, OPTION_PROBLEMS } from './issues/options.ts';
 export {
   PRIORITY_NAME_MAX_LENGTH,
   type PrioritiesRequest,

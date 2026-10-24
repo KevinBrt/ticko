@@ -9,6 +9,7 @@ import {
   PropertiesList,
 } from '../../../features/properties/components/list/properties-list.tsx';
 import { CategoryPanel } from '../../../features/properties/components/panels/category-panel.tsx';
+import { LabelPanel } from '../../../features/properties/components/panels/label-panel.tsx';
 import { PriorityPanel } from '../../../features/properties/components/panels/priority-panel.tsx';
 import { PropertiesQueries } from '../../../features/properties/queries/properties.queries.ts';
 import { SessionQueries } from '../../../features/session/queries/session.queries.ts';
@@ -32,6 +33,7 @@ function PropertiesScreen() {
   const allowed = Boolean(user && can(user.permissions, 'instance.settings.manage'));
   const categories = useQuery({ ...PropertiesQueries.categories, enabled: allowed });
   const priorities = useQuery({ ...PropertiesQueries.priorities, enabled: allowed });
+  const labels = useQuery({ ...PropertiesQueries.labels, enabled: allowed });
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<BuiltInProperty | null>(null);
 
@@ -42,7 +44,7 @@ function PropertiesScreen() {
       </Page>
     );
   }
-  const failure = categories.error ?? priorities.error;
+  const failure = categories.error ?? priorities.error ?? labels.error;
   const panel = (property: BuiltInProperty) => ({
     open: editing === property,
     onOpenChange: (open: boolean) => setEditing(open ? property : null),
@@ -56,18 +58,20 @@ function PropertiesScreen() {
   return (
     <Page title={t('properties.title')} description={t('properties.description')}>
       {failure ? <Alert tone="danger">{requestErrorMessage(failure, t)}</Alert> : null}
-      {categories.data && priorities.data ? (
+      {categories.data && priorities.data && labels.data ? (
         <>
           <PropertiesList
             categories={categories.data}
             priorities={priorities.data}
+            labels={labels.data}
             onEdit={setEditing}
           />
           <CategoryPanel categories={categories.data} {...panel('category')} />
           <PriorityPanel priorities={priorities.data} {...panel('priority')} />
+          <LabelPanel labels={labels.data} {...panel('labels')} />
         </>
       ) : null}
-      {categories.isPending || priorities.isPending ? (
+      {categories.isPending || priorities.isPending || labels.isPending ? (
         <p role="status" className="text-sm text-muted-foreground">
           {t('properties.loading')}
         </p>

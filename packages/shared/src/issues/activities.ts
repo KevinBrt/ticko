@@ -24,6 +24,8 @@ export const ISSUE_ACTIVITY_PAYLOADS = {
   'issue.priorityChanged': z.object({ from: prioritySchema, to: prioritySchema }),
   'issue.statusChanged': z.object({ from: namedSchema, to: namedSchema }),
   'issue.assigneeChanged': z.object({ from: z.uuid().nullable(), to: z.uuid().nullable() }),
+  // Labels as they were named, so that a label deleted since still reads.
+  'issue.labelsChanged': z.object({ added: z.array(namedSchema), removed: z.array(namedSchema) }),
   // A comment is kept by id only: deleted, its words leave no trace.
   'issue.commented': z.object({ commentId: z.uuid() }),
   'issue.commentEdited': z.object({ commentId: z.uuid() }),
@@ -73,6 +75,7 @@ export const issueActivitySchema = z.discriminatedUnion('type', [
     'issue.assigneeChanged',
     z.object({ from: userRefSchema.nullable(), to: userRefSchema.nullable() }),
   ),
+  entry('issue.labelsChanged', ISSUE_ACTIVITY_PAYLOADS['issue.labelsChanged']),
   // The comment as it is now; a deleted one leaves the history.
   entry('issue.commented', z.object({ comment: issueCommentSchema })),
   // A file of the request, while it is there.

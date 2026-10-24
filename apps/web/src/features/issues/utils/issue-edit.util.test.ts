@@ -16,6 +16,7 @@ const ISSUE: IssueResponse = {
   assignee: null,
   reporter: { id: ID, name: 'Ada' },
   createdAt: '2026-10-22T09:14:00.000Z',
+  labels: [],
   updatedAt: '2026-10-22T09:14:00.000Z',
   closedAt: null,
   actions: [],

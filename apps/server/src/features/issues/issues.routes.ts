@@ -9,6 +9,7 @@ import {
   issueActivitiesResponseSchema,
   issueFieldsResponseSchema,
   issueKeyParamsSchema,
+  issueLabelsRequestSchema,
   issueResponseSchema,
   issueSearchQuerySchema,
   issueSearchResponseSchema,
@@ -26,6 +27,7 @@ import { assignIssue } from './commands/assign-issue.command.ts';
 import { changeIssueStatus } from './commands/change-issue-status.command.ts';
 import { createIssue } from './commands/create-issue.command.ts';
 import { deleteIssue } from './commands/delete-issue.command.ts';
+import { setIssueLabels } from './commands/set-issue-labels.command.ts';
 import { updateIssue } from './commands/update-issue.command.ts';
 import { getIssue } from './queries/get-issue.query.ts';
 import { getIssueFields } from './queries/get-issue-fields.query.ts';
@@ -168,6 +170,25 @@ function registerIssueKeyRoutes(app: FastifyInstance): void {
     async (request, reply) =>
       reply.status(204).send(
         await changeIssueStatus.execute(request.executionContext, {
+          ...request.params,
+          ...request.body,
+        }),
+      ),
+  );
+
+  routes.put(
+    '/api/v1/issues/:issueKey/labels',
+    {
+      config: { access: setIssueLabels.access },
+      schema: {
+        params: issueKeyParamsSchema,
+        body: issueLabelsRequestSchema,
+        response: NO_CONTENT,
+      },
+    },
+    async (request, reply) =>
+      reply.status(204).send(
+        await setIssueLabels.execute(request.executionContext, {
           ...request.params,
           ...request.body,
         }),

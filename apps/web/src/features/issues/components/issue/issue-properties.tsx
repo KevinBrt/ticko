@@ -7,12 +7,13 @@ import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import type { IssueEdit } from '../../models/issue-edit.model.ts';
 import { AssigneeDialog } from '../fields/assignee-dialog.tsx';
 import { FIELD_TRIGGER_CLASS, FieldMenu } from '../fields/field-menu.tsx';
+import { LabelsField } from '../fields/labels-field.tsx';
 import { PersonName } from '../fields/person-name.tsx';
 import { PriorityLabel } from '../fields/priority-label.tsx';
 
 /**
- * The issue's fields beside it, one per row, their values aligned: status, priority, assignee and
- * category, changed in place by who may; then who reported it and when.
+ * The issue's fields beside it, one per row, their values aligned: status, priority, assignee,
+ * category and labels, changed in place by who may; then who reported it and when.
  */
 export function IssueProperties({
   issue,
@@ -97,6 +98,14 @@ export function IssueProperties({
                 onEdit({ field: 'category', category: { id, name, color } });
               }
             }}
+          />
+        </Property>
+        <Property label={t('issues.labels')}>
+          <LabelsField
+            labels={issue.labels}
+            options={fields?.labels ?? []}
+            disabled={!editsFields}
+            onChange={(labels) => onEdit({ field: 'labels', labels })}
           />
         </Property>
         <Property label={t('issues.reporter')}>

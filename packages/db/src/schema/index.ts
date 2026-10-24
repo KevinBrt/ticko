@@ -6,7 +6,9 @@ export {
   attachments,
   comments,
   issueCategories,
+  issueLabels,
   issues,
+  labels,
   priorities,
 } from './issues.ts';
 export { projectMembers, projects } from './projects.ts';

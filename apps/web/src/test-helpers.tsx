@@ -30,6 +30,7 @@ import {
   type ProjectPermission,
   permissionsOfRole,
   planCategories,
+  planOptions,
   planWorkflow,
   projectColorFor,
   projectPermissionsOf,
@@ -51,8 +52,11 @@ import {
   type IssueResponse,
   type IssueSort,
   type IssueSummary,
+  issueLabelsRequestSchema,
   issueSearchQuerySchema,
+  type LabelRef,
   type Locale,
+  labelsRequestSchema,
   MEMBERS_PAGE_SIZE,
   type MemberRow,
   type PaletteColor,
@@ -165,6 +169,8 @@ export interface FakeServerState {
   projectWorkflows: Map<string, FakeWorkflow>;
   /** The files attached, oldest first: none unless a test adds some. */
   attachments: FakeAttachment[];
+  /** The instance's labels: none unless a test adds some. */
+  labels: LabelRef[];
   /** The largest file taken, in bytes: 20 MB unless a test sets another. */
   attachmentMaxSize: number;
 }
@@ -256,6 +262,8 @@ export interface FakeIssue {
   priorityId: string;
   assigneeId: string | null;
   reporterId: string;
+  /** None unless said otherwise. */
+  labelIds: string[];
   /** UTC ISO 8601. */
   createdAt: string;
   closedAt: string | null;
@@ -287,6 +295,7 @@ export function fakeIssue(
     priorityId: defaultField(DEFAULT_PRIORITIES, 'normal').id,
     assigneeId: null,
     reporterId: ADA.id,
+    labelIds: [],
     createdAt: '2026-10-22T09:14:00.000Z',
     closedAt: null,
     ...overrides,
@@ -383,6 +392,7 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       workflow: defaultWorkflow(),
       projectWorkflows: new Map(),
       attachments: [],
+      labels: [],
       attachmentMaxSize: 20 * 1024 * 1024,
       ...initial,
     },
@@ -461,6 +471,16 @@ export function fakeServer(initial: Partial<FakeServerState> = {}): FakeServer {
       }),
     'PUT /api/v1/categories': (body) =>
       asHolder(state, 'instance.settings.manage') ?? saveCategories(state, body),
+    'GET /api/v1/labels': () =>
+      asHolder(state, 'instance.settings.manage') ??
+      json({
+        labels: byLabelName(state.labels).map((label) => ({
+          ...label,
+          issueCount: state.issues.filter(({ labelIds }) => labelIds.includes(label.id)).length,
+        })),
+      }),
+    'PUT /api/v1/labels': (body) =>
+      asHolder(state, 'instance.settings.manage') ?? saveLabels(state, body),
     'GET /api/v1/priorities': () =>
       asHolder(state, 'instance.settings.manage') ?? json({ priorities: state.priorities }),
     'PUT /api/v1/priorities': (body) =>
@@ -1314,6 +1334,75 @@ function saveCategories(state: FakeServerState, body: Record<string, unknown>): 
   return NO_CONTENT();
 }
 
+/** Labels by name, whatever the case, as the server lists them. */
+const byLabelName = (labels: readonly LabelRef[]) =>
+  labels.toSorted((left, right) => left.name.toLowerCase().localeCompare(right.name.toLowerCase()));
+
+/** `PUT /api/v1/labels`: the whole list at once; a label removed leaves its issues, told so. */
+function saveLabels(state: FakeServerState, body: Record<string, unknown>): Response {
+  const request = labelsRequestSchema.safeParse(body);
+  if (!request.success) {
+    return apiError(400, 'VALIDATION_ERROR');
+  }
+  const plan = planOptions(
+    state.labels.map(({ id }) => id),
+    request.data.labels,
+    request.data.removed,
+  );
+  if (!plan) {
+    return apiError(409, 'LABELS_CHANGED');
+  }
+  for (const issue of state.issues) {
+    const lost = state.labels.filter(
+      ({ id }) => plan.removed.includes(id) && issue.labelIds.includes(id),
+    );
+    if (lost.length > 0) {
+      issue.labelIds = issue.labelIds.filter((id) => !plan.removed.includes(id));
+      record(state, keyOf(issue), {
+        type: 'issue.labelsChanged',
+        payload: { added: [], removed: lost.map(({ id, name }) => ({ id, name })) },
+      });
+    }
+  }
+  const added = plan.added.map(({ name, color }, index) => ({
+    id: `01a1569b-9900-7000-8000-0000000011${String(state.labels.length + index).padStart(2, '0')}`,
+    name,
+    color,
+  }));
+  state.labels = [...plan.kept.map(({ id, name, color }) => ({ id, name, color })), ...added];
+  return NO_CONTENT();
+}
+
+/** `PUT /api/v1/issues/:key/labels`: exactly the labels asked for, the change told once. */
+function setLabels(
+  state: FakeServerState,
+  issue: FakeIssue,
+  body: Record<string, unknown>,
+): Response {
+  const request = issueLabelsRequestSchema.safeParse(body);
+  if (!request.success) {
+    return apiError(400, 'VALIDATION_FAILED');
+  }
+  const { labelIds } = request.data;
+  if (labelIds.some((id) => !state.labels.some((label) => label.id === id))) {
+    return apiError(400, 'INVALID_LABEL');
+  }
+  const named = (ids: readonly string[]) =>
+    ids
+      .flatMap((id) => state.labels.filter((label) => label.id === id))
+      .map(({ id, name }) => ({ id, name }));
+  const added = labelIds.filter((id) => !issue.labelIds.includes(id));
+  const removed = issue.labelIds.filter((id) => !labelIds.includes(id));
+  if (added.length > 0 || removed.length > 0) {
+    record(state, keyOf(issue), {
+      type: 'issue.labelsChanged',
+      payload: { added: named(added), removed: named(removed) },
+    });
+  }
+  issue.labelIds = [...labelIds];
+  return NO_CONTENT();
+}
+
 /** Keeps a workflow `changeWorkflow` answered, or passes its refusal on. */
 function saved(result: FakeWorkflow | Response, keep: (workflow: FakeWorkflow) => void): Response {
   if (result instanceof Response) {
@@ -1460,6 +1549,7 @@ function issueFields(state: FakeServerState, projectKey: string) {
     })),
     categories: state.categories,
     priorities: state.priorities,
+    labels: byLabelName(state.labels),
   };
 }
 
@@ -1481,6 +1571,7 @@ function summaryOf(state: FakeServerState, issue: FakeIssue): IssueSummary {
     priority: { id: priority.id, name: priority.name, level: priority.level },
     assignee: issue.assigneeId ? userRef(state, issue.assigneeId) : null,
     reporter: userRef(state, issue.reporterId),
+    labels: byLabelName(state.labels.filter(({ id }) => issue.labelIds.includes(id))),
     createdAt: issue.createdAt,
     updatedAt: issue.createdAt,
   };
@@ -1552,6 +1643,7 @@ function matchesQuery(
     !query.status || query.status.includes(issue.statusId),
     !query.priority || query.priority.includes(issue.priorityId),
     !query.category || query.category.includes(issue.categoryId),
+    !query.label || query.label.some((id) => issue.labelIds.includes(id)),
     !query.assignee || people(query.assignee).includes(issue.assigneeId ?? 'none'),
     !query.reporter || people(query.reporter).includes(issue.reporterId),
     !needle ||
@@ -1741,7 +1833,7 @@ function createIssue(
 }
 
 const ISSUE_PATH =
-  /^\/api\/v1\/issues\/([^/]+)(?:\/(status|assignee|activities|comments)(?:\/([^/]+))?)?$/;
+  /^\/api\/v1\/issues\/([^/]+)(?:\/(status|assignee|labels|activities|comments)(?:\/([^/]+))?)?$/;
 
 /** An issue the signed-in user sees, with its project and what they may do there. */
 interface SeenIssue {
@@ -1803,6 +1895,8 @@ function issueRequest(
       return updateIssue(state, issue, actions, fields);
     case 'PUT status':
       return unless('issue.update', () => moveIssue(state, issue, String(fields['statusId'])));
+    case 'PUT labels':
+      return unless('issue.update', () => setLabels(state, issue, fields));
     case 'PUT assignee':
       return unless('issue.assign', () =>
         assignIssue(state, issue, (fields['assigneeId'] as string | null | undefined) ?? null),

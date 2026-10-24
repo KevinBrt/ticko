@@ -28,11 +28,19 @@ import {
 } from 'drizzle-orm';
 import { alias, type PgColumn } from 'drizzle-orm/pg-core';
 import { defineQuery } from '../../../platform/cqrs/cqrs.ts';
-import { toIssueSummary } from '../utils/issue-rows.util.ts';
+import { labelsOfIssue, toIssueSummary } from '../utils/issue-rows.util.ts';
 import { textMatching } from '../utils/issue-search.util.ts';
 
-const { issueCategories, issues, priorities, statuses, users, workflowStatuses, workflows } =
-  schema;
+const {
+  issueCategories,
+  issueLabels,
+  issues,
+  priorities,
+  statuses,
+  users,
+  workflowStatuses,
+  workflows,
+} = schema;
 const assignees = alias(users, 'assignees');
 const reporters = alias(users, 'reporters');
 
@@ -135,6 +143,7 @@ export const listIssues = defineQuery({
         priority: { id: priorities.id, name: priorities.name, level: priorities.level },
         assignee: { id: assignees.id, name: assignees.name, deletedAt: assignees.deletedAt },
         reporter: { id: reporters.id, name: reporters.name, deletedAt: reporters.deletedAt },
+        labels: labelsOfIssue,
         createdAt: issues.createdAt,
         updatedAt: issues.updatedAt,
       })
@@ -188,9 +197,20 @@ function filtersOf(query: ProjectIssuesQuery, actorId: string): (SQL | undefined
     anyOf(issues.statusId, query.status),
     anyOf(issues.priorityId, query.priority),
     anyOf(issues.categoryId, query.category),
+    taggedWith(query.label),
     assignedTo(people(query.assignee)),
     anyOf(issues.reporterId, people(query.reporter)),
   ];
+}
+
+/** Issues with any of these labels, each checked in the index of its labels. */
+function taggedWith(labelIds: readonly string[] | undefined): SQL | undefined {
+  if (!labelIds?.length) {
+    return undefined;
+  }
+  return sql`exists (select 1 from ${issueLabels}
+    where ${issueLabels.issueId} = ${issues.id}
+      and ${inArray(issueLabels.labelId, [...labelIds])})`;
 }
 
 /** Issues a search finds by their text, and the one it names: `WEB-42`, or `42` in this project. */
