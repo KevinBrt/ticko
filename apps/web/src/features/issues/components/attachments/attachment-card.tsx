@@ -1,5 +1,5 @@
 import { cn } from '@toppo/ui';
-import { DownloadIcon, ExternalLinkIcon, LoaderCircleIcon, XIcon } from 'lucide-react';
+import { DownloadIcon, LoaderCircleIcon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useI18n } from '../../../../shared/i18n/i18n-provider.tsx';
 import { formatFileSize } from '../../../../shared/i18n/sizes.util.ts';
@@ -78,9 +78,6 @@ export function AttachmentCard({
         </div>
         {action?.kind === 'download' ? (
           <DownloadIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-        ) : null}
-        {action?.kind === 'open' ? (
-          <ExternalLinkIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
         ) : null}
         {sending ? (
           <LoaderCircleIcon

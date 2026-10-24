@@ -24,6 +24,12 @@ const KNOWN_ERRORS = {
   PROJECT_ARCHIVED: 'projects.archivedNotice',
 } as const;
 
+/**
+ * Gives the subject the focus once, when the form opens: the page is for writing an issue.
+ * Defined once, so that React calls it on mount only, not again at each render.
+ */
+const focusOnMount = (element: HTMLInputElement | null) => element?.focus();
+
 /** How far the files of a new issue are sent. */
 interface Sending {
   sent: number;
@@ -140,6 +146,7 @@ export function NewIssueForm({
             {(control) => (
               <Input
                 {...control}
+                ref={focusOnMount}
                 required
                 value={title}
                 maxLength={ISSUE_TITLE_MAX_LENGTH}

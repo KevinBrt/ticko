@@ -164,6 +164,8 @@ describe('a new issue', () => {
     await expect
       .element(screen.getByText('It will be added to the project Website.'))
       .toBeVisible();
+    // Ready to type the subject at once.
+    await expect.element(screen.getByLabelText('Subject')).toHaveFocus();
     await screen.getByLabelText('Subject').fill('Invoices fail to download');
     // Written as it reads: what follows the Bold button is bold, no Markdown mark shows.
     await screen.getByRole('textbox', { name: 'Description' }).click();
