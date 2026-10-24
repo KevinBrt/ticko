@@ -1,14 +1,15 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDatabase, waitForDatabase } from '@toppo/db';
-import { buildApp, createServices } from './app.ts';
+import { buildApp, createJobs, createServices } from './app.ts';
 import { getSetupStatus } from './features/setup/queries/get-setup-status.query.ts';
 import { generateSetupCode } from './features/setup/utils/setup-code.util.ts';
 import { createAuth } from './platform/auth/auth.ts';
 import { type Config, ConfigError, loadConfig } from './platform/config/config.ts';
 import { resolveSecret } from './platform/config/secret.ts';
+import { startJobWorker } from './platform/jobs/job-worker.ts';
+import { scheduleRecurringJobs } from './platform/jobs/jobs.ts';
 import { createFileStorage } from './platform/uploads/file-storage.ts';
-import { startFileSweeper } from './platform/uploads/file-sweeper.ts';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -46,7 +47,8 @@ const files = await createFileStorage({
   maxFileSize: config.attachmentMaxSize,
 });
 const app = await buildApp({ config, database, auth, setupCode, files, webRoot: WEB_ROOT });
-let stopSweeping: (() => void) | undefined;
+const jobs = createJobs({ files });
+let worker: { stop: () => Promise<void> } | undefined;
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   app.log.info({ signal }, 'Shutting down');
@@ -56,7 +58,8 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   }, SHUTDOWN_TIMEOUT_MS);
   forceExit.unref();
 
-  stopSweeping?.();
+  // The job under way ends first; the queue keeps the rest for the next start.
+  await worker?.stop();
   await app.close();
   await database.close();
   process.exit(0);
@@ -74,7 +77,13 @@ try {
   });
   await database.migrate(MIGRATIONS_FOLDER);
   await app.listen({ host: config.host, port: config.port });
-  stopSweeping = startFileSweeper({ db: database.db, files, log: app.log });
+  await scheduleRecurringJobs(database.db, jobs);
+  worker = startJobWorker({
+    db: database.db,
+    jobs,
+    log: app.log,
+    services: createServices({ auth, setupCode, files, publicUrl: config.publicUrl }),
+  });
 
   const { required } = await getSetupStatus.execute(
     {

@@ -1,6 +1,8 @@
 import { type Db, schema } from '@toppo/db';
 import { inArray } from 'drizzle-orm';
-import type { FastifyBaseLogger } from 'fastify';
+import { z } from 'zod';
+import type { Transaction } from '../cqrs/cqrs.ts';
+import { defineJob } from '../jobs/jobs.ts';
 import type { FileStorage } from './file-storage.ts';
 
 const { attachments } = schema;
@@ -12,7 +14,13 @@ const EVERY_HOUR_MS = 60 * 60 * 1000;
  * or project, of a transaction rolled back, of an upload cut short. The rows say what is kept;
  * the disk follows, so that no command has to reach it after committing.
  */
-export async function sweepFiles({ db, files }: { db: Db; files: FileStorage }): Promise<number> {
+export async function sweepFiles({
+  db,
+  files,
+}: {
+  db: Db | Transaction;
+  files: FileStorage;
+}): Promise<number> {
   return await files.sweep(async (keys) => {
     const rows = await db
       .select({ storageKey: attachments.storageKey })
@@ -22,32 +30,17 @@ export async function sweepFiles({ db, files }: { db: Db; files: FileStorage }):
   });
 }
 
-/**
- * Sweeps at once, then every hour, until stopped. A failed sweep is logged and tried again an
- * hour later: nothing waits on it.
- */
-export function startFileSweeper({
-  db,
-  files,
-  log,
-}: {
-  db: Db;
-  files: FileStorage;
-  log: FastifyBaseLogger;
-}): () => void {
-  const sweep = async () => {
-    try {
-      const removed = await sweepFiles({ db, files });
+/** The sweep, every hour, by whichever server's worker comes first. */
+export function fileSweepJob(files: FileStorage) {
+  return defineJob({
+    type: 'files.sweep',
+    payload: z.object({}),
+    every: EVERY_HOUR_MS,
+    async handler({ tx, log }) {
+      const removed = await sweepFiles({ db: tx, files });
       if (removed > 0) {
         log.info({ removed }, 'Swept files no attachment names');
       }
-    } catch (error) {
-      log.error({ err: error }, 'Sweeping files failed');
-    }
-  };
-  void sweep();
-  const timer = setInterval(() => void sweep(), EVERY_HOUR_MS);
-  // Never keeps the process alive on its own.
-  timer.unref();
-  return () => clearInterval(timer);
+    },
+  });
 }

@@ -8,6 +8,7 @@ import { type LayerModel, layerViolations, locateByFolder } from './layers.ts';
  * - root: `setup.routes.ts`, the HTTP adapter and only entry point of the feature;
  * - `commands/`: `complete-setup.command.ts`, state changes in one transaction (defineCommand);
  * - `queries/`: `get-setup-status.query.ts`, reads that never write (defineQuery);
+ * - `jobs/`: `send-email.job.ts`, work for the background queue (defineJob);
  * - `models/`: `issue.model.ts`, types and Zod schemas of the feature;
  * - `utils/`: `setup-code.util.ts`, pure helpers.
  */
@@ -15,6 +16,7 @@ export const SERVER_FEATURE_LAYOUT: FeatureLayout = {
   '': ['routes'],
   commands: ['command'],
   queries: ['query'],
+  jobs: ['job'],
   models: ['model'],
   utils: ['util'],
 };

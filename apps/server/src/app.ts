@@ -29,8 +29,10 @@ import { enforceRouteContracts } from './platform/http/route-contracts.ts';
 import { registerSecurityHeaders } from './platform/http/security-headers.ts';
 import { registerWebApp } from './platform/http/web-app.ts';
 import { serializerCompiler, validatorCompiler } from './platform/http/zod.ts';
+import type { RunnableJob } from './platform/jobs/jobs.ts';
 import { registerFileRoutes } from './platform/uploads/file-routes.ts';
 import type { FileStorage } from './platform/uploads/file-storage.ts';
+import { fileSweepJob } from './platform/uploads/file-sweeper.ts';
 
 export interface AppDependencies {
   config: Pick<Config, 'publicUrl' | 'logLevel' | 'trustProxy'>;
@@ -64,6 +66,11 @@ export function createServices({
     publicUrl,
     files,
   };
+}
+
+/** Every job the workers run: each server process runs one worker, `main.ts` starts it. */
+export function createJobs({ files }: Pick<AppDependencies, 'files'>): RunnableJob[] {
+  return [fileSweepJob(files)];
 }
 
 /** Builds the Fastify application without listening, so tests can drive it with `inject()`. */

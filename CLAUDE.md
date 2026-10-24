@@ -101,6 +101,7 @@ features/<feature>/
   <feature>.routes.ts         the only file at the root: request → command or query → response
   commands/                   <verb>-<resource>.command.ts: defineCommand({ name, access, input, handler })
   queries/                    <verb>-<resource>.query.ts: defineQuery({ name, access, input, handler })
+  jobs/                       <verb>-<resource>.job.ts: defineJob({ type, payload, handler })
   models/                     <name>.model.ts: types and Zod schemas of the feature
   utils/                      <name>.util.ts: pure helpers
 ```
@@ -112,6 +113,7 @@ features/<feature>/
 - **Commands and queries are the API of a feature**, for routes today and plugins tomorrow. Name them `resource.action` (`setup.complete`, `issue.create`), files `commands/<verb>-<resource>.command.ts` and `queries/<verb>-<resource>.query.ts` (checked: a command outside `commands/` fails CI).
 - **Layers** (checked): a feature imports `platform/` and its own files only; `platform/` never imports a feature. Logic needed by several features goes to `@toppo/core` (pure) or becomes a query of its owner, wired in `app.ts`.
 - **Capabilities beyond the database** (password hashing, settings) come through `services` in the execution context, declared in `platform/cqrs/cqrs.ts`; never import Better Auth or the config from a feature.
+- **Background work is a job** (`platform/jobs/`): a command queues it with `enqueue(tx, job, payload)`, so it exists only if the command commits; any server's worker runs it in a transaction of its own, retried with backoff, kept as `failed` after `maxAttempts`. A job may run twice (a server stopped mid-way): what it does outside the database must bear it. Recurring work is a job with `every`, registered in `createJobs()` (`app.ts`).
 - **Tests**: a command or query is tested through its route (`app.inject`) and, for edge cases, directly with `execute()` on a `setupTestDatabase()` database.
 
 ## Front-end structure (`apps/web/src`)

@@ -18,8 +18,10 @@ import {
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { runNextJob } from '../../platform/jobs/job-worker.ts';
+import { scheduleRecurringJobs } from '../../platform/jobs/jobs.ts';
 import { createFileStorage, type FileStorage } from '../../platform/uploads/file-storage.ts';
-import { sweepFiles } from '../../platform/uploads/file-sweeper.ts';
+import { fileSweepJob } from '../../platform/uploads/file-sweeper.ts';
 import {
   buildTestApp,
   cookieHeader,
@@ -27,6 +29,7 @@ import {
   setupTestDatabase,
   TEST_ATTACHMENT_MAX_SIZE,
   TEST_SETUP_CODE,
+  testServices,
 } from '../../test-helpers.ts';
 
 const context = setupTestDatabase();
@@ -537,7 +540,17 @@ describe('removing a file', () => {
     expect((await files.open(removed)).destroy()).toBeTruthy();
     ageEveryFile();
 
-    expect(await sweepFiles({ db: context.database.db, files })).toBeGreaterThanOrEqual(2);
+    // The sweep runs as a recurring job, by whichever worker comes first.
+    const sweep = fileSweepJob(files);
+    await scheduleRecurringJobs(context.database.db, [sweep]);
+    expect(
+      await runNextJob({
+        db: context.database.db,
+        jobs: [sweep],
+        log: app.log,
+        services: testServices(),
+      }),
+    ).toBe(true);
     await expect(files.open(removed)).rejects.toThrow();
     await expect(files.open(ofGone)).rejects.toThrow();
     expect((await download(key, kept)).body).toBe('kept');

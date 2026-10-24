@@ -69,6 +69,7 @@ export {
   type WorkflowOwner,
 } from './issues/workflow.ts';
 export { closingChanges, planWorkflow, type WorkflowPlan } from './issues/workflow-plan.ts';
+export { retryDelay } from './jobs/retry.ts';
 export {
   type AccountChange,
   canActOnRole,

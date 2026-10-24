@@ -29,6 +29,7 @@ import {
   issueCategories,
   issueLabels,
   issues,
+  jobs,
   labels,
   priorities,
   projectMembers,
@@ -796,5 +797,37 @@ describe('projects and issues', () => {
       .from(issueLabels)
       .where(or(eq(issueLabels.issueId, issueId), eq(issueLabels.issueId, other)));
     expect(left).toStrictEqual([{ issueId, labelId: mobile }]);
+  });
+});
+
+describe('the job queue', () => {
+  let database: Database;
+
+  beforeAll(async () => {
+    database = createDatabase({ url: (await createTestDatabase()).url, maxConnections: 2 });
+  });
+
+  afterAll(async () => {
+    await database.close();
+  });
+
+  it('keeps one pending job per key, however many failed before', async () => {
+    const job = { type: 'files.sweep', uniqueKey: 'files.sweep' };
+    await database.db.insert(jobs).values({ ...job, status: 'failed' });
+    await database.db.insert(jobs).values({ ...job, status: 'failed' });
+    await database.db.insert(jobs).values(job);
+
+    await expect(database.db.insert(jobs).values(job)).rejects.toThrow();
+    await database.db.insert(jobs).values({ type: 'files.sweep' });
+    await database.db.insert(jobs).values({ type: 'files.sweep' });
+  });
+
+  it('refuses a job without a type, an unknown status, or counts below their bounds', async () => {
+    await expect(database.db.insert(jobs).values({ type: '  ' })).rejects.toThrow();
+    await expect(database.db.insert(jobs).values({ type: 'x', attempts: -1 })).rejects.toThrow();
+    await expect(database.db.insert(jobs).values({ type: 'x', maxAttempts: 0 })).rejects.toThrow();
+    await expect(
+      database.db.insert(jobs).values({ type: 'x', status: sql`'running'` }),
+    ).rejects.toThrow();
   });
 });

@@ -11,6 +11,7 @@ export {
   labels,
   priorities,
 } from './issues.ts';
+export { jobs } from './jobs.ts';
 export { projectMembers, projects } from './projects.ts';
 export { roles } from './roles.ts';
 export { statuses, workflowStatuses, workflows, workflowTransitions } from './workflows.ts';

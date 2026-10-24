@@ -18,6 +18,7 @@ describe('serverNamingProblem', () => {
     'apps/server/src/features/setup/utils/setup-code.util.ts',
     'apps/server/src/features/setup/utils/setup-code.util.test.ts',
     'apps/server/src/features/issues/models/issue.model.ts',
+    'apps/server/src/features/notifications/jobs/send-email.job.ts',
     'apps/server/src/features/issues/commands/labels/add-label.command.ts',
   ])('accepts %s', (path) => {
     expect(serverNamingProblem(path)).toBeNull();
@@ -38,6 +39,7 @@ describe('serverNamingProblem', () => {
     ['apps/server/src/features/issues/issue.model.ts', 'live in the models/ folder'],
     ['apps/server/src/features/setup/commands/setup-code.util.ts', 'live in the utils/ folder'],
     ['apps/server/src/features/setup/utils/setup.routes.ts', 'live at the root of the feature'],
+    ['apps/server/src/features/notifications/send-email.job.ts', 'live in the jobs/ folder'],
     [
       'apps/server/src/features/issues/commands/a/b/c/close-issue.command.ts',
       'at most 2 folders deep',
